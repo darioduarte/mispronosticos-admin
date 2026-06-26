@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mis Pronósticos — Panel Admin
 
-## Getting Started
+Frontend Next.js del panel administrativo. Consume el **mismo backend Express** (`mispronosticosBackend`) vía `/api/admin/*`.
 
-First, run the development server:
+## Desarrollo local
+
+1. Backend en puerto **3000** (`mispronosticosBackend`):
+
+```bash
+cd ../mispronosticosBackend && npm start
+```
+
+2. Copia `.env.example` → `.env.local`:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+```
+
+3. En el backend `.env`:
+
+```env
+ADMIN_PANEL_PASSWORD=tu-clave-segura
+JWT_SECRET=...
+ADMIN_PANEL_ORIGIN=http://localhost:3001
+```
+
+4. Panel en puerto **3001**:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3001/login](http://localhost:3001/login)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Despliegue producción
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Backend:** sigue en DigitalOcean App Platform (`mispronosticosBackend`).
 
-## Learn More
+**Panel admin:** Vercel (recomendado) o segundo componente en DO.
 
-To learn more about Next.js, take a look at the following resources:
+Guía completa: **[DEPLOY.md](./DEPLOY.md)**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Variables producción: **[.env.production.example](./.env.production.example)**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Pantallas
 
-## Deploy on Vercel
+| Ruta | Descripción |
+|------|-------------|
+| `/login` | Acceso admin |
+| `/partidos` | Ligas destacadas, árbitros, stats |
+| `/pronosticos-ia` | Revisión pronósticos IA |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Migración HBS
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ver `mispronosticosBackend/docs/ADMIN_PANEL_MIGRATION.md`. La web pública no se toca hasta completar Fase A.
