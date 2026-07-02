@@ -46,6 +46,14 @@ export function LoginConnectionStatus() {
             )}
           </li>
           <li className="text-slate-400">
+            JWT (JWT_SECRET):{' '}
+            {probe.authMethods?.jwt ? (
+              <span className="text-emerald-400">configurado</span>
+            ) : (
+              <span className="text-red-300">FALTA — añade JWT_SECRET en DigitalOcean</span>
+            )}
+          </li>
+          <li className="text-slate-400">
             Login Google:{' '}
             {probe.authMethods?.google ? (
               <span className="text-emerald-400">activo</span>

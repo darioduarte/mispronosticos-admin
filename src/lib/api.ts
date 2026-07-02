@@ -382,7 +382,11 @@ export async function probeAdminConnection(): Promise<ConnectionProbe> {
       cache: 'no-store',
     });
     if (methodsRes.ok) {
-      const methods = (await methodsRes.json()) as { password?: boolean; google?: boolean };
+      const methods = (await methodsRes.json()) as {
+        password?: boolean;
+        google?: boolean;
+        jwt?: boolean;
+      };
       base.authMethods = methods;
     }
   } catch {

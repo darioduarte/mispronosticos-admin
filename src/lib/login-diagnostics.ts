@@ -38,6 +38,6 @@ export type ConnectionProbe = {
   healthError?: string;
   adminLoginRev?: string;
   loginFastPath?: boolean;
-  authMethods?: { password?: boolean; google?: boolean };
+  authMethods?: { password?: boolean; google?: boolean; jwt?: boolean };
   checkedAt: string;
 };
