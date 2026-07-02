@@ -88,6 +88,31 @@ export type PromptResponse = {
   error?: string;
 };
 
+export type LiveOddsResponse = {
+  success: boolean;
+  fixtureId?: number;
+  minute?: number | null;
+  hasOdds?: boolean;
+  oddsBlock?: string;
+  apiFootball?: {
+    oddsLive?: unknown;
+    oddsLiveBets?: unknown;
+  };
+  endpoints?: {
+    oddsLive?: string;
+    oddsLiveBets?: string;
+  };
+  liveSnapshot?: unknown;
+  marketsSummary?: {
+    liveShots?: boolean;
+    liveFouls?: boolean;
+    preMatchFouls?: boolean;
+    preMatchRemates?: boolean;
+  };
+  supplementKeys?: string[];
+  error?: string;
+};
+
 export type MelbetOddItem = {
   linea?: string;
   betName?: string;
@@ -244,4 +269,262 @@ export type PartidoStatisticsApiResponse = {
   statisticsApi?: unknown;
   statisticsApiError?: string | null;
   error?: string;
+};
+
+export type SuscripcionStatus = 'activa' | 'cancelada' | 'expirada' | 'pendiente';
+
+export type SuscripcionRow = {
+  id: string;
+  userId: string;
+  userEmail: string | null;
+  userName: string | null;
+  app: string | null;
+  productId: string | null;
+  environment: string | null;
+  orig_tx_id: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  startDateDisplay: string | null;
+  endDateDisplay: string | null;
+  isCancelled: boolean;
+  fake: boolean;
+  isActive: boolean;
+  status: SuscripcionStatus;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type SuscripcionesMeta = {
+  total: number;
+  activas: number;
+  limit: number;
+  offset: number;
+  email: string | null;
+  search: string | null;
+  app: string;
+  estado: string;
+};
+
+export type SuscripcionesResponse = {
+  success: boolean;
+  data: SuscripcionRow[];
+  meta: SuscripcionesMeta;
+  error?: string;
+};
+
+export type SuscripcionProductosResponse = {
+  success: boolean;
+  data: { android: string[]; ios: string[] };
+};
+
+export type SuscripcionSavePayload = {
+  email?: string;
+  app: 'ios' | 'android';
+  productId: string;
+  startDate?: string;
+  endDate?: string;
+  days?: number;
+  environment?: string;
+  isCancelled?: boolean;
+  fake?: boolean;
+  orig_tx_id?: string;
+};
+
+export type SuscripcionMutationResponse = {
+  success: boolean;
+  data?: SuscripcionRow;
+  error?: string;
+};
+
+export type DashboardPlatformCounts = {
+  ios: number;
+  android: number;
+  otro?: number;
+};
+
+export type DashboardTopProducto = {
+  productId: string;
+  app: string;
+  total: number;
+  activas: number;
+};
+
+export type DashboardTendenciaMes = {
+  mes: string;
+  app: string;
+  total: number;
+};
+
+export type DashboardActividadHoy = {
+  fecha: string;
+  compras: { total: number; ios: number; android: number };
+  renovaciones: { total: number; ios: number; android: number };
+  total: { ios: number; android: number; all: number };
+  nota: string;
+};
+
+export type DashboardSummary = {
+  success: boolean;
+  generatedAt: string;
+  usuarios: {
+    registrados: number;
+    eliminados: number;
+    temporales: number;
+    conSuscripcionHistorica: number;
+    alcanceApp: DashboardPlatformCounts;
+    suscriptoresUnicos: DashboardPlatformCounts;
+    notaAlcance: string;
+  };
+  suscripciones: {
+    total: number;
+    activas: number;
+    inactivas: number;
+    expiradas: number;
+    canceladas: number;
+    manualTemporales: number;
+    fake: number;
+    nuevasHoy: number;
+    nuevasHoyPorApp: DashboardPlatformCounts;
+    fechaReferencia: string;
+    actividadHoy?: DashboardActividadHoy;
+    nuevas7d: number;
+    nuevas30d: number;
+    porApp: DashboardPlatformCounts;
+    activasPorApp: DashboardPlatformCounts;
+    topProductos: DashboardTopProducto[];
+    tendenciaMensual: DashboardTendenciaMes[];
+  };
+  trials: { activos: number; total: number };
+  soporte: {
+    erroresPagoTotal: number;
+    erroresPagoPendientes: number;
+    erroresPorApp: DashboardPlatformCounts;
+    sugerencias30d: number;
+    waitlistIos: number;
+  };
+  ops: {
+    socketsActivos: number;
+    uptimeSec: number;
+    heapMb: number;
+    dbPoolPending: number;
+  } | null;
+  error?: string;
+};
+
+export type OpsJobEntry = {
+  lastRunAt?: string | null;
+  lastMs?: number | null;
+  ok?: boolean;
+  skipped?: boolean;
+  reason?: string | null;
+  meta?: Record<string, unknown>;
+};
+
+export type OpsAlert = {
+  at: string;
+  level?: string;
+  message: string;
+};
+
+export type OpsSnapshot = {
+  success?: boolean;
+  generatedAt: string;
+  uptimeSec: number;
+  logLevel?: string;
+  nodeEnv?: string;
+  eventLoop: { meanMs: number; maxMs: number; p99Ms: number };
+  memory: {
+    rssMb: number;
+    heapUsedMb: number;
+    heapTotalMb: number;
+    heapPercent: number;
+    systemUsedMb?: number;
+    systemTotalMb?: number;
+  };
+  sockets: { active: number; max: number };
+  dbPool: {
+    inUse: number;
+    max: number;
+    available: number;
+    pending: number;
+    usagePercent: number;
+  } | null;
+  poolHealth?: { status: string; pending: number; usagePercent: number };
+  poolPeak?: { pending: number; inUse: number; at: string | null };
+  poolHistory?: { at: string; pending: number; inUse: number; available?: number }[];
+  cronSchedules?: Record<string, string>;
+  configRevision?: number;
+  runtimeSettings?: Record<string, unknown>;
+  poolBackpressure?: { deferPending?: number; criticalPending?: number; open?: boolean };
+  prediction3Diagnostics?: {
+    limiter?: { queued?: number; active?: number; max?: number };
+    config?: { maxConcurrent?: number };
+    error?: string;
+  };
+  liveHotPoll?: {
+    running: boolean;
+    lastRunAt?: string | null;
+    lastMs?: number | null;
+    lastSkipped?: boolean;
+    lastSkipReason?: string | null;
+  };
+  liveServices?: Record<string, boolean | number | string | null>;
+  redisQueues?: { dbPending?: number | null; statsPending?: number | null; cacheBackend?: string };
+  jobs?: Record<string, OpsJobEntry>;
+  jobsRunning?: Record<string, { since: string | null; runningMs: number | null }>;
+  prediction3?: {
+    slowCount: number;
+    queueTimeoutCount: number;
+    lastSlow?: unknown;
+    lastQueueTimeout?: unknown;
+  };
+  alerts?: OpsAlert[];
+  loadDiagnostics?: {
+    suspects?: {
+      source: string;
+      hint: string;
+      lastMs?: number;
+      pending?: number;
+      queued?: number;
+      at?: string;
+    }[];
+  };
+  slowJobsRanked?: { name: string; lastMs: number; lastRunAt?: string | null; skipped?: boolean; ok?: boolean }[];
+  recommendations?: string[];
+  clientImpact?: {
+    summary?: string;
+    note?: string;
+    symptoms?: string[];
+    likelyCause?: string;
+    causes?: string[];
+  };
+  error?: string;
+};
+
+export type RuntimeSettingField = {
+  key: string;
+  label: string;
+  description: string;
+  group: string;
+  type: 'bool' | 'int';
+  value: boolean | number;
+  min?: number;
+  max?: number;
+};
+
+export type RuntimeSettingsSnapshot = {
+  fields: RuntimeSettingField[];
+  effective: Record<string, boolean | number>;
+  flags: {
+    emergencyEnvOff: boolean;
+    killSwitch: boolean;
+    autoPaused: boolean;
+    autoPausedReason: string | null;
+  };
+  meta: {
+    updatedAt: string | null;
+    updatedBy: string | null;
+    source: string | null;
+  };
+  redisAvailable: boolean;
 };

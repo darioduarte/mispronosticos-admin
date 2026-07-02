@@ -5,8 +5,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import { clearSession, getStoredUser } from '@/lib/auth';
 
 const NAV = [
+  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/monitoreo', label: 'Monitoreo' },
+  { href: '/parametros-en-vivo', label: 'Parámetros en vivo' },
   { href: '/partidos', label: 'Partidos' },
   { href: '/pronosticos-ia', label: 'Pronósticos IA' },
+  { href: '/suscripciones', label: 'Suscripciones' },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

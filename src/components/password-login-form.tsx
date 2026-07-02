@@ -17,7 +17,7 @@ export function PasswordLoginForm() {
     setError(null);
     try {
       await loginWithPassword(email.trim(), password);
-      router.replace('/pronosticos-ia');
+      router.replace('/dashboard');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo iniciar sesión');
     } finally {

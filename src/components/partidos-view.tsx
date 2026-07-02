@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { PartidoStatsModal } from '@/components/partidos/stats-modal';
 import { RefereeModal } from '@/components/partidos/referee-modal';
+import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import { fetchPartidos, repairPartidosReferees, syncPartidosStats } from '@/lib/api';
 import {
   DEFAULT_PARTIDOS_FILTERS,
@@ -54,6 +55,7 @@ export function PartidosView() {
   const [repairMsg, setRepairMsg] = useState('');
   const [statsModal, setStatsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [refereeModal, setRefereeModal] = useState<RowModal | null>(null);
+  const [liveOddsModal, setLiveOddsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
 
   const query = useQuery({
     queryKey: ['partidos', applied],
@@ -459,6 +461,13 @@ export function PartidosView() {
                       referee: row.fixturereferee,
                     })
                   }
+                  onLiveOdds={() =>
+                    setLiveOddsModal({
+                      fixtureId: row.fixtureid,
+                      label: matchLabel(row),
+                    })
+                  }
+                  showLiveOdds={row.estadoBadgeClass === 'live'}
                 />
               ))}
               {filtered.length === 0 && (
@@ -490,6 +499,13 @@ export function PartidosView() {
           onSaved={() => queryClient.invalidateQueries({ queryKey: ['partidos'] })}
         />
       )}
+      {liveOddsModal && (
+        <LiveOddsModal
+          fixtureId={liveOddsModal.fixtureId}
+          matchLabel={liveOddsModal.label}
+          onClose={() => setLiveOddsModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -503,11 +519,15 @@ function PartidoTableRow({
   dateRange,
   onStats,
   onReferee,
+  onLiveOdds,
+  showLiveOdds,
 }: {
   row: PartidoRow;
   dateRange: { desde: string; hasta: string };
   onStats: () => void;
   onReferee: () => void;
+  onLiveOdds: () => void;
+  showLiveOdds?: boolean;
 }) {
   const iaHref = `/pronosticos-ia?search=${row.fixtureid}&desde=${dateRange.desde}&hasta=${dateRange.hasta}`;
 
@@ -552,6 +572,7 @@ function PartidoTableRow({
         <div className="flex flex-wrap gap-1">
           <ActionBtn label="Stats" onClick={onStats} />
           <ActionBtn label="Árbitro" onClick={onReferee} />
+          {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
           <Link
             href={iaHref}
             className="rounded border border-white/10 px-2 py-0.5 text-[10px] text-slate-400 hover:border-violet-500/40 hover:text-violet-300"

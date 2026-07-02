@@ -34,7 +34,7 @@ export function GoogleLoginButton() {
               setError(null);
               try {
                 await loginWithGoogle(res.credential);
-                router.replace('/pronosticos-ia');
+                router.replace('/dashboard');
               } catch (e) {
                 const msg =
                   e instanceof ApiError ? e.message : 'No se pudo iniciar sesión';

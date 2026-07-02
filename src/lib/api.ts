@@ -13,6 +13,7 @@ import type {
   OddsReferenciaResponse,
   PartidosResponse,
   PromptResponse,
+  LiveOddsResponse,
   PronosticoIaRow,
   PronosticosIaResponse,
   RefereeHistoryResponse,
@@ -20,6 +21,14 @@ import type {
   RepairRefereesResponse,
   PartidoStatisticsApiResponse,
   SyncStatsResponse,
+  SuscripcionesResponse,
+  SuscripcionProductosResponse,
+  SuscripcionSavePayload,
+  SuscripcionMutationResponse,
+  SuscripcionRow,
+  DashboardSummary,
+  OpsSnapshot,
+  RuntimeSettingsSnapshot,
 } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
@@ -231,6 +240,10 @@ export function fetchLivePrompt(fixtureId: number) {
   return adminFetch<PromptResponse>(`/api/admin/pronosticos-ia/prompt/live/${fixtureId}`);
 }
 
+export function fetchLiveOdds(fixtureId: number) {
+  return adminFetch<LiveOddsResponse>(`/api/admin/pronosticos-ia/live-odds/${fixtureId}`);
+}
+
 export function fetchOddsReferencia(fixtureId: number) {
   return adminFetch<OddsReferenciaResponse>('/api/admin/pronosticos-ia/odds-referencia', {
     method: 'POST',
@@ -341,4 +354,71 @@ export function saveFixtureReferee(fixtureId: number, fixturereferee: string) {
       body: JSON.stringify({ fixturereferee }),
     },
   );
+}
+
+export function fetchSuscripcionProductos() {
+  return adminFetch<SuscripcionProductosResponse>('/api/admin/suscripciones/productos');
+}
+
+export function fetchSuscripciones(params: {
+  email?: string;
+  search?: string;
+  app?: string;
+  estado?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params.email) qs.set('email', params.email);
+  if (params.search) qs.set('search', params.search);
+  if (params.app && params.app !== 'todas') qs.set('app', params.app);
+  if (params.estado && params.estado !== 'todas') qs.set('estado', params.estado);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  return adminFetch<SuscripcionesResponse>(`/api/admin/suscripciones?${qs}`);
+}
+
+export function createSuscripcion(payload: SuscripcionSavePayload) {
+  return adminFetch<SuscripcionMutationResponse>('/api/admin/suscripciones', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateSuscripcion(id: string, payload: Partial<SuscripcionSavePayload>) {
+  return adminFetch<SuscripcionMutationResponse>(`/api/admin/suscripciones/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchDashboardSummary() {
+  return adminFetch<DashboardSummary>('/api/admin/dashboard/summary');
+}
+
+export function fetchDashboardOps() {
+  return adminFetch<OpsSnapshot>('/api/admin/dashboard/ops');
+}
+
+export function fetchRuntimeSettings() {
+  return adminFetch<RuntimeSettingsSnapshot>('/api/admin/runtime-settings');
+}
+
+export function updateRuntimeSettings(settings: Record<string, boolean | number>) {
+  return adminFetch<RuntimeSettingsSnapshot>('/api/admin/runtime-settings', {
+    method: 'PATCH',
+    body: JSON.stringify({ settings }),
+  });
+}
+
+export function killLiveRuntime() {
+  return adminFetch<RuntimeSettingsSnapshot>('/api/admin/runtime-settings/kill-live', {
+    method: 'POST',
+  });
+}
+
+export function resumeLiveRuntime() {
+  return adminFetch<RuntimeSettingsSnapshot>('/api/admin/runtime-settings/resume-live', {
+    method: 'POST',
+  });
 }

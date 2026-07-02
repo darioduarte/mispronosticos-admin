@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FixtureStatsModal } from '@/components/pronosticos-ia/fixture-stats-modal';
 import { ComparadorModal } from '@/components/pronosticos-ia/comparador-modal';
 import { MelbetModal } from '@/components/pronosticos-ia/melbet-modal';
+import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import { OddsReferenciaModal } from '@/components/pronosticos-ia/odds-referencia-modal';
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
@@ -99,6 +100,7 @@ export function PronosticosIaView() {
   const [statsFixture, setStatsFixture] = useState<RowModal | null>(null);
   const [promptModal, setPromptModal] = useState<(RowModal & { kind: PromptKind }) | null>(null);
   const [melbetModal, setMelbetModal] = useState<RowModal | null>(null);
+  const [liveOddsModal, setLiveOddsModal] = useState<RowModal | null>(null);
   const [comparadorModal, setComparadorModal] = useState<RowModal | null>(null);
   const [oddsRefModal, setOddsRefModal] = useState<RowModal | null>(null);
   const [cuotaBusy, setCuotaBusy] = useState<string | null>(null);
@@ -387,6 +389,15 @@ export function PronosticosIaView() {
                       }
                     />
                     <ActionBtn
+                      label="Cuotas live"
+                      onClick={() =>
+                        setLiveOddsModal({
+                          fixtureId: row.fixtureid,
+                          label: rowMatchLabel(row),
+                        })
+                      }
+                    />
+                    <ActionBtn
                       label="Melbet"
                       onClick={() =>
                         setMelbetModal({
@@ -461,6 +472,13 @@ export function PronosticosIaView() {
           fixtureId={melbetModal.fixtureId}
           matchLabel={melbetModal.label}
           onClose={() => setMelbetModal(null)}
+        />
+      )}
+      {liveOddsModal && (
+        <LiveOddsModal
+          fixtureId={liveOddsModal.fixtureId}
+          matchLabel={liveOddsModal.label}
+          onClose={() => setLiveOddsModal(null)}
         />
       )}
       {oddsRefModal && (
