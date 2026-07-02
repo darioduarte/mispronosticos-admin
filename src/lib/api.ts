@@ -14,6 +14,7 @@ import type {
   PartidosResponse,
   PromptResponse,
   LiveOddsResponse,
+  LiveAnalysisRunsResponse,
   PronosticoIaRow,
   PronosticosIaResponse,
   RefereeHistoryResponse,
@@ -81,7 +82,7 @@ function gatewayErrorHint(status: number): string | undefined {
     return 'Gateway 504: el proxy cortó la petición antes de recibir JSON del backend. NO significa contraseña incorrecta. Comprueba adminLoginRev en /api/admin/health y redeploy en DigitalOcean.';
   }
   if (status === 502 || status === 503) {
-    return 'El backend respondió con error temporal. Reintenta en unos segundos.';
+    return 'El backend respondió con error temporal (p. ej. caché vacía en otra instancia). Reintenta en unos segundos.';
   }
   return undefined;
 }
@@ -120,18 +121,19 @@ async function fetchLogin(
   endpoint: string,
   init: RequestInit,
   attempt = 1,
+  baseUrl = API_BASE,
 ): Promise<Response> {
   try {
-    const res = await fetch(`${API_BASE}${endpoint}`, init);
+    const res = await fetch(`${baseUrl}${endpoint}`, init);
     if (attempt < LOGIN_MAX_ATTEMPTS && LOGIN_RETRY_STATUSES.has(res.status)) {
       await sleep(LOGIN_RETRY_BASE_MS * attempt);
-      return fetchLogin(endpoint, init, attempt + 1);
+      return fetchLogin(endpoint, init, attempt + 1, baseUrl);
     }
     return res;
   } catch (err) {
     if (attempt < LOGIN_MAX_ATTEMPTS) {
       await sleep(LOGIN_RETRY_BASE_MS * attempt);
-      return fetchLogin(endpoint, init, attempt + 1);
+      return fetchLogin(endpoint, init, attempt + 1, baseUrl);
     }
     throw err;
   }
@@ -282,14 +284,20 @@ export async function loginWithPassword(
   email: string,
   password: string,
 ): Promise<AuthSession> {
-  const endpoint = '/api/admin/auth/login';
+  // Mismo origen vía proxy Vercel → evita CORS/Cloudflare en POST directo al backend
+  const endpoint = '/api/auth/login';
   let res: Response;
   try {
-    res = await fetchLogin(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    res = await fetchLogin(
+      endpoint,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      },
+      1,
+      '',
+    );
   } catch (err) {
     throw networkLoginError(err, endpoint, 'POST');
   }
@@ -607,4 +615,32 @@ export function resumeLiveRuntime() {
   return adminFetch<RuntimeSettingsSnapshot>('/api/admin/runtime-settings/resume-live', {
     method: 'POST',
   });
+}
+
+export type LiveAnalysisTriggerResult = {
+  ok: boolean;
+  fixtureId?: number;
+  minute?: number | null;
+  windowKey?: string;
+  published?: number;
+  runId?: number;
+  message?: string;
+  reason?: string;
+  error?: string;
+};
+
+export function triggerLiveAnalysisManual(fixtureId: number) {
+  return adminFetch<LiveAnalysisTriggerResult>(
+    '/api/admin/pronosticos-ia/live-analysis/trigger',
+    {
+      method: 'POST',
+      body: JSON.stringify({ fixtureId }),
+    },
+  );
+}
+
+export function fetchLiveAnalysisRuns(fixtureId: number) {
+  return adminFetch<LiveAnalysisRunsResponse>(
+    `/api/admin/pronosticos-ia/live-analysis/${fixtureId}`,
+  );
 }
