@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://mispronosticos.com';
 const ADMIN_ORIGIN =
   process.env.ADMIN_PANEL_ORIGIN || 'https://mispronosticos-admin.vercel.app';
-const UPSTREAM_TIMEOUT_MS = 25_000;
+const UPSTREAM_TIMEOUT_MS = 10_000;
 
 export async function POST(req: NextRequest) {
   let body: unknown;
