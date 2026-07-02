@@ -182,33 +182,61 @@ function networkLoginError(err: unknown, endpoint: string, method: string): ApiE
   return new ApiError(message, 0, { hint: diagnostic.hint, diagnostic });
 }
 
+let refreshInFlight: Promise<string | null> | null = null;
+
 async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
+  if (refreshInFlight) return refreshInFlight;
 
-  const res = await fetch(`${API_BASE}/api/admin/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
+  refreshInFlight = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return null;
 
-  if (!res.ok) {
-    clearSession();
-    return null;
-  }
-
-  const data = (await res.json()) as { accessToken: string };
-  const user = getStoredUser();
-  if (user && getRefreshToken()) {
-    saveSession({
-      accessToken: data.accessToken,
-      refreshToken: getRefreshToken()!,
-      user,
+    const res = await fetch(`${API_BASE}/api/admin/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+      cache: 'no-store',
     });
-  } else {
-    localStorage.setItem('mp_admin_access_token', data.accessToken);
+
+    if (!res.ok) {
+      clearSession();
+      return null;
+    }
+
+    const data = (await res.json()) as { accessToken?: string | null };
+    const accessToken = typeof data.accessToken === 'string' ? data.accessToken.trim() : '';
+    if (!accessToken) {
+      clearSession();
+      return null;
+    }
+
+    const user = getStoredUser();
+    if (user && getRefreshToken()) {
+      saveSession({
+        accessToken,
+        refreshToken: getRefreshToken()!,
+        user,
+      });
+    } else {
+      localStorage.setItem('mp_admin_access_token', accessToken);
+    }
+    return accessToken;
+  })();
+
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
   }
-  return data.accessToken;
+}
+
+function buildAuthHeaders(init: RequestInit, token: string | null): Headers {
+  const headers = new Headers(init.headers);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (!headers.has('Content-Type') && init.body) {
+    headers.set('Content-Type', 'application/json');
+  }
+  return headers;
 }
 
 export async function adminFetch<T>(
@@ -217,29 +245,38 @@ export async function adminFetch<T>(
   retry = true,
 ): Promise<T> {
   let token = getAccessToken();
-  const headers = new Headers(init.headers);
-  if (token) headers.set('Authorization', `Bearer ${token}`);
-  if (!headers.has('Content-Type') && init.body) {
-    headers.set('Content-Type', 'application/json');
-  }
+  let headers = buildAuthHeaders(init, token);
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers,
+    cache: 'no-store',
+  });
 
   if (res.status === 401 && retry) {
     token = await refreshAccessToken();
     if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
-      const retryRes = await fetch(`${API_BASE}${path}`, { ...init, headers });
+      headers = buildAuthHeaders(init, token);
+      const retryRes = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers,
+        cache: 'no-store',
+      });
       if (!retryRes.ok) {
         const err = await retryRes.json().catch(() => ({}));
+        const hint =
+          typeof (err as { hint?: string }).hint === 'string'
+            ? (err as { hint?: string }).hint
+            : undefined;
         throw new ApiError(
           (err as { error?: string }).error || retryRes.statusText,
           retryRes.status,
+          { hint },
         );
       }
       return retryRes.json() as Promise<T>;
     }
-    throw new ApiError('Sesión expirada', 401);
+    throw new ApiError('Sesión expirada — vuelve a iniciar sesión', 401);
   }
 
   if (!res.ok) {

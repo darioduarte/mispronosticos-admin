@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { fetchDashboardSummary } from '@/lib/api';
+import { fetchDashboardSummary, ApiError } from '@/lib/api';
 
 function fmt(n: number | undefined) {
   return (n ?? 0).toLocaleString('es-CO');
@@ -228,9 +228,22 @@ export function DashboardView() {
 
       {query.isLoading && <p className="text-slate-400">Cargando indicadores…</p>}
       {query.isError && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-          No se pudo cargar el dashboard. Verifica que el backend tenga `/api/admin/dashboard/summary`.
-        </p>
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          <p>
+            {query.error instanceof ApiError
+              ? query.error.message
+              : 'No se pudo cargar el dashboard.'}
+          </p>
+          {query.error instanceof ApiError && query.error.hint && (
+            <p className="mt-2 text-xs opacity-90">{query.error.hint}</p>
+          )}
+          {query.error instanceof ApiError && query.error.status === 401 && (
+            <p className="mt-2 text-xs opacity-90">
+              Cierra sesión y vuelve a entrar. Si acabas de añadir JWT_SECRET en DigitalOcean, haz
+              redeploy completo y limpia la sesión del navegador.
+            </p>
+          )}
+        </div>
       )}
 
       {d && (

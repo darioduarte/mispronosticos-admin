@@ -8,12 +8,18 @@ const USER_KEY = 'mp_admin_user';
 
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(ACCESS_KEY);
+  const raw = localStorage.getItem(ACCESS_KEY);
+  if (!raw) return null;
+  const token = raw.trim();
+  return token.length > 0 ? token : null;
 }
 
 export function getRefreshToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(REFRESH_KEY);
+  const raw = localStorage.getItem(REFRESH_KEY);
+  if (!raw) return null;
+  const token = raw.trim();
+  return token.length > 0 ? token : null;
 }
 
 export function getStoredUser(): AdminUser | null {
