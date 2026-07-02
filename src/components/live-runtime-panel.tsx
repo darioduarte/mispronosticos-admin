@@ -6,6 +6,7 @@ import { LiveAnalysisModal } from '@/components/pronosticos-ia/live-analysis-mod
 import {
   fetchRuntimeSettings,
   killLiveRuntime,
+  resumeLivePredictionsRuntime,
   resumeLiveRuntime,
   updateRuntimeSettings,
 } from '@/lib/api';
@@ -190,9 +191,17 @@ export function LiveRuntimePanel() {
     onSuccess: (data) => qc.setQueryData(['runtime-settings'], data),
   });
 
+  const resumePredictionsMutation = useMutation({
+    mutationFn: resumeLivePredictionsRuntime,
+    onSuccess: (data) => qc.setQueryData(['runtime-settings'], data),
+  });
+
   const snapshot = query.data;
   const saving =
-    patchMutation.isPending || killMutation.isPending || resumeMutation.isPending;
+    patchMutation.isPending ||
+    killMutation.isPending ||
+    resumeMutation.isPending ||
+    resumePredictionsMutation.isPending;
 
   function handleFieldChange(key: string, value: boolean | number) {
     patchMutation.mutate({ [key]: value });
@@ -239,6 +248,22 @@ export function LiveRuntimePanel() {
             type="button"
             disabled={saving}
             onClick={() => {
+              if (
+                window.confirm(
+                  '¿Activar pronósticos IA en vivo?\n\nEnciende: interruptor maestro, hot path (marcadores) y GPT en fases min30/HT/min60/min80.\nDeja apagado: stats hot, sockets y polling en app.',
+                )
+              ) {
+                resumePredictionsMutation.mutate();
+              }
+            }}
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+          >
+            Activar pronósticos IA
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => {
               if (window.confirm('¿Apagar TODO el live ahora? (kill switch Redis)')) {
                 killMutation.mutate();
               }
@@ -253,7 +278,7 @@ export function LiveRuntimePanel() {
             onClick={() => resumeMutation.mutate()}
             className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
           >
-            Reanudar fase 1
+            Reanudar fase 1 (sin IA)
           </button>
         </div>
       </div>
@@ -270,11 +295,15 @@ export function LiveRuntimePanel() {
         <ManualLiveAnalysisOpener onOpen={setLiveAnalysisFixture} />
       </section>
 
-      {(patchMutation.isError || killMutation.isError || resumeMutation.isError) && (
+      {(patchMutation.isError ||
+        killMutation.isError ||
+        resumeMutation.isError ||
+        resumePredictionsMutation.isError) && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {patchMutation.error?.message ||
             killMutation.error?.message ||
             resumeMutation.error?.message ||
+            resumePredictionsMutation.error?.message ||
             'Error al guardar.'}
           {patchMutation.error instanceof Error &&
           patchMutation.error.message.includes('Sesión') ? (

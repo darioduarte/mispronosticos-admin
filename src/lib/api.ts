@@ -747,6 +747,13 @@ export function resumeLiveRuntime() {
   });
 }
 
+export function resumeLivePredictionsRuntime() {
+  return adminFetch<RuntimeSettingsSnapshot>(
+    '/api/admin/runtime-settings/resume-live-predictions',
+    { method: 'POST' },
+  );
+}
+
 export type LiveAnalysisTriggerResult = {
   ok: boolean;
   fixtureId?: number;
