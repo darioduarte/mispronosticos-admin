@@ -4,19 +4,22 @@ import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ApiError, loginWithGoogle } from '@/lib/api';
+import { LoginErrorToast } from '@/components/login-error-toast';
+import type { LoginDiagnostic } from '@/lib/login-diagnostics';
 
 const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
 export function GoogleLoginButton() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [diagnostic, setDiagnostic] = useState<LoginDiagnostic | null>(null);
   const [loading, setLoading] = useState(false);
 
   if (!clientId) {
     return (
       <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-        Configura <code className="text-amber-100">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> en{' '}
-        <code className="text-amber-100">.env.local</code>
+        Google no está configurado en este despliegue (
+        <code className="text-amber-100">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>).
       </p>
     );
   }
@@ -31,31 +34,38 @@ export function GoogleLoginButton() {
             onSuccess={async (res) => {
               if (!res.credential) return;
               setLoading(true);
-              setError(null);
+              setInlineError(null);
+              setDiagnostic(null);
               try {
                 await loginWithGoogle(res.credential);
                 router.replace('/dashboard');
               } catch (e) {
-                const msg =
-                  e instanceof ApiError ? e.message : 'No se pudo iniciar sesión';
-                setError(msg);
+                if (e instanceof ApiError) {
+                  setInlineError(e.message);
+                  setDiagnostic(e.diagnostic ?? null);
+                } else {
+                  setInlineError('No se pudo iniciar sesión');
+                }
               } finally {
                 setLoading(false);
               }
             }}
-            onError={() => setError('Google no pudo autenticar')}
+            onError={() => {
+              setInlineError('Google no pudo autenticar en el navegador');
+            }}
             theme="filled_black"
             size="large"
             text="signin_with"
             shape="pill"
           />
         )}
-        {error && (
+        {inlineError && (
           <p className="max-w-sm text-center text-sm text-red-400" role="alert">
-            {error}
+            {inlineError}
           </p>
         )}
       </div>
+      <LoginErrorToast diagnostic={diagnostic} onClose={() => setDiagnostic(null)} />
     </GoogleOAuthProvider>
   );
 }

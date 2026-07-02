@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { isAuthenticated } from '@/lib/auth';
 import { PasswordLoginForm } from '@/components/password-login-form';
 import { GoogleLoginButton } from '@/components/google-login-button';
+import { LoginConnectionStatus } from '@/components/login-connection-status';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,6 +31,8 @@ export default function LoginPage() {
         </div>
 
         <PasswordLoginForm />
+
+        <LoginConnectionStatus />
 
         {googleEnabled && (
           <div className="mt-8 border-t border-white/10 pt-6">

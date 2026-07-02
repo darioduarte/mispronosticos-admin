@@ -30,16 +30,131 @@ import type {
   OpsSnapshot,
   RuntimeSettingsSnapshot,
 } from './types';
+import type { ConnectionProbe, LoginDiagnostic } from './login-diagnostics';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
+export function getApiBaseUrl() {
+  return API_BASE;
+}
+
 export class ApiError extends Error {
   status: number;
+  hint?: string;
+  diagnostic?: LoginDiagnostic;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, extra?: { hint?: string; diagnostic?: LoginDiagnostic }) {
     super(message);
     this.status = status;
+    this.hint = extra?.hint;
+    this.diagnostic = extra?.diagnostic;
   }
+}
+
+function buildLoginDiagnostic(
+  partial: Omit<LoginDiagnostic, 'at' | 'apiBase'> & { apiBase?: string },
+): LoginDiagnostic {
+  return {
+    apiBase: partial.apiBase ?? API_BASE,
+    at: new Date().toISOString(),
+    ...partial,
+  };
+}
+
+async function parseJsonSafe(res: Response): Promise<Record<string, unknown>> {
+  const text = await res.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return { raw: text.slice(0, 500) };
+  }
+}
+
+function isGatewayHtmlResponse(data: Record<string, unknown>): boolean {
+  const raw = typeof data.raw === 'string' ? data.raw : '';
+  return raw.includes('<!DOCTYPE') || raw.includes('<html');
+}
+
+function gatewayErrorHint(status: number): string | undefined {
+  if (status === 504) {
+    return 'Timeout del gateway: el backend no respondió a tiempo (servidor o BD saturados). Espera 15–30 s y reintenta.';
+  }
+  if (status === 502 || status === 503) {
+    return 'El backend está temporalmente no disponible o bajo carga. Reintenta en unos segundos.';
+  }
+  return undefined;
+}
+
+const LOGIN_RETRY_STATUSES = new Set([502, 503, 504]);
+const LOGIN_MAX_ATTEMPTS = 3;
+const LOGIN_RETRY_BASE_MS = 2000;
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchLogin(
+  endpoint: string,
+  init: RequestInit,
+  attempt = 1,
+): Promise<Response> {
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, init);
+    if (attempt < LOGIN_MAX_ATTEMPTS && LOGIN_RETRY_STATUSES.has(res.status)) {
+      await sleep(LOGIN_RETRY_BASE_MS * attempt);
+      return fetchLogin(endpoint, init, attempt + 1);
+    }
+    return res;
+  } catch (err) {
+    if (attempt < LOGIN_MAX_ATTEMPTS) {
+      await sleep(LOGIN_RETRY_BASE_MS * attempt);
+      return fetchLogin(endpoint, init, attempt + 1);
+    }
+    throw err;
+  }
+}
+
+function loginApiError(
+  res: Response,
+  data: Record<string, unknown>,
+  endpoint: string,
+  method: string,
+): ApiError {
+  const isHtml = isGatewayHtmlResponse(data);
+  const gatewayHint = gatewayErrorHint(res.status);
+  const message = isHtml
+    ? res.status === 504
+      ? 'Timeout del servidor (504)'
+      : 'Respuesta inválida del gateway (no JSON)'
+    : (typeof data.error === 'string' && data.error) ||
+      (typeof data.message === 'string' && data.message) ||
+      res.statusText ||
+      'Error al iniciar sesión';
+  const hint =
+    (typeof data.hint === 'string' ? data.hint : undefined) || gatewayHint;
+  const diagnostic = buildLoginDiagnostic({
+    message,
+    hint,
+    status: res.status,
+    endpoint,
+    method,
+    responseBody: JSON.stringify(data).slice(0, 800),
+  });
+  return new ApiError(message, res.status, { hint, diagnostic });
+}
+
+function networkLoginError(err: unknown, endpoint: string, method: string): ApiError {
+  const networkError = err instanceof Error ? err.message : String(err);
+  const message = 'No se pudo contactar el backend (error de red o CORS)';
+  const diagnostic = buildLoginDiagnostic({
+    message,
+    endpoint,
+    method,
+    networkError,
+    hint: 'Verifica NEXT_PUBLIC_API_BASE_URL en Vercel y CORS (ADMIN_PANEL_ORIGIN) en el backend.',
+  });
+  return new ApiError(message, 0, { hint: diagnostic.hint, diagnostic });
 }
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -116,21 +231,27 @@ export async function adminFetch<T>(
 }
 
 export async function loginWithGoogle(idToken: string): Promise<AuthSession> {
-  const res = await fetch(`${API_BASE}/api/admin/auth/google`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken }),
-  });
+  const endpoint = '/api/admin/auth/google';
+  let res: Response;
+  try {
+    res = await fetchLogin(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    });
+  } catch (err) {
+    throw networkLoginError(err, endpoint, 'POST');
+  }
 
-  const data = await res.json();
+  const data = await parseJsonSafe(res);
   if (!res.ok) {
-    throw new ApiError(data.error || 'Error al iniciar sesión', res.status);
+    throw loginApiError(res, data, endpoint, 'POST');
   }
 
   const session: AuthSession = {
-    accessToken: data.accessToken,
-    refreshToken: data.refreshToken,
-    user: data.user,
+    accessToken: String(data.accessToken),
+    refreshToken: String(data.refreshToken),
+    user: data.user as AuthSession['user'],
   };
   saveSession(session);
   return session;
@@ -140,24 +261,68 @@ export async function loginWithPassword(
   email: string,
   password: string,
 ): Promise<AuthSession> {
-  const res = await fetch(`${API_BASE}/api/admin/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
+  const endpoint = '/api/admin/auth/login';
+  let res: Response;
+  try {
+    res = await fetchLogin(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (err) {
+    throw networkLoginError(err, endpoint, 'POST');
+  }
 
-  const data = await res.json();
+  const data = await parseJsonSafe(res);
   if (!res.ok) {
-    throw new ApiError(data.error || 'Error al iniciar sesión', res.status);
+    throw loginApiError(res, data, endpoint, 'POST');
   }
 
   const session: AuthSession = {
-    accessToken: data.accessToken,
-    refreshToken: data.refreshToken,
-    user: data.user,
+    accessToken: String(data.accessToken),
+    refreshToken: String(data.refreshToken),
+    user: data.user as AuthSession['user'],
   };
   saveSession(session);
   return session;
+}
+
+export async function probeAdminConnection(): Promise<ConnectionProbe> {
+  const checkedAt = new Date().toISOString();
+  const base: ConnectionProbe = {
+    apiBase: API_BASE,
+    healthOk: false,
+    checkedAt,
+  };
+
+  try {
+    const healthRes = await fetch(`${API_BASE}/api/admin/health`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    base.healthStatus = healthRes.status;
+    base.healthOk = healthRes.ok;
+    if (!healthRes.ok) {
+      base.healthError = healthRes.statusText;
+    }
+  } catch (err) {
+    base.healthError = err instanceof Error ? err.message : String(err);
+  }
+
+  try {
+    const methodsRes = await fetch(`${API_BASE}/api/admin/auth/methods`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    if (methodsRes.ok) {
+      const methods = (await methodsRes.json()) as { password?: boolean; google?: boolean };
+      base.authMethods = methods;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return base;
 }
 
 export function fetchPronosticosIa(desde: string, hasta: string) {
