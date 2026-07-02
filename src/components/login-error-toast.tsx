@@ -57,6 +57,29 @@ export function LoginErrorToast({ diagnostic, onClose }: Props) {
           <p className="mt-2 text-xs text-amber-200/80">{diagnostic.hint}</p>
         )}
 
+        {(diagnostic.code || diagnostic.detail) && (
+          <dl className="mt-2 space-y-1 rounded-lg bg-black/30 p-2.5 font-mono text-[10px] text-slate-400">
+            {diagnostic.code && (
+              <div className="flex gap-2">
+                <dt className="text-slate-500">Código</dt>
+                <dd className="text-amber-200">{diagnostic.code}</dd>
+              </div>
+            )}
+            {diagnostic.stage && (
+              <div className="flex gap-2">
+                <dt className="text-slate-500">Etapa</dt>
+                <dd>{diagnostic.stage}</dd>
+              </div>
+            )}
+            {diagnostic.detail && (
+              <div className="flex gap-2">
+                <dt className="text-slate-500">Detalle</dt>
+                <dd className="break-all text-red-200/90">{diagnostic.detail}</dd>
+              </div>
+            )}
+          </dl>
+        )}
+
         <dl className="mt-3 space-y-1 rounded-lg bg-black/30 p-2.5 font-mono text-[10px] text-slate-400">
           <div className="flex gap-2">
             <dt className="text-slate-500">API</dt>

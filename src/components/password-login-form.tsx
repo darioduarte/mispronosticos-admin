@@ -71,6 +71,13 @@ export function PasswordLoginForm() {
             {diagnostic?.hint && (
               <span className="mt-1 block text-xs text-red-200/80">{diagnostic.hint}</span>
             )}
+            {diagnostic?.code && (
+              <span className="mt-1 block font-mono text-[10px] text-red-200/70">
+                {diagnostic.code}
+                {diagnostic.stage ? ` · ${diagnostic.stage}` : ''}
+                {diagnostic.detail ? ` — ${diagnostic.detail}` : ''}
+              </span>
+            )}
           </p>
         )}
         <button

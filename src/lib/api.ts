@@ -78,15 +78,37 @@ function isGatewayHtmlResponse(data: Record<string, unknown>): boolean {
 
 function gatewayErrorHint(status: number): string | undefined {
   if (status === 504) {
-    return 'Timeout del gateway: el backend no respondió a tiempo (servidor o BD saturados). Espera 15–30 s y reintenta.';
+    return 'Gateway 504: el proxy cortó la petición antes de recibir JSON del backend. NO significa contraseña incorrecta. Comprueba adminLoginRev en /api/admin/health y redeploy en DigitalOcean.';
   }
   if (status === 502 || status === 503) {
-    return 'El backend está temporalmente no disponible o bajo carga. Reintenta en unos segundos.';
+    return 'El backend respondió con error temporal. Reintenta en unos segundos.';
   }
   return undefined;
 }
 
-const LOGIN_RETRY_STATUSES = new Set([502, 503, 504]);
+function formatLoginMessage(data: Record<string, unknown>, res: Response, isHtml: boolean): string {
+  const code = typeof data.code === 'string' ? data.code : undefined;
+  const backendError = typeof data.error === 'string' ? data.error : undefined;
+
+  if (backendError && code) {
+    return `[${code}] ${backendError}`;
+  }
+  if (backendError) return backendError;
+
+  if (isHtml) {
+    return res.status === 504
+      ? 'Gateway 504 — el backend no devolvió JSON'
+      : 'Respuesta inválida del gateway (HTML, no JSON)';
+  }
+
+  return (
+    (typeof data.message === 'string' && data.message) ||
+    res.statusText ||
+    'Error al iniciar sesión'
+  );
+}
+
+const LOGIN_RETRY_STATUSES = new Set([502, 503]);
 const LOGIN_MAX_ATTEMPTS = 3;
 const LOGIN_RETRY_BASE_MS = 2000;
 
@@ -123,20 +145,19 @@ function loginApiError(
 ): ApiError {
   const isHtml = isGatewayHtmlResponse(data);
   const gatewayHint = gatewayErrorHint(res.status);
-  const message = isHtml
-    ? res.status === 504
-      ? 'Timeout del servidor (504)'
-      : 'Respuesta inválida del gateway (no JSON)'
-    : (typeof data.error === 'string' && data.error) ||
-      (typeof data.message === 'string' && data.message) ||
-      res.statusText ||
-      'Error al iniciar sesión';
+  const code = typeof data.code === 'string' ? data.code : isHtml && res.status === 504 ? 'GATEWAY_TIMEOUT' : undefined;
+  const stage = typeof data.stage === 'string' ? data.stage : isHtml ? 'proxy' : undefined;
+  const detail = typeof data.detail === 'string' ? data.detail : undefined;
+  const message = formatLoginMessage(data, res, isHtml);
   const hint =
     (typeof data.hint === 'string' ? data.hint : undefined) || gatewayHint;
   const diagnostic = buildLoginDiagnostic({
     message,
     hint,
     status: res.status,
+    code,
+    stage,
+    detail,
     endpoint,
     method,
     responseBody: JSON.stringify(data).slice(0, 800),
