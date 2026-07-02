@@ -153,7 +153,7 @@ function loginApiError(
   const message = formatLoginMessage(data, res, isHtml);
   const hint =
     (typeof data.hint === 'string' ? data.hint : undefined) || gatewayHint;
-  const requestBase = endpoint.startsWith('/api/auth/') ? '(admin Vercel)' : API_BASE;
+  const requestBase = endpoint.startsWith('/api/admin/') ? API_BASE : '(admin Vercel)';
   const diagnostic = buildLoginDiagnostic({
     message,
     hint,
@@ -286,55 +286,51 @@ export async function loginWithPassword(
   email: string,
   password: string,
 ): Promise<AuthSession> {
-  const body = JSON.stringify({ email, password });
+  const endpoint = '/api/admin/auth/login';
   const adminOrigin =
     typeof window !== 'undefined'
       ? window.location.origin
       : 'https://mispronosticos-admin.vercel.app';
 
-  const directInit: RequestInit = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Origin: adminOrigin,
-    },
-    body,
-  };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
 
-  const proxyInit: RequestInit = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  };
-
-  // 1) Directo al backend (JSON claro, sin hop Vercel) — CORS permitido vía ADMIN_PANEL_ORIGIN
-  let endpoint = '/api/admin/auth/login';
   let res: Response;
   let data: Record<string, unknown>;
   try {
-    res = await fetchLogin(endpoint, directInit, 1, API_BASE);
+    res = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: adminOrigin,
+      },
+      body: JSON.stringify({ email, password }),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
     data = await parseJsonSafe(res);
   } catch (err) {
-    throw networkLoginError(err, endpoint, 'POST');
-  }
-
-  const directHtml = isGatewayHtmlResponse(data);
-  const useProxyFallback =
-    res.status === 404 ||
-    res.status === 0 ||
-    directHtml ||
-    res.status === 502 ||
-    res.status === 504;
-
-  // 2) Fallback proxy Vercel solo si gateway/HTML — no en 503 JSON (caché/DB)
-  if (useProxyFallback) {
-    endpoint = '/api/auth/login';
-    try {
-      res = await fetchLogin(endpoint, proxyInit, 1, '');
-      data = await parseJsonSafe(res);
-    } catch (err) {
-      throw networkLoginError(err, endpoint, 'POST');
-    }
+    const aborted =
+      err instanceof Error &&
+      (err.name === 'AbortError' || err.message.includes('abort'));
+    const diagnostic = buildLoginDiagnostic({
+      message: aborted
+        ? 'Timeout al contactar el backend (12 s)'
+        : 'No se pudo contactar el backend',
+      apiBase: API_BASE,
+      endpoint,
+      method: 'POST',
+      networkError: err instanceof Error ? err.message : String(err),
+      hint: aborted
+        ? 'El backend tardó demasiado. Verifica en /api/admin/health que adminLoginRev sea direct-mysql-v11-fast-cache tras redeploy DO.'
+        : 'Revisa CORS (ADMIN_PANEL_ORIGIN) y que mispronosticos.com responda.',
+    });
+    throw new ApiError(diagnostic.message, aborted ? 504 : 0, {
+      hint: diagnostic.hint,
+      diagnostic,
+    });
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!res.ok) {
@@ -365,6 +361,14 @@ export async function probeAdminConnection(): Promise<ConnectionProbe> {
     });
     base.healthStatus = healthRes.status;
     base.healthOk = healthRes.ok;
+    if (healthRes.ok) {
+      const health = (await healthRes.json()) as {
+        adminLoginRev?: string;
+        loginFastPath?: boolean;
+      };
+      base.adminLoginRev = health.adminLoginRev;
+      base.loginFastPath = health.loginFastPath === true;
+    }
     if (!healthRes.ok) {
       base.healthError = healthRes.statusText;
     }

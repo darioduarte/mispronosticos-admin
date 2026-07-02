@@ -53,6 +53,23 @@ export function LoginConnectionStatus() {
               <span className="text-slate-500">no configurado</span>
             )}
           </li>
+          {probe.adminLoginRev && (
+            <li className="text-slate-400">
+              Backend login rev:{' '}
+              <span
+                className={
+                  probe.adminLoginRev.includes('v11')
+                    ? 'text-emerald-400'
+                    : 'text-amber-300'
+                }
+              >
+                {probe.adminLoginRev}
+              </span>
+              {!probe.adminLoginRev.includes('v11') && (
+                <span className="text-amber-300"> — redeploy DO pendiente</span>
+              )}
+            </li>
+          )}
         </ul>
       )}
       {apiBase.includes('localhost') && (
