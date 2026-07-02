@@ -1,8 +1,6 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { LiveAnalysisModal } from '@/components/pronosticos-ia/live-analysis-modal';
 import {
   fetchRuntimeSettings,
   killLiveRuntime,
@@ -129,43 +127,8 @@ function FieldRow({
   );
 }
 
-function ManualLiveAnalysisOpener({
-  onOpen,
-}: {
-  onOpen: (fixtureId: number) => void;
-}) {
-  const [fixtureId, setFixtureId] = useState('');
-
-  return (
-    <div className="mt-3 flex flex-wrap items-end gap-3">
-      <label className="block text-sm text-slate-400">
-        Fixture ID
-        <input
-          type="number"
-          value={fixtureId}
-          onChange={(e) => setFixtureId(e.target.value)}
-          placeholder="1567311"
-          className="mt-1 block w-40 rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-sm text-slate-200"
-        />
-      </label>
-      <button
-        type="button"
-        disabled={!fixtureId.trim()}
-        onClick={() => {
-          const id = parseInt(fixtureId, 10);
-          if (Number.isFinite(id)) onOpen(id);
-        }}
-        className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
-      >
-        Ver / generar IA vivo
-      </button>
-    </div>
-  );
-}
-
 export function LiveRuntimePanel() {
   const qc = useQueryClient();
-  const [liveAnalysisFixture, setLiveAnalysisFixture] = useState<number | null>(null);
 
   const query = useQuery({
     queryKey: ['runtime-settings'],
@@ -285,16 +248,6 @@ export function LiveRuntimePanel() {
 
       <FlagBanner snapshot={snapshot} />
 
-      <section className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-violet-300">
-          Generar IA en vivo (manual)
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Abre el panel de análisis en vivo por fixture: historial de ejecuciones, picks y generación manual.
-        </p>
-        <ManualLiveAnalysisOpener onOpen={setLiveAnalysisFixture} />
-      </section>
-
       {(patchMutation.isError ||
         killMutation.isError ||
         resumeMutation.isError ||
@@ -348,14 +301,6 @@ export function LiveRuntimePanel() {
           {JSON.stringify(snapshot.effective, null, 2)}
         </pre>
       </section>
-
-      {liveAnalysisFixture != null && (
-        <LiveAnalysisModal
-          fixtureId={liveAnalysisFixture}
-          matchLabel={`Fixture ${liveAnalysisFixture}`}
-          onClose={() => setLiveAnalysisFixture(null)}
-        />
-      )}
     </div>
   );
 }
