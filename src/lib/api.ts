@@ -292,6 +292,49 @@ export async function adminFetch<T>(
   return res.json() as Promise<T>;
 }
 
+type TokenPingResult = {
+  verifyOk?: boolean;
+  verifyError?: string;
+  verifyCode?: string;
+  jwtFingerprint?: string;
+  jwtSecretSource?: string;
+  jwtRoundtripOk?: boolean;
+};
+
+async function assertAccessTokenAccepted(
+  accessToken: string,
+  loginFingerprint?: string,
+): Promise<void> {
+  const pingRes = await fetch(`${API_BASE}/api/admin/auth/ping-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accessToken }),
+    cache: 'no-store',
+  });
+  const ping = (await pingRes.json().catch(() => ({}))) as TokenPingResult;
+
+  if (ping.verifyOk) return;
+
+  const fpLogin = loginFingerprint || 'login';
+  const fpPing = ping.jwtFingerprint || 'otro-nodo';
+  const mismatch =
+    loginFingerprint &&
+    ping.jwtFingerprint &&
+    loginFingerprint !== ping.jwtFingerprint;
+
+  throw new ApiError(
+    mismatch
+      ? 'JWT desincronizado entre nodos de DigitalOcean'
+      : 'El backend rechazó el token recién generado',
+    503,
+    {
+      hint: mismatch
+        ? `Login firmó con jwtFingerprint=${fpLogin} pero el verificador usa ${fpPing}. En DO elimina ADMIN_JWT_SECRET si existe, deja solo JWT_SECRET (un valor), y haz Force Rebuild.`
+        : `${ping.verifyCode || 'verify_failed'}: ${ping.verifyError || 'sin detalle'}. jwtRoundtripOk=${String(ping.jwtRoundtripOk)}`,
+    },
+  );
+}
+
 export async function loginWithGoogle(idToken: string): Promise<AuthSession> {
   const endpoint = '/api/admin/auth/google';
   let res: Response;
@@ -316,6 +359,10 @@ export async function loginWithGoogle(idToken: string): Promise<AuthSession> {
     user: data.user as AuthSession['user'],
   };
   saveSession(session);
+  await assertAccessTokenAccepted(
+    session.accessToken,
+    typeof data.jwtFingerprint === 'string' ? data.jwtFingerprint : undefined,
+  );
   return session;
 }
 
@@ -380,6 +427,10 @@ export async function loginWithPassword(
     user: data.user as AuthSession['user'],
   };
   saveSession(session);
+  await assertAccessTokenAccepted(
+    session.accessToken,
+    typeof data.jwtFingerprint === 'string' ? data.jwtFingerprint : undefined,
+  );
   return session;
 }
 
