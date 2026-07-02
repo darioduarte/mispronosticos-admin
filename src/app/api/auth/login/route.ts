@@ -29,6 +29,20 @@ export async function POST(req: NextRequest) {
 
     const text = await upstream.text();
     const contentType = upstream.headers.get('content-type') || 'application/json';
+    const isHtml = text.trimStart().startsWith('<!DOCTYPE') || text.trimStart().startsWith('<html');
+
+    if (isHtml) {
+      return NextResponse.json(
+        {
+          error: 'Gateway del backend devolvió HTML (timeout o caída)',
+          code: 'ADMIN_LOGIN_UPSTREAM_HTML',
+          stage: 'digitalocean_gateway',
+          hint: 'Reintenta en 20–30 s. Si persiste, redeploy en DigitalOcean.',
+          upstreamStatus: upstream.status,
+        },
+        { status: 504 },
+      );
+    }
 
     return new NextResponse(text, {
       status: upstream.status,

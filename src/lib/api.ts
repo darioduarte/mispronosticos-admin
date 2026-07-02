@@ -82,7 +82,7 @@ function gatewayErrorHint(status: number): string | undefined {
     return 'Gateway 504: el proxy cortó la petición antes de recibir JSON del backend. NO significa contraseña incorrecta. Comprueba adminLoginRev en /api/admin/health y redeploy en DigitalOcean.';
   }
   if (status === 502 || status === 503) {
-    return 'El backend respondió con error temporal (p. ej. caché vacía en otra instancia). Reintenta en unos segundos.';
+    return 'El backend respondió con error temporal (caché vacía, Redis lento o MySQL ocupado). Espera 20–30 s y reintenta con un email admin precargado.';
   }
   return undefined;
 }
@@ -109,9 +109,9 @@ function formatLoginMessage(data: Record<string, unknown>, res: Response, isHtml
   );
 }
 
-const LOGIN_RETRY_STATUSES = new Set([502, 503]);
-const LOGIN_MAX_ATTEMPTS = 3;
-const LOGIN_RETRY_BASE_MS = 2000;
+const LOGIN_RETRY_STATUSES = new Set([502]);
+const LOGIN_MAX_ATTEMPTS = 2;
+const LOGIN_RETRY_BASE_MS = 1500;
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -153,6 +153,7 @@ function loginApiError(
   const message = formatLoginMessage(data, res, isHtml);
   const hint =
     (typeof data.hint === 'string' ? data.hint : undefined) || gatewayHint;
+  const requestBase = endpoint.startsWith('/api/auth/') ? '(admin Vercel)' : API_BASE;
   const diagnostic = buildLoginDiagnostic({
     message,
     hint,
@@ -160,6 +161,7 @@ function loginApiError(
     code,
     stage,
     detail,
+    apiBase: requestBase,
     endpoint,
     method,
     responseBody: JSON.stringify(data).slice(0, 800),
@@ -285,47 +287,56 @@ export async function loginWithPassword(
   password: string,
 ): Promise<AuthSession> {
   const body = JSON.stringify({ email, password });
-  const init: RequestInit = {
+  const adminOrigin =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://mispronosticos-admin.vercel.app';
+
+  const directInit: RequestInit = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Origin: adminOrigin,
+    },
+    body,
+  };
+
+  const proxyInit: RequestInit = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body,
   };
 
-  // Mismo origen vía proxy Vercel → evita CORS/Cloudflare en POST directo al backend
-  let endpoint = '/api/auth/login';
+  // 1) Directo al backend (JSON claro, sin hop Vercel) — CORS permitido vía ADMIN_PANEL_ORIGIN
+  let endpoint = '/api/admin/auth/login';
   let res: Response;
+  let data: Record<string, unknown>;
   try {
-    res = await fetchLogin(endpoint, init, 1, '');
+    res = await fetchLogin(endpoint, directInit, 1, API_BASE);
+    data = await parseJsonSafe(res);
   } catch (err) {
     throw networkLoginError(err, endpoint, 'POST');
   }
 
-  // Deploy Vercel anterior sin route handler (build fallido) → fallback directo al backend
-  if (res.status === 404) {
-    endpoint = '/api/admin/auth/login';
-    const adminOrigin =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : 'https://mispronosticos-admin.vercel.app';
+  const directHtml = isGatewayHtmlResponse(data);
+  const useProxyFallback =
+    res.status === 404 ||
+    res.status === 0 ||
+    directHtml ||
+    res.status === 502 ||
+    res.status === 504;
+
+  // 2) Fallback proxy Vercel solo si gateway/HTML — no en 503 JSON (caché/DB)
+  if (useProxyFallback) {
+    endpoint = '/api/auth/login';
     try {
-      res = await fetchLogin(
-        endpoint,
-        {
-          ...init,
-          headers: {
-            'Content-Type': 'application/json',
-            Origin: adminOrigin,
-          },
-        },
-        1,
-        API_BASE,
-      );
+      res = await fetchLogin(endpoint, proxyInit, 1, '');
+      data = await parseJsonSafe(res);
     } catch (err) {
       throw networkLoginError(err, endpoint, 'POST');
     }
   }
 
-  const data = await parseJsonSafe(res);
   if (!res.ok) {
     throw loginApiError(res, data, endpoint, 'POST');
   }
