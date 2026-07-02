@@ -113,6 +113,49 @@ export type LiveOddsResponse = {
   error?: string;
 };
 
+export type LiveAnalysisPick = {
+  id: string;
+  tipo: string;
+  probabilidad: number | null;
+  cuota_decimal: number | null;
+  explicacion: string;
+  categoria_pronostico: string;
+  minute: number | null;
+  createdAt: string;
+};
+
+export type LiveAnalysisRun = {
+  id: string;
+  windowKey: string;
+  minute: number | null;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  status: string | null;
+  analysisSummary: string | null;
+  publishedCount: number;
+  createdAt: string;
+  picks: LiveAnalysisPick[];
+};
+
+export type LiveAnalysisRunsResponse = {
+  ok: boolean;
+  fixtureId: number;
+  fixture: {
+    fixtureid: number;
+    teamshomename?: string | null;
+    teamsawayname?: string | null;
+    fixturestatusshort?: string | null;
+    fixturestatuselapsed?: number | null;
+    goalshome?: number | null;
+    goalsaway?: number | null;
+    fixturedate?: string | null;
+  } | null;
+  runs: LiveAnalysisRun[];
+  totalRuns: number;
+  totalPicks: number;
+  error?: string;
+};
+
 export type MelbetOddItem = {
   linea?: string;
   betName?: string;

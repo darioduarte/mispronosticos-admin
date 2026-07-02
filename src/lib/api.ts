@@ -284,22 +284,45 @@ export async function loginWithPassword(
   email: string,
   password: string,
 ): Promise<AuthSession> {
+  const body = JSON.stringify({ email, password });
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  };
+
   // Mismo origen vía proxy Vercel → evita CORS/Cloudflare en POST directo al backend
-  const endpoint = '/api/auth/login';
+  let endpoint = '/api/auth/login';
   let res: Response;
   try {
-    res = await fetchLogin(
-      endpoint,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      },
-      1,
-      '',
-    );
+    res = await fetchLogin(endpoint, init, 1, '');
   } catch (err) {
     throw networkLoginError(err, endpoint, 'POST');
+  }
+
+  // Deploy Vercel anterior sin route handler (build fallido) → fallback directo al backend
+  if (res.status === 404) {
+    endpoint = '/api/admin/auth/login';
+    const adminOrigin =
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : 'https://mispronosticos-admin.vercel.app';
+    try {
+      res = await fetchLogin(
+        endpoint,
+        {
+          ...init,
+          headers: {
+            'Content-Type': 'application/json',
+            Origin: adminOrigin,
+          },
+        },
+        1,
+        API_BASE,
+      );
+    } catch (err) {
+      throw networkLoginError(err, endpoint, 'POST');
+    }
   }
 
   const data = await parseJsonSafe(res);
