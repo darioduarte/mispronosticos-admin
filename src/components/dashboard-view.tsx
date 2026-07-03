@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { fetchDashboardSummary, ApiError } from '@/lib/api';
-import { RenewalSyncPanel } from '@/components/renewal-sync-panel';
+import { ActividadPeriodoPanel } from '@/components/actividad-periodo-panel';
 
 function fmt(n: number | undefined) {
   return (n ?? 0).toLocaleString('es-CO');
@@ -74,84 +74,6 @@ function PlatformBar({
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Android {fmt(android)} ({androidPct}%)
         </span>
       </div>
-    </div>
-  );
-}
-
-function ActividadHoyTable({
-  actividad,
-}: {
-  actividad: {
-    fecha: string;
-    compras: { total: number; ios: number; android: number };
-    renovaciones: { total: number; ios: number; android: number };
-    total: { ios: number; android: number; all: number };
-    nota: string;
-  };
-}) {
-  const rows = [
-    {
-      label: 'Compras',
-      ios: actividad.compras.ios,
-      android: actividad.compras.android,
-      total: actividad.compras.total,
-      cls: 'text-emerald-300',
-    },
-    {
-      label: 'Renovaciones',
-      ios: actividad.renovaciones.ios,
-      android: actividad.renovaciones.android,
-      total: actividad.renovaciones.total,
-      cls: 'text-sky-300',
-    },
-    {
-      label: 'Total día',
-      ios: actividad.total.ios,
-      android: actividad.total.android,
-      total: actividad.total.all,
-      cls: 'text-white font-semibold',
-    },
-  ];
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-slate-200">
-          Actividad del día ({actividad.fecha})
-        </p>
-        <p className="text-xs text-slate-500">Hora referencia: America/Bogotá</p>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="pb-2 text-left">Tipo</th>
-              <th className="pb-2 text-right">
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 rounded-full bg-sky-500" /> iOS
-                </span>
-              </th>
-              <th className="pb-2 text-right">
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Android
-                </span>
-              </th>
-              <th className="pb-2 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {rows.map((row) => (
-              <tr key={row.label}>
-                <td className="py-2.5 text-slate-300">{row.label}</td>
-                <td className={`py-2.5 text-right ${row.cls}`}>{fmt(row.ios)}</td>
-                <td className={`py-2.5 text-right ${row.cls}`}>{fmt(row.android)}</td>
-                <td className={`py-2.5 text-right ${row.cls}`}>{fmt(row.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-3 text-xs text-slate-600">{actividad.nota}</p>
     </div>
   );
 }
@@ -302,12 +224,7 @@ export function DashboardView() {
           </section>
 
           <section className="mb-6">
-            {d.suscripciones.actividadHoy && (
-              <>
-                <ActividadHoyTable actividad={d.suscripciones.actividadHoy} />
-                <RenewalSyncPanel />
-              </>
-            )}
+            <ActividadPeriodoPanel initialFecha={d.suscripciones.fechaReferencia} />
           </section>
 
           <section className="mb-6 grid gap-4 lg:grid-cols-3">

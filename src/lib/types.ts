@@ -468,10 +468,20 @@ export type DashboardTendenciaMes = {
 
 export type DashboardActividadHoy = {
   fecha: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  esUnDia?: boolean;
   compras: { total: number; ios: number; android: number };
   renovaciones: { total: number; ios: number; android: number };
   total: { ios: number; android: number; all: number };
   nota: string;
+};
+
+export type DashboardActividadResponse = {
+  success: boolean;
+  generatedAt: string;
+  actividad: DashboardActividadHoy;
+  error?: string;
 };
 
 export type DashboardSummary = {

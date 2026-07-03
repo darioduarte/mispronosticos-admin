@@ -30,6 +30,7 @@ import type {
   RenewalSyncPayload,
   RenewalSyncResponse,
   DashboardSummary,
+  DashboardActividadResponse,
   OpsSnapshot,
   RuntimeSettingsSnapshot,
 } from './types';
@@ -732,6 +733,11 @@ export function syncSuscripcionRenewals(payload: RenewalSyncPayload = {}) {
 
 export function fetchDashboardSummary() {
   return adminFetch<DashboardSummary>('/api/admin/dashboard/summary');
+}
+
+export function fetchDashboardActividad(desde: string, hasta: string) {
+  const qs = new URLSearchParams({ desde, hasta });
+  return adminFetch<DashboardActividadResponse>(`/api/admin/dashboard/actividad?${qs}`);
 }
 
 export function fetchDashboardOps() {
