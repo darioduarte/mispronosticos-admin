@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { fetchDashboardSummary, ApiError } from '@/lib/api';
+import { RenewalSyncPanel } from '@/components/renewal-sync-panel';
 
 function fmt(n: number | undefined) {
   return (n ?? 0).toLocaleString('es-CO');
@@ -302,7 +303,10 @@ export function DashboardView() {
 
           <section className="mb-6">
             {d.suscripciones.actividadHoy && (
-              <ActividadHoyTable actividad={d.suscripciones.actividadHoy} />
+              <>
+                <ActividadHoyTable actividad={d.suscripciones.actividadHoy} />
+                <RenewalSyncPanel />
+              </>
             )}
           </section>
 

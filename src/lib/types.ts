@@ -379,6 +379,74 @@ export type SuscripcionMutationResponse = {
   error?: string;
 };
 
+export type RenewalSyncAction =
+  | 'unchanged'
+  | 'would_update'
+  | 'would_create'
+  | 'would_cancel'
+  | 'skip'
+  | 'error'
+  | 'applied_update'
+  | 'applied_cancel';
+
+export type RenewalSyncItem = {
+  subscriptionId: string;
+  userId: string;
+  userEmail: string | null;
+  userName: string | null;
+  productId: string | null;
+  action: RenewalSyncAction;
+  reason: string;
+  renewalOrderId?: string | null;
+  applyNote?: string;
+  error?: string;
+  google?: {
+    orderId: string | null;
+    orderIdBase: string | null;
+    isRenewal: boolean;
+    expiryDisplay: string | null;
+    startDisplay: string | null;
+    autoRenewing: boolean;
+    paymentState: number | null;
+    purchaseToken: string | null;
+  };
+  database?: {
+    subscriptionId: string;
+    orderId: string | null;
+    endDate: string | null;
+    startDate: string | null;
+    isCancelled: boolean;
+    productId: string | null;
+  };
+};
+
+export type RenewalSyncResponse = {
+  success: boolean;
+  dryRun: boolean;
+  scope: 'active' | 'all';
+  limit: number;
+  scanned: number;
+  summary: {
+    unchanged: number;
+    would_update: number;
+    would_create: number;
+    would_cancel: number;
+    skip: number;
+    error: number;
+    applied: number;
+  };
+  items: RenewalSyncItem[];
+  nota: string;
+  error?: string;
+};
+
+export type RenewalSyncPayload = {
+  dryRun?: boolean;
+  scope?: 'active' | 'all';
+  limit?: number;
+  allowCreate?: boolean;
+};
+
 export type DashboardPlatformCounts = {
   ios: number;
   android: number;

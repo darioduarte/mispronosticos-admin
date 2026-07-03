@@ -27,6 +27,8 @@ import type {
   SuscripcionSavePayload,
   SuscripcionMutationResponse,
   SuscripcionRow,
+  RenewalSyncPayload,
+  RenewalSyncResponse,
   DashboardSummary,
   OpsSnapshot,
   RuntimeSettingsSnapshot,
@@ -713,6 +715,18 @@ export function updateSuscripcion(id: string, payload: Partial<SuscripcionSavePa
   return adminFetch<SuscripcionMutationResponse>(`/api/admin/suscripciones/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
+  });
+}
+
+export function syncSuscripcionRenewals(payload: RenewalSyncPayload = {}) {
+  return adminFetch<RenewalSyncResponse>('/api/admin/suscripciones/sync-renewals', {
+    method: 'POST',
+    body: JSON.stringify({
+      dryRun: payload.dryRun !== false,
+      scope: payload.scope ?? 'active',
+      limit: payload.limit ?? 50,
+      allowCreate: payload.allowCreate === true,
+    }),
   });
 }
 
