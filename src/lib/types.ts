@@ -305,6 +305,120 @@ export type RepairRefereesResponse = {
   error?: string;
 };
 
+export type PromedioMetricRow = {
+  key: string;
+  label: string;
+  side: 'home' | 'away';
+  statType: string;
+  teamScope: 'self' | 'opponent';
+  live: number | null;
+  stored: number | null;
+  delta: number | null;
+  aligned: boolean;
+};
+
+export type PromediosSummaryResponse = {
+  success: boolean;
+  found?: boolean;
+  fixture?: {
+    fixtureid: number;
+    fecha: string | null;
+    local: string;
+    visitante: string;
+    teamshomeid: number;
+    teamsawayid: number;
+    liga?: string;
+  };
+  procedure?: string;
+  storedAt?: string | null;
+  hasStored?: boolean;
+  metrics?: PromedioMetricRow[];
+  fuente?: {
+    resumen: string;
+    tablas: string[];
+    muestraRegla: string;
+  };
+  error?: string;
+};
+
+export type PromedioMuestraRow = {
+  fixtureid: number;
+  fecha: string | null;
+  partido: string;
+  rival: string;
+  valor: number;
+  statType: string;
+  teamScope: string;
+  statRowsMatched?: number;
+  duplicateStatRows?: boolean;
+};
+
+export type PromedioDiagnosticoRow = {
+  fixtureid: number;
+  fecha: string | null;
+  partido: string;
+  liga: string;
+  rolEnPartido: string;
+  estado: string;
+  finalizado: boolean;
+  enMuestraActual: boolean;
+  cumpleRolMetrica: boolean;
+  exclusionReason: string | null;
+};
+
+export type PromediosMuestraResponse = {
+  success: boolean;
+  found?: boolean;
+  metric?: {
+    key: string;
+    label: string;
+    side: string;
+    statType: string;
+    teamScope: string;
+    sideLabel: string;
+    teamScopeLabel: string;
+  };
+  fixture?: {
+    fixtureid: number;
+    local: string;
+    visitante: string;
+  };
+  muestra?: PromedioMuestraRow[];
+  sampleSize?: number;
+  promedioCalculado?: number;
+  promedioSpReplica?: number | null;
+  spJoinRows?: number;
+  hasDuplicateStats?: boolean;
+  liveFromProcedure?: number | null;
+  storedInDb?: number | null;
+  integrityOk?: boolean;
+  integrityNote?: string | null;
+  muestraCriterio?: {
+    teamId: number;
+    rolRequerido: string;
+    descripcion: string;
+    notaCopas: string;
+  };
+  diagnosticoReciente?: PromedioDiagnosticoRow[];
+  procedure?: string;
+  error?: string;
+};
+
+export type PromediosRecalculateResponse = {
+  success: boolean;
+  fixtureid?: number;
+  created?: boolean;
+  date?: string;
+  metricsCount?: number;
+  integrity?: {
+    fixturesTouched?: string[];
+    removedTeams?: number;
+    removedData?: number;
+  } | null;
+  summary?: PromediosSummaryResponse | null;
+  error?: string;
+};
+
 export type PartidoStatisticsApiResponse = {
   success: boolean;
   fixtureId?: number;

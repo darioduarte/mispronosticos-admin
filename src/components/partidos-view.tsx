@@ -2,8 +2,9 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { PartidoStatsModal } from '@/components/partidos/stats-modal';
+import { PromediosModal } from '@/components/partidos/promedios-modal';
 import { RefereeModal } from '@/components/partidos/referee-modal';
 import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import { fetchPartidos, repairPartidosReferees, syncPartidosStats } from '@/lib/api';
@@ -54,6 +55,7 @@ export function PartidosView() {
   const [repairBusy, setRepairBusy] = useState(false);
   const [repairMsg, setRepairMsg] = useState('');
   const [statsModal, setStatsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
+  const [promediosModal, setPromediosModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [refereeModal, setRefereeModal] = useState<RowModal | null>(null);
   const [liveOddsModal, setLiveOddsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
 
@@ -179,21 +181,21 @@ export function PartidosView() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Partidos</h1>
-        <p className="mt-1 max-w-3xl text-sm text-slate-400">
+    <div className="p-3 pb-6 sm:p-6 lg:p-8">
+      <header className="mb-4 sm:mb-6">
+        <h1 className="text-xl font-bold text-white sm:text-2xl">Partidos</h1>
+        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-400">
           Ligas destacadas · árbitros y estadísticas. Consulta, filtra y sincroniza desde
           API-Football.
         </p>
       </header>
 
       {/* Filtros servidor */}
-      <section className="mb-4 rounded-xl border border-white/10 bg-[#111827]/80 p-4">
+      <section className="mb-4 rounded-xl border border-white/10 bg-[#111827]/80 p-3 sm:p-4">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
           Rango y filtros de carga
         </h2>
-        <div className="flex flex-wrap items-end gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
           <DateField label="Desde" value={desde} onChange={setDesde} />
           <DateField label="Hasta" value={hasta} onChange={setHasta} />
           <label className="flex items-center gap-2 text-sm text-slate-400">
@@ -217,7 +219,7 @@ export function PartidosView() {
           <button
             type="button"
             onClick={applyServerFilters}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 sm:w-auto"
           >
             Buscar
           </button>
@@ -227,7 +229,7 @@ export function PartidosView() {
           <p className="mb-2 text-xs text-slate-500">
             Sincronizar estadísticas del rango (día a día, solo ligas destacadas)
           </p>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
             <label className="flex items-center gap-2 text-sm text-slate-400">
               <input
                 type="checkbox"
@@ -250,7 +252,7 @@ export function PartidosView() {
               type="button"
               onClick={handleSyncRange}
               disabled={syncBusy}
-              className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+              className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:w-auto"
             >
               {syncBusy ? 'Sincronizando…' : 'Sincronizar rango'}
             </button>
@@ -258,7 +260,7 @@ export function PartidosView() {
               type="button"
               onClick={handleRepairReferees}
               disabled={repairBusy}
-              className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+              className="w-full rounded-lg bg-amber-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 sm:w-auto"
             >
               {repairBusy ? 'Reparando…' : 'Reparar árbitros'}
             </button>
@@ -427,59 +429,110 @@ export function PartidosView() {
       )}
 
       {!query.isLoading && !query.isError && (
-        <div className="overflow-x-auto rounded-xl border border-white/10">
-          <table className="w-full min-w-[960px] text-sm">
-            <thead className="bg-[#0c1017] text-xs uppercase tracking-wide text-slate-400">
-              <tr>
-                <th className="px-3 py-3 text-left">ID</th>
-                <th className="px-3 py-3 text-left">Fecha</th>
-                <th className="px-3 py-3 text-left">Partido</th>
-                <th className="px-3 py-3 text-left">Liga</th>
-                <th className="px-3 py-3 text-left">Marcador</th>
-                <th className="px-3 py-3 text-left">Estado</th>
-                <th className="px-3 py-3 text-left">Árbitro</th>
-                <th className="px-3 py-3 text-left">Stats</th>
-                <th className="px-3 py-3 text-left">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((row) => (
-                <PartidoTableRow
-                  key={row.fixtureid}
-                  row={row}
-                  dateRange={applied}
-                  onStats={() =>
-                    setStatsModal({
-                      fixtureId: row.fixtureid,
-                      label: matchLabel(row),
-                    })
-                  }
-                  onReferee={() =>
-                    setRefereeModal({
-                      fixtureId: row.fixtureid,
-                      label: matchLabel(row),
-                      referee: row.fixturereferee,
-                    })
-                  }
-                  onLiveOdds={() =>
-                    setLiveOddsModal({
-                      fixtureId: row.fixtureid,
-                      label: matchLabel(row),
-                    })
-                  }
-                  showLiveOdds={row.estadoBadgeClass === 'live'}
-                />
-              ))}
-              {filtered.length === 0 && (
+        <>
+          {/* Vista móvil: tarjetas */}
+          <div className="space-y-3 md:hidden">
+            {filtered.map((row) => (
+              <PartidoMobileCard
+                key={row.fixtureid}
+                row={row}
+                dateRange={applied}
+                onStats={() =>
+                  setStatsModal({
+                    fixtureId: row.fixtureid,
+                    label: matchLabel(row),
+                  })
+                }
+                onPromedios={() =>
+                  setPromediosModal({
+                    fixtureId: row.fixtureid,
+                    label: matchLabel(row),
+                  })
+                }
+                onReferee={() =>
+                  setRefereeModal({
+                    fixtureId: row.fixtureid,
+                    label: matchLabel(row),
+                    referee: row.fixturereferee,
+                  })
+                }
+                onLiveOdds={() =>
+                  setLiveOddsModal({
+                    fixtureId: row.fixtureid,
+                    label: matchLabel(row),
+                  })
+                }
+                showLiveOdds={row.estadoBadgeClass === 'live'}
+              />
+            ))}
+            {filtered.length === 0 && (
+              <p className="rounded-xl border border-white/10 px-4 py-10 text-center text-slate-500">
+                Sin partidos para los filtros seleccionados.
+              </p>
+            )}
+          </div>
+
+          {/* Vista desktop: tabla */}
+          <div className="hidden overflow-x-auto rounded-xl border border-white/10 md:block">
+            <table className="w-full min-w-[960px] text-sm">
+              <thead className="bg-[#0c1017] text-xs uppercase tracking-wide text-slate-400">
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
-                    Sin partidos para los filtros seleccionados.
-                  </td>
+                  <th className="px-3 py-3 text-left">ID</th>
+                  <th className="px-3 py-3 text-left">Fecha</th>
+                  <th className="px-3 py-3 text-left">Partido</th>
+                  <th className="px-3 py-3 text-left">Liga</th>
+                  <th className="px-3 py-3 text-left">Marcador</th>
+                  <th className="px-3 py-3 text-left">Estado</th>
+                  <th className="px-3 py-3 text-left">Árbitro</th>
+                  <th className="px-3 py-3 text-left">Stats</th>
+                  <th className="px-3 py-3 text-left">Acciones</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((row) => (
+                  <PartidoTableRow
+                    key={row.fixtureid}
+                    row={row}
+                    dateRange={applied}
+                    onStats={() =>
+                      setStatsModal({
+                        fixtureId: row.fixtureid,
+                        label: matchLabel(row),
+                      })
+                    }
+                    onPromedios={() =>
+                      setPromediosModal({
+                        fixtureId: row.fixtureid,
+                        label: matchLabel(row),
+                      })
+                    }
+                    onReferee={() =>
+                      setRefereeModal({
+                        fixtureId: row.fixtureid,
+                        label: matchLabel(row),
+                        referee: row.fixturereferee,
+                      })
+                    }
+                    onLiveOdds={() =>
+                      setLiveOddsModal({
+                        fixtureId: row.fixtureid,
+                        label: matchLabel(row),
+                      })
+                    }
+                    showLiveOdds={row.estadoBadgeClass === 'live'}
+                  />
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
+                      Sin partidos para los filtros seleccionados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {statsModal && (
@@ -488,6 +541,13 @@ export function PartidosView() {
           matchLabel={statsModal.label}
           onClose={() => setStatsModal(null)}
           onSynced={() => queryClient.invalidateQueries({ queryKey: ['partidos'] })}
+        />
+      )}
+      {promediosModal && (
+        <PromediosModal
+          fixtureId={promediosModal.fixtureId}
+          matchLabel={promediosModal.label}
+          onClose={() => setPromediosModal(null)}
         />
       )}
       {refereeModal && (
@@ -514,10 +574,11 @@ function matchLabel(row: PartidoRow) {
   return `${row.local} vs ${row.visitante}`;
 }
 
-function PartidoTableRow({
+function PartidoMobileCard({
   row,
   dateRange,
   onStats,
+  onPromedios,
   onReferee,
   onLiveOdds,
   showLiveOdds,
@@ -525,6 +586,96 @@ function PartidoTableRow({
   row: PartidoRow;
   dateRange: { desde: string; hasta: string };
   onStats: () => void;
+  onPromedios: () => void;
+  onReferee: () => void;
+  onLiveOdds: () => void;
+  showLiveOdds?: boolean;
+}) {
+  const iaHref = `/pronosticos-ia?search=${row.fixtureid}&desde=${dateRange.desde}&hasta=${dateRange.hasta}`;
+
+  return (
+    <article className="rounded-xl border border-white/10 bg-[#111827] p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-medium leading-snug text-slate-100">
+            {row.local} <span className="text-slate-600">vs</span> {row.visitante}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {row.fechaDisplay} · ID {row.fixtureid}
+          </p>
+        </div>
+        <EstadoBadge estado={row.estado} badgeClass={row.estadoBadgeClass} />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <MobileField label="Marcador" value={row.marcador} />
+        <MobileField
+          label="Stats"
+          value={
+            row.tieneEstadisticas ? (
+              <span className="text-emerald-300">Sí</span>
+            ) : (
+              <span className="text-red-300">No</span>
+            )
+          }
+        />
+        <MobileField label="Liga" value={row.liga} className="col-span-2" />
+        <MobileField
+          label="Árbitro"
+          value={row.sinArbitro ? 'Sin asignar' : row.fixturereferee}
+          className="col-span-2"
+          valueClassName={row.sinArbitro ? 'text-red-300' : 'text-slate-300'}
+        />
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
+        <ActionBtn label="Stats" onClick={onStats} />
+        <ActionBtn label="Promedios" onClick={onPromedios} />
+        <ActionBtn label="Árbitro" onClick={onReferee} />
+        {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
+        <Link
+          href={iaHref}
+          className="rounded border border-white/10 px-2.5 py-1 text-xs text-slate-400 hover:border-violet-500/40 hover:text-violet-300"
+        >
+          IA
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function MobileField({
+  label,
+  value,
+  className = '',
+  valueClassName = 'text-slate-300',
+}: {
+  label: string;
+  value: ReactNode;
+  className?: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className={className}>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">{label}</p>
+      <p className={`mt-0.5 truncate ${valueClassName}`}>{value}</p>
+    </div>
+  );
+}
+
+function PartidoTableRow({
+  row,
+  dateRange,
+  onStats,
+  onPromedios,
+  onReferee,
+  onLiveOdds,
+  showLiveOdds,
+}: {
+  row: PartidoRow;
+  dateRange: { desde: string; hasta: string };
+  onStats: () => void;
+  onPromedios: () => void;
   onReferee: () => void;
   onLiveOdds: () => void;
   showLiveOdds?: boolean;
@@ -571,6 +722,7 @@ function PartidoTableRow({
       <td className="px-3 py-2">
         <div className="flex flex-wrap gap-1">
           <ActionBtn label="Stats" onClick={onStats} />
+          <ActionBtn label="Promedios" onClick={onPromedios} />
           <ActionBtn label="Árbitro" onClick={onReferee} />
           {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
           <Link
@@ -679,7 +831,7 @@ function ActionBtn({ label, onClick }: { label: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="rounded border border-white/10 px-2 py-0.5 text-[10px] text-slate-400 hover:border-indigo-500/40 hover:text-indigo-300"
+      className="rounded border border-white/10 px-2.5 py-1 text-xs text-slate-400 hover:border-indigo-500/40 hover:text-indigo-300 sm:px-2 sm:py-0.5 sm:text-[10px]"
     >
       {label}
     </button>

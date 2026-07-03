@@ -21,6 +21,9 @@ import type {
   RefereeSearchResponse,
   RepairRefereesResponse,
   PartidoStatisticsApiResponse,
+  PromediosMuestraResponse,
+  PromediosRecalculateResponse,
+  PromediosSummaryResponse,
   SyncStatsResponse,
   SuscripcionesResponse,
   SuscripcionProductosResponse,
@@ -626,6 +629,26 @@ export function repairPartidosReferees(payload: { desde: string; hasta: string }
   });
 }
 
+export function recalculatePartidoPromedios(fixtureId: number) {
+  return adminFetch<PromediosRecalculateResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/promedios/recalcular`,
+    { method: 'POST' },
+  );
+}
+
+export function fetchPartidoPromedios(fixtureId: number) {
+  return adminFetch<PromediosSummaryResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/promedios`,
+  );
+}
+
+export function fetchPartidoPromediosMuestra(fixtureId: number, metric: string) {
+  const qs = new URLSearchParams({ metric });
+  return adminFetch<PromediosMuestraResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/promedios/muestra?${qs}`,
+  );
+}
+
 export function fetchPartidoStatistics(fixtureId: number) {
   return adminFetch<FixtureStatisticsResponse>(
     `/api/admin/partidos/fixtures/${fixtureId}/statistics`,
@@ -770,6 +793,13 @@ export function resumeLiveRuntime() {
 export function resumeLivePredictionsRuntime() {
   return adminFetch<RuntimeSettingsSnapshot>(
     '/api/admin/runtime-settings/resume-live-predictions',
+    { method: 'POST' },
+  );
+}
+
+export function clearLiveAutoPause() {
+  return adminFetch<RuntimeSettingsSnapshot>(
+    '/api/admin/runtime-settings/clear-auto-pause',
     { method: 'POST' },
   );
 }

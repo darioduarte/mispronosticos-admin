@@ -160,26 +160,26 @@ export function PronosticosIaView() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Pronósticos IA</h1>
-          <p className="mt-1 text-sm text-slate-400">
+    <div className="p-3 pb-6 sm:p-6 lg:p-8">
+      <header className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">Pronósticos IA</h1>
+          <p className="mt-1 text-sm leading-relaxed text-slate-400">
             Panel de revisión con estadísticas, filtros avanzados y acciones por fila.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setStatsOpen((v) => !v)}
-          className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/5"
+          className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-slate-300 hover:bg-white/5 sm:w-auto"
         >
           {statsOpen ? 'Ocultar indicadores' : 'Mostrar indicadores'}
         </button>
       </header>
 
-      <section className="mb-6 rounded-xl border border-white/10 bg-[#151b24] p-4">
+      <section className="mb-4 rounded-xl border border-white/10 bg-[#151b24] p-3 sm:mb-6 sm:p-4">
         <form
-          className="flex flex-wrap items-end gap-4"
+          className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end sm:gap-4"
           onSubmit={(e) => {
             e.preventDefault();
             setApplied({ desde, hasta });
@@ -189,7 +189,7 @@ export function PronosticosIaView() {
           <DateField label="Hasta" value={hasta} onChange={setHasta} />
           <button
             type="submit"
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 sm:w-auto"
           >
             Aplicar rango
           </button>
@@ -203,15 +203,15 @@ export function PronosticosIaView() {
         </p>
       )}
 
-      <section className="mb-4 space-y-3 rounded-xl border border-white/10 bg-[#151b24] p-4">
+      <section className="mb-4 space-y-3 rounded-xl border border-white/10 bg-[#151b24] p-3 sm:p-4">
         <h2 className="text-sm font-semibold text-slate-200">Filtros</h2>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap">
           <input
             type="search"
             placeholder="Buscar…"
             value={filters.search}
             onChange={(e) => patchFilter({ search: e.target.value })}
-            className="min-w-[180px] flex-1 rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-sm text-slate-200"
+            className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-sm text-slate-200 sm:min-w-[180px] sm:flex-1"
           />
           <SelectFilter
             label="Categoría"
@@ -260,19 +260,19 @@ export function PronosticosIaView() {
             ]}
           />
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
           <SmallNumber label="Prob. mín %" value={filters.probMin} onChange={(v) => patchFilter({ probMin: v })} />
           <SmallNumber label="Prob. máx %" value={filters.probMax} onChange={(v) => patchFilter({ probMax: v })} />
           <SmallText label="Cuota mín" value={filters.minCuota} onChange={(v) => patchFilter({ minCuota: v })} />
           <SmallText label="Cuota máx" value={filters.maxCuota} onChange={(v) => patchFilter({ maxCuota: v })} />
-          <span className="self-end text-sm text-slate-500">{filtered.length} filas visibles</span>
+          <span className="col-span-2 self-end text-sm text-slate-500 sm:col-span-1">{filtered.length} filas visibles</span>
           <button
             type="button"
             onClick={() => {
               setFilters(DEFAULT_FILTERS);
               setSortMode('valor_desc');
             }}
-            className="self-end rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-slate-200"
+            className="col-span-2 self-end rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-slate-200 sm:col-span-1"
           >
             Limpiar filtros
           </button>
@@ -287,7 +287,46 @@ export function PronosticosIaView() {
         />
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-white/10 bg-[#151b24]">
+      {/* Vista móvil: tarjetas */}
+      <div className="space-y-3 md:hidden">
+        {filtered.map((row) => (
+          <PronosticoMobileCard
+            key={row.pronostico_id}
+            row={row}
+            cuotaBusy={cuotaBusy}
+            onFetchCuota={handleFetchCuota}
+            onStats={() =>
+              setStatsFixture({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+            }
+            onPrompt={(kind) =>
+              setPromptModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row), kind })
+            }
+            onLiveAnalysis={() =>
+              setLiveAnalysisModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+            }
+            onLiveOdds={() =>
+              setLiveOddsModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+            }
+            onMelbet={() =>
+              setMelbetModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+            }
+            onOddsRef={() =>
+              setOddsRefModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+            }
+            onComparador={() =>
+              setComparadorModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+            }
+          />
+        ))}
+        {!query.isLoading && filtered.length === 0 && (
+          <p className="rounded-xl border border-white/10 bg-[#151b24] px-4 py-8 text-center text-slate-500">
+            Sin pronósticos para los filtros seleccionados.
+          </p>
+        )}
+      </div>
+
+      {/* Vista desktop: tabla */}
+      <div className="hidden overflow-x-auto rounded-xl border border-white/10 bg-[#151b24] md:block">
         <table className="w-full min-w-[1200px] text-left text-sm">
           <thead className="border-b border-white/10 bg-[#0c1017] text-xs uppercase tracking-wide text-slate-400">
             <tr>
@@ -355,87 +394,32 @@ export function PronosticosIaView() {
                 </td>
                 <td className="px-3 py-2">
                   <div className="font-medium text-slate-200">{row.cuota_display ?? '—'}</div>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <ActionBtn
-                      label={cuotaBusy === row.pronostico_id ? '…' : 'Cuota'}
-                      onClick={() => handleFetchCuota(row)}
-                      disabled={cuotaBusy === row.pronostico_id}
-                    />
-                    <ActionBtn
-                      label="Stats"
-                      onClick={() =>
-                        setStatsFixture({
-                          fixtureId: row.fixtureid,
-                          label: rowMatchLabel(row),
-                        })
-                      }
-                    />
-                    <ActionBtn
-                      label="Prompt"
-                      onClick={() =>
-                        setPromptModal({
-                          fixtureId: row.fixtureid,
-                          label: rowMatchLabel(row),
-                          kind: 'pre-match',
-                        })
-                      }
-                    />
-                    <ActionBtn
-                      label="Live"
-                      onClick={() =>
-                        setPromptModal({
-                          fixtureId: row.fixtureid,
-                          label: rowMatchLabel(row),
-                          kind: 'live',
-                        })
-                      }
-                    />
-                    <ActionBtn
-                      label="IA vivo"
-                      onClick={() =>
-                        setLiveAnalysisModal({
-                          fixtureId: row.fixtureid,
-                          label: rowMatchLabel(row),
-                        })
-                      }
-                    />
-                    <ActionBtn
-                      label="Cuotas live"
-                      onClick={() =>
-                        setLiveOddsModal({
-                          fixtureId: row.fixtureid,
-                          label: rowMatchLabel(row),
-                        })
-                      }
-                    />
-                    <ActionBtn
-                      label="Melbet"
-                      onClick={() =>
-                        setMelbetModal({
-                          fixtureId: row.fixtureid,
-                          label: rowMatchLabel(row),
-                        })
-                      }
-                    />
-                    <ActionBtn
-                      label="Ref."
-                      onClick={() =>
-                        setOddsRefModal({
-                          fixtureId: row.fixtureid,
-                          label: rowMatchLabel(row),
-                        })
-                      }
-                    />
-                    <ActionBtn
-                      label="Cmp"
-                      onClick={() =>
-                        setComparadorModal({
-                          fixtureId: row.fixtureid,
-                          label: rowMatchLabel(row),
-                        })
-                      }
-                    />
-                  </div>
+                  <PronosticoRowActions
+                    row={row}
+                    cuotaBusy={cuotaBusy}
+                    onFetchCuota={handleFetchCuota}
+                    onStats={() =>
+                      setStatsFixture({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+                    }
+                    onPrompt={(kind) =>
+                      setPromptModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row), kind })
+                    }
+                    onLiveAnalysis={() =>
+                      setLiveAnalysisModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+                    }
+                    onLiveOdds={() =>
+                      setLiveOddsModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+                    }
+                    onMelbet={() =>
+                      setMelbetModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+                    }
+                    onOddsRef={() =>
+                      setOddsRefModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+                    }
+                    onComparador={() =>
+                      setComparadorModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+                    }
+                  />
                 </td>
               </tr>
             ))}
@@ -514,6 +498,153 @@ export function PronosticosIaView() {
         />
       )}
     </div>
+  );
+}
+
+function PronosticoRowActions({
+  row,
+  cuotaBusy,
+  onFetchCuota,
+  onStats,
+  onPrompt,
+  onLiveAnalysis,
+  onLiveOdds,
+  onMelbet,
+  onOddsRef,
+  onComparador,
+  className = 'mt-1 flex flex-wrap gap-1',
+}: {
+  row: PronosticoIaRow;
+  cuotaBusy: string | null;
+  onFetchCuota: (row: PronosticoIaRow) => void;
+  onStats: () => void;
+  onPrompt: (kind: PromptKind) => void;
+  onLiveAnalysis: () => void;
+  onLiveOdds: () => void;
+  onMelbet: () => void;
+  onOddsRef: () => void;
+  onComparador: () => void;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <ActionBtn
+        label={cuotaBusy === row.pronostico_id ? '…' : 'Cuota'}
+        onClick={() => onFetchCuota(row)}
+        disabled={cuotaBusy === row.pronostico_id}
+      />
+      <ActionBtn label="Stats" onClick={onStats} />
+      <ActionBtn label="Prompt" onClick={() => onPrompt('pre-match')} />
+      <ActionBtn label="Live" onClick={() => onPrompt('live')} />
+      <ActionBtn label="IA vivo" onClick={onLiveAnalysis} />
+      <ActionBtn label="Cuotas live" onClick={onLiveOdds} />
+      <ActionBtn label="Melbet" onClick={onMelbet} />
+      <ActionBtn label="Ref." onClick={onOddsRef} />
+      <ActionBtn label="Cmp" onClick={onComparador} />
+    </div>
+  );
+}
+
+function PronosticoMobileCard({
+  row,
+  cuotaBusy,
+  onFetchCuota,
+  onStats,
+  onPrompt,
+  onLiveAnalysis,
+  onLiveOdds,
+  onMelbet,
+  onOddsRef,
+  onComparador,
+}: {
+  row: PronosticoIaRow;
+  cuotaBusy: string | null;
+  onFetchCuota: (row: PronosticoIaRow) => void;
+  onStats: () => void;
+  onPrompt: (kind: PromptKind) => void;
+  onLiveAnalysis: () => void;
+  onLiveOdds: () => void;
+  onMelbet: () => void;
+  onOddsRef: () => void;
+  onComparador: () => void;
+}) {
+  return (
+    <article className="rounded-xl border border-white/10 bg-[#151b24] p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-medium leading-snug text-slate-100">
+            {row.equipo_local || row.teamshomename} vs{' '}
+            {row.equipo_visitante || row.teamsawayname}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {row.fecha} · {row.liga}
+          </p>
+        </div>
+        <ResultBadge clase={row.resultado_clase} />
+      </div>
+
+      <p className="mt-2 text-sm leading-relaxed text-slate-300">{row.pronostico}</p>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <span className="rounded bg-white/10 px-1.5 py-0.5 text-xs text-slate-300">
+          {formatCategoriaLabel(row.categoria_normalizada || 'otros')}
+        </span>
+        <span className="rounded bg-white/5 px-1.5 py-0.5 text-xs text-slate-400">
+          {row.pronostico_tipo}
+        </span>
+        {row.probabilidad != null && (
+          <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-xs text-indigo-200">
+            {row.probabilidad}%
+          </span>
+        )}
+        {row.cuota_display && (
+          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-200">
+            @{row.cuota_display}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Marcador</p>
+          <p className="mt-0.5 text-slate-300">
+            {row.goalshome != null && row.goalsaway != null
+              ? `${row.goalshome} - ${row.goalsaway}`
+              : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Estado</p>
+          <p className="mt-0.5 text-slate-400">{row.estado_partido ?? '—'}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Línea</p>
+          <p className="mt-0.5 truncate text-slate-400">{row.linea_normalizada ?? '—'}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Guardados</p>
+          <p className="mt-0.5 text-slate-400">{row.totalUsuariosGuardado ?? 0}</p>
+        </div>
+      </div>
+
+      {row.resultado_mensaje && (
+        <p className="mt-2 text-xs text-slate-500">{row.resultado_mensaje}</p>
+      )}
+
+      <PronosticoRowActions
+        row={row}
+        cuotaBusy={cuotaBusy}
+        onFetchCuota={onFetchCuota}
+        onStats={onStats}
+        onPrompt={onPrompt}
+        onLiveAnalysis={onLiveAnalysis}
+        onLiveOdds={onLiveOdds}
+        onMelbet={onMelbet}
+        onOddsRef={onOddsRef}
+        onComparador={onComparador}
+        className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3"
+      />
+    </article>
   );
 }
 
@@ -629,7 +760,7 @@ function ActionBtn({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded border border-white/10 px-2 py-0.5 text-[10px] text-slate-400 hover:border-indigo-500/40 hover:text-indigo-300 disabled:opacity-50"
+      className="rounded border border-white/10 px-2.5 py-1 text-xs text-slate-400 hover:border-indigo-500/40 hover:text-indigo-300 disabled:opacity-50 sm:px-2 sm:py-0.5 sm:text-[10px]"
     >
       {label}
     </button>

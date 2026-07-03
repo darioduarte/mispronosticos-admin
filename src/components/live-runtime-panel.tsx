@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  clearLiveAutoPause,
   fetchRuntimeSettings,
   killLiveRuntime,
   resumeLivePredictionsRuntime,
@@ -96,33 +97,35 @@ function FieldRow({
   const effectiveOff = field.type === 'bool' && eff === false && field.value === true;
 
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-white/5 py-3 last:border-0">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-200">{field.label}</p>
+    <div className="flex items-start justify-between gap-3 border-b border-white/5 py-3 last:border-0 sm:gap-4">
+      <div className="min-w-0 flex-1 pr-1">
+        <p className="text-sm font-medium leading-snug text-slate-200">{field.label}</p>
         {field.description && (
-          <p className="mt-0.5 text-xs text-slate-500">{field.description}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{field.description}</p>
         )}
         {effectiveOff && (
           <p className="mt-1 text-xs text-amber-400">Guardado ON, efectivo OFF (bloqueo activo)</p>
         )}
       </div>
-      {field.type === 'bool' ? (
-        <Toggle
-          checked={!!field.value}
-          disabled={saving}
-          onChange={(v) => onChange(field.key, v)}
-        />
-      ) : (
-        <input
-          type="number"
-          min={field.min}
-          max={field.max}
-          disabled={saving}
-          value={field.value as number}
-          onChange={(e) => onChange(field.key, parseInt(e.target.value, 10))}
-          className="w-24 rounded-lg border border-white/10 bg-[#0b0f14] px-2 py-1 text-right text-sm text-slate-200"
-        />
-      )}
+      <div className="flex shrink-0 items-center pt-0.5">
+        {field.type === 'bool' ? (
+          <Toggle
+            checked={!!field.value}
+            disabled={saving}
+            onChange={(v) => onChange(field.key, v)}
+          />
+        ) : (
+          <input
+            type="number"
+            min={field.min}
+            max={field.max}
+            disabled={saving}
+            value={field.value as number}
+            onChange={(e) => onChange(field.key, parseInt(e.target.value, 10))}
+            className="w-20 rounded-lg border border-white/10 bg-[#0b0f14] px-2 py-1.5 text-right text-sm text-slate-200 sm:w-24"
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -159,12 +162,18 @@ export function LiveRuntimePanel() {
     onSuccess: (data) => qc.setQueryData(['runtime-settings'], data),
   });
 
+  const clearAutoPauseMutation = useMutation({
+    mutationFn: clearLiveAutoPause,
+    onSuccess: (data) => qc.setQueryData(['runtime-settings'], data),
+  });
+
   const snapshot = query.data;
   const saving =
     patchMutation.isPending ||
     killMutation.isPending ||
     resumeMutation.isPending ||
-    resumePredictionsMutation.isPending;
+    resumePredictionsMutation.isPending ||
+    clearAutoPauseMutation.isPending;
 
   function handleFieldChange(key: string, value: boolean | number) {
     patchMutation.mutate({ [key]: value });
@@ -190,23 +199,35 @@ export function LiveRuntimePanel() {
   }));
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-100">Parámetros en vivo</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold text-slate-100 sm:text-2xl">Parámetros en vivo</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">
             Cambios instantáneos vía Redis. MySQL se actualiza en segundo plano. Usa el botón
             rojo si el pool MySQL se satura.
           </p>
-          <p className="mt-2 text-xs text-slate-600">
-            Redis: {snapshot.redisAvailable ? 'conectado' : 'NodeCache local (dev)'}
+          <p className="mt-2 text-xs leading-relaxed text-slate-600">
+            <span className="block sm:inline">
+              Redis: {snapshot.redisAvailable ? 'conectado' : 'NodeCache local (dev)'}
+            </span>
             {snapshot.meta.updatedAt && (
-              <> · Última edición: {new Date(snapshot.meta.updatedAt).toLocaleString('es-CO')}</>
+              <>
+                <span className="hidden sm:inline"> · </span>
+                <span className="block sm:inline">
+                  Última edición: {new Date(snapshot.meta.updatedAt).toLocaleString('es-CO')}
+                </span>
+              </>
             )}
-            {snapshot.meta.updatedBy && <> · por {snapshot.meta.updatedBy}</>}
+            {snapshot.meta.updatedBy && (
+              <>
+                <span className="hidden sm:inline"> · </span>
+                <span className="block sm:inline">por {snapshot.meta.updatedBy}</span>
+              </>
+            )}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:w-auto lg:max-w-md">
           <button
             type="button"
             disabled={saving}
@@ -219,7 +240,7 @@ export function LiveRuntimePanel() {
                 resumePredictionsMutation.mutate();
               }
             }}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+            className="w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50 sm:col-span-2 lg:col-span-1"
           >
             Activar pronósticos IA
           </button>
@@ -231,7 +252,7 @@ export function LiveRuntimePanel() {
                 killMutation.mutate();
               }
             }}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+            className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
           >
             Apagar live
           </button>
@@ -239,7 +260,7 @@ export function LiveRuntimePanel() {
             type="button"
             disabled={saving}
             onClick={() => resumeMutation.mutate()}
-            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
+            className="w-full rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50 sm:col-span-2 lg:col-span-1"
           >
             Reanudar fase 1 (sin IA)
           </button>
@@ -248,15 +269,34 @@ export function LiveRuntimePanel() {
 
       <FlagBanner snapshot={snapshot} />
 
+      {snapshot.flags.autoPaused && (
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center">
+          <p className="min-w-0 flex-1 text-sm leading-relaxed text-amber-100">
+            Auto-pausa por saturación del pool MySQL. Si el pool ya está estable, quítala para
+            reactivar pronósticos IA y hot path.
+          </p>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => clearAutoPauseMutation.mutate()}
+            className="w-full shrink-0 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50 sm:w-auto"
+          >
+            Quitar auto-pausa
+          </button>
+        </div>
+      )}
+
       {(patchMutation.isError ||
         killMutation.isError ||
         resumeMutation.isError ||
-        resumePredictionsMutation.isError) && (
+        resumePredictionsMutation.isError ||
+        clearAutoPauseMutation.isError) && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {patchMutation.error?.message ||
             killMutation.error?.message ||
             resumeMutation.error?.message ||
             resumePredictionsMutation.error?.message ||
+            clearAutoPauseMutation.error?.message ||
             'Error al guardar.'}
           {patchMutation.error instanceof Error &&
           patchMutation.error.message.includes('Sesión') ? (
@@ -269,12 +309,12 @@ export function LiveRuntimePanel() {
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
         {byGroup.map(({ id, label, fields }) =>
           fields.length ? (
             <section
               key={id}
-              className="rounded-xl border border-white/10 bg-[#111827] p-4"
+              className="rounded-xl border border-white/10 bg-[#111827] p-3 sm:p-4"
             >
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 {label}
@@ -293,11 +333,11 @@ export function LiveRuntimePanel() {
         )}
       </div>
 
-      <section className="rounded-xl border border-white/10 bg-[#111827] p-4">
+      <section className="rounded-xl border border-white/10 bg-[#111827] p-3 sm:p-4">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           Valores efectivos ahora
         </h2>
-        <pre className="overflow-x-auto text-xs text-slate-400">
+        <pre className="-mx-1 overflow-x-auto rounded-lg bg-[#0b0f14]/60 p-2 text-[10px] leading-relaxed text-slate-400 sm:mx-0 sm:p-0 sm:text-xs">
           {JSON.stringify(snapshot.effective, null, 2)}
         </pre>
       </section>
