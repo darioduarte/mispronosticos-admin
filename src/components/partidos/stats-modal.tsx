@@ -3,10 +3,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
+  fetchPartidoH2H,
   fetchPartidoStatistics,
   fetchPartidoStatisticsApi,
   syncPartidoFromApi,
+  syncPartidoH2HStats,
 } from '@/lib/api';
+import type { H2HMatchRow } from '@/lib/types';
 
 type Props = {
   fixtureId: number;
@@ -15,13 +18,15 @@ type Props = {
   onSynced?: () => void;
 };
 
-type Tab = 'bd' | 'api';
+type Tab = 'bd' | 'api' | 'h2h';
 
 export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: Props) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('bd');
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
+  const [h2hSyncBusy, setH2hSyncBusy] = useState<number | 'bulk' | null>(null);
+  const [h2hSyncMsg, setH2hSyncMsg] = useState('');
 
   const bdQuery = useQuery({
     queryKey: ['partido-stats', fixtureId],
@@ -35,6 +40,11 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
     enabled: tab === 'api',
   });
 
+  const h2hQuery = useQuery({
+    queryKey: ['partido-h2h', fixtureId],
+    queryFn: () => fetchPartidoH2H(fixtureId),
+  });
+
   async function handleSync() {
     setSyncBusy(true);
     setSyncMsg('');
@@ -46,6 +56,7 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
       }
       await queryClient.invalidateQueries({ queryKey: ['partido-stats', fixtureId] });
       await queryClient.invalidateQueries({ queryKey: ['partido-stats-api', fixtureId] });
+      await queryClient.invalidateQueries({ queryKey: ['partido-h2h', fixtureId] });
       await queryClient.invalidateQueries({ queryKey: ['partidos'] });
       setSyncMsg('Sincronizado desde API-Football');
       onSynced?.();
@@ -56,25 +67,60 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
     }
   }
 
+  async function handleH2HSync(targetIds?: number[]) {
+    setH2hSyncBusy(targetIds?.length === 1 ? targetIds[0] : 'bulk');
+    setH2hSyncMsg('');
+    try {
+      const result = await syncPartidoH2HStats(fixtureId, targetIds);
+      if (!result.success) {
+        setH2hSyncMsg(result.error || 'Error al sincronizar H2H');
+        return;
+      }
+      queryClient.setQueryData(['partido-h2h', fixtureId], result.h2h);
+      await queryClient.invalidateQueries({ queryKey: ['partidos'] });
+      setH2hSyncMsg(
+        `H2H: ${result.syncedOk}/${result.requested} sincronizado(s)${
+          result.syncedFailed ? ` · ${result.syncedFailed} fallo(s)` : ''
+        }`,
+      );
+      onSynced?.();
+    } catch (e) {
+      setH2hSyncMsg((e as Error).message);
+    } finally {
+      setH2hSyncBusy(null);
+    }
+  }
+
+  const h2hData = h2hQuery.data;
+  const h2hWithoutStats = h2hData?.summary.withoutStats ?? 0;
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-xl border border-white/10 bg-[#151b24] shadow-2xl"
+        className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-xl border border-white/10 bg-[#151b24] shadow-2xl sm:max-h-[90vh] sm:rounded-xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
       >
-        <div className="border-b border-white/10 px-5 py-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-white">Estadísticas del partido</h2>
-              <p className="mt-1 text-sm text-slate-400">{matchLabel}</p>
-              <div className="mt-3 flex gap-2">
+        <div className="border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-semibold text-white sm:text-lg">Estadísticas del partido</h2>
+              <p className="mt-1 truncate text-sm text-slate-400">{matchLabel}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
                 <TabBtn active={tab === 'bd'} onClick={() => setTab('bd')}>
                   Base de datos
+                </TabBtn>
+                <TabBtn active={tab === 'h2h'} onClick={() => setTab('h2h')}>
+                  H2H
+                  {h2hWithoutStats > 0 && tab !== 'h2h' && (
+                    <span className="ml-1 rounded bg-amber-500/25 px-1.5 py-0.5 text-[10px] text-amber-200">
+                      {h2hWithoutStats} sin stats
+                    </span>
+                  )}
                 </TabBtn>
                 <TabBtn active={tab === 'api'} onClick={() => setTab('api')}>
                   API crudo
@@ -84,14 +130,14 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-2 py-1 text-slate-400 hover:bg-white/10 hover:text-white"
+              className="shrink-0 rounded-lg px-2 py-1 text-slate-400 hover:bg-white/10 hover:text-white"
             >
               ✕
             </button>
           </div>
         </div>
 
-        <div className="max-h-[calc(90vh-160px)] overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
           {tab === 'bd' && (
             <>
               {bdQuery.isLoading && (
@@ -102,7 +148,7 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
               )}
               {bdQuery.data && (
                 <>
-                  <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
                     <StatChip label="Estado" value={bdQuery.data.marcador?.estado ?? '—'} />
                     <StatChip label="Marcador" value={bdQuery.data.marcador?.marcadorFinal ?? '—'} />
                     <StatChip label="Descanso" value={bdQuery.data.marcador?.marcadorDescanso ?? '—'} />
@@ -113,7 +159,7 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
                   </p>
                   {bdQuery.data.rows.length === 0 ? (
                     <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-6 text-center text-sm text-amber-200/80">
-                      Sin estadísticas en BD. Usa «Sincronizar desde API» para traerlas.
+                      Sin estadísticas en BD. Usa «Sincronizar desde API» o revisa la pestaña H2H.
                     </p>
                   ) : (
                     <StatsTable
@@ -123,6 +169,78 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
                     />
                   )}
                 </>
+              )}
+            </>
+          )}
+
+          {tab === 'h2h' && (
+            <>
+              {h2hQuery.isLoading && (
+                <p className="text-sm text-slate-400">Cargando historial H2H…</p>
+              )}
+              {h2hQuery.isError && (
+                <p className="text-sm text-red-300">{(h2hQuery.error as Error).message}</p>
+              )}
+              {h2hData && (
+                <div className="space-y-5">
+                  <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#0b0f14] p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-slate-300">
+                      <span className="font-medium text-slate-100">
+                        {h2hData.summary.withStats}/{h2hData.summary.total}
+                      </span>{' '}
+                      partidos H2H con stats en BD
+                      {h2hData.summary.withoutStats > 0 && (
+                        <span className="block text-xs text-amber-300 sm:inline sm:ml-2">
+                          · {h2hData.summary.withoutStats} sin estadísticas
+                        </span>
+                      )}
+                    </div>
+                    {h2hData.summary.withoutStats > 0 && (
+                      <button
+                        type="button"
+                        disabled={h2hSyncBusy !== null}
+                        onClick={() => handleH2HSync()}
+                        className="w-full rounded-lg bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:w-auto sm:text-sm"
+                      >
+                        {h2hSyncBusy === 'bulk'
+                          ? 'Sincronizando H2H…'
+                          : `Sincronizar ${h2hData.summary.withoutStats} sin stats`}
+                      </button>
+                    )}
+                  </div>
+
+                  {h2hSyncMsg && (
+                    <p
+                      className={`text-xs ${
+                        h2hSyncMsg.includes('fallo') && !h2hSyncMsg.includes('0/')
+                          ? 'text-amber-300'
+                          : 'text-emerald-400'
+                      }`}
+                    >
+                      {h2hSyncMsg}
+                    </p>
+                  )}
+
+                  <H2HSection
+                    title="Enfrentamientos directos"
+                    subtitle={`${h2hData.homeTeam} vs ${h2hData.awayTeam}`}
+                    rows={h2hData.betweenMatches}
+                    syncBusyId={h2hSyncBusy}
+                    onSyncOne={(id) => handleH2HSync([id])}
+                  />
+                  <H2HSection
+                    title={`Últimos 5 · ${h2hData.homeTeam}`}
+                    rows={h2hData.homeLast5}
+                    syncBusyId={h2hSyncBusy}
+                    onSyncOne={(id) => handleH2HSync([id])}
+                  />
+                  <H2HSection
+                    title={`Últimos 5 · ${h2hData.awayTeam}`}
+                    rows={h2hData.awayLast5}
+                    syncBusyId={h2hSyncBusy}
+                    onSyncOne={(id) => handleH2HSync([id])}
+                  />
+                </div>
               )}
             </>
           )}
@@ -154,27 +272,27 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-5 py-3">
-          <div className="text-xs text-slate-500">
+        <div className="flex flex-col gap-2 border-t border-white/10 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5">
+          <div className="min-h-[1.25rem] text-xs text-slate-500">
             {syncMsg && (
               <span className={syncMsg.startsWith('Sincronizado') ? 'text-emerald-400' : 'text-red-300'}>
                 {syncMsg}
               </span>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:gap-2">
             <button
               type="button"
               onClick={handleSync}
               disabled={syncBusy}
-              className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+              className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:w-auto"
             >
-              {syncBusy ? 'Sincronizando…' : 'Sincronizar desde API'}
+              {syncBusy ? 'Sincronizando…' : 'Sincronizar partido actual'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/5"
+              className="w-full rounded-lg border border-white/10 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 sm:w-auto"
             >
               Cerrar
             </button>
@@ -182,6 +300,109 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
         </div>
       </div>
     </div>
+  );
+}
+
+function H2HSection({
+  title,
+  subtitle,
+  rows,
+  syncBusyId,
+  onSyncOne,
+}: {
+  title: string;
+  subtitle?: string;
+  rows: H2HMatchRow[];
+  syncBusyId: number | 'bulk' | null;
+  onSyncOne: (fixtureId: number) => void;
+}) {
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-slate-200">{title}</h3>
+      {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+      {rows.length === 0 ? (
+        <p className="mt-2 rounded-lg border border-white/5 px-3 py-4 text-center text-xs text-slate-500">
+          Sin partidos en BD para este bloque.
+        </p>
+      ) : (
+        <div className="mt-2 space-y-2">
+          {rows.map((row) => (
+            <H2HMatchCard
+              key={row.fixtureid}
+              row={row}
+              syncing={syncBusyId === row.fixtureid || syncBusyId === 'bulk'}
+              onSync={() => onSyncOne(row.fixtureid)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function H2HMatchCard({
+  row,
+  syncing,
+  onSync,
+}: {
+  row: H2HMatchRow;
+  syncing: boolean;
+  onSync: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#0c1017] p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-slate-100">
+            {row.local} <span className="text-slate-600">vs</span> {row.visitante}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {row.fechaDisplay} · ID {row.fixtureid} · {row.liga}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-slate-300">{row.marcador}</span>
+            <EstadoPill estado={row.estado} badgeClass={row.estadoBadgeClass} />
+            {row.tieneEstadisticas ? (
+              <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                Stats OK
+              </span>
+            ) : (
+              <span className="rounded bg-red-500/20 px-2 py-0.5 text-[10px] font-semibold text-red-300">
+                Sin stats
+              </span>
+            )}
+          </div>
+        </div>
+        {!row.tieneEstadisticas && (
+          <button
+            type="button"
+            disabled={syncing}
+            onClick={onSync}
+            className="w-full shrink-0 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50 sm:w-auto"
+          >
+            {syncing ? '…' : 'Sync stats'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EstadoPill({
+  estado,
+  badgeClass,
+}: {
+  estado: string;
+  badgeClass: H2HMatchRow['estadoBadgeClass'];
+}) {
+  const styles = {
+    ns: 'bg-slate-500/20 text-slate-300',
+    ft: 'bg-emerald-500/20 text-emerald-300',
+    live: 'bg-amber-500/20 text-amber-300',
+    other: 'bg-indigo-500/20 text-indigo-300',
+  }[badgeClass];
+  return (
+    <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${styles}`}>{estado}</span>
   );
 }
 
@@ -196,7 +417,7 @@ function StatsTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-white/10">
-      <table className="w-full text-sm">
+      <table className="w-full min-w-[280px] text-sm">
         <thead className="bg-[#0c1017] text-xs uppercase text-slate-400">
           <tr>
             <th className="px-3 py-2 text-left">Métrica</th>

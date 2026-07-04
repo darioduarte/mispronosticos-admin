@@ -62,6 +62,45 @@ export type FixtureStatisticsResponse = {
   error?: string;
 };
 
+export type H2HMatchRow = {
+  fixtureid: number;
+  fechaDisplay: string;
+  local: string;
+  visitante: string;
+  marcador: string;
+  estado: string;
+  estadoBadgeClass: 'ns' | 'ft' | 'live' | 'other';
+  liga: string;
+  tieneEstadisticas: boolean;
+};
+
+export type FixtureH2HResponse = {
+  success: boolean;
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  betweenMatches: H2HMatchRow[];
+  homeLast5: H2HMatchRow[];
+  awayLast5: H2HMatchRow[];
+  summary: {
+    total: number;
+    withStats: number;
+    withoutStats: number;
+  };
+  error?: string;
+};
+
+export type H2HSyncStatsResponse = {
+  success: boolean;
+  parentFixtureId: number;
+  requested: number;
+  syncedOk: number;
+  syncedFailed: number;
+  results: { fixtureId: number; success: boolean; error?: string; hadStatisticsInApi?: boolean }[];
+  h2h: FixtureH2HResponse;
+  error?: string;
+};
+
 export type PronosticosIaMeta = {
   desde: string;
   hasta: string;

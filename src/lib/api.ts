@@ -9,6 +9,8 @@ import type {
   AuthSession,
   ComparadorResponse,
   FixtureStatisticsResponse,
+  FixtureH2HResponse,
+  H2HSyncStatsResponse,
   MelbetOddsResponse,
   OddsReferenciaResponse,
   PartidosResponse,
@@ -665,6 +667,20 @@ export function syncPartidoFromApi(fixtureId: number) {
   return adminFetch<{ success: boolean; statistics?: FixtureStatisticsResponse; error?: string }>(
     `/api/admin/partidos/fixtures/${fixtureId}/sync-from-api`,
     { method: 'POST' },
+  );
+}
+
+export function fetchPartidoH2H(fixtureId: number) {
+  return adminFetch<FixtureH2HResponse>(`/api/admin/partidos/fixtures/${fixtureId}/h2h`);
+}
+
+export function syncPartidoH2HStats(fixtureId: number, fixtureIds?: number[]) {
+  return adminFetch<H2HSyncStatsResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/h2h/sync-stats`,
+    {
+      method: 'POST',
+      body: JSON.stringify(fixtureIds?.length ? { fixtureIds } : {}),
+    },
   );
 }
 
