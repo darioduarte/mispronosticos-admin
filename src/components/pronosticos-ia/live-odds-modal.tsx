@@ -56,11 +56,17 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
                 <span className={data.marketsSummary.liveFouls ? 'text-emerald-400' : 'text-amber-400'}>
                   Faltas en vivo: {data.marketsSummary.liveFouls ? 'sí' : 'no'}
                 </span>
+                <span className={data.marketsSummary.liveCards ? 'text-emerald-400' : 'text-amber-400'}>
+                  Tarjetas en vivo: {data.marketsSummary.liveCards ? 'sí' : 'no'}
+                </span>
                 {data.marketsSummary.preMatchFouls && (
                   <span className="text-indigo-300">+ faltas pre-partido</span>
                 )}
                 {data.marketsSummary.preMatchRemates && (
                   <span className="text-indigo-300">+ remates pre-partido</span>
+                )}
+                {data.marketsSummary.preMatchCards && (
+                  <span className="text-indigo-300">+ tarjetas pre-partido</span>
                 )}
               </p>
             )}

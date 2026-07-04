@@ -145,8 +145,10 @@ export type LiveOddsResponse = {
   marketsSummary?: {
     liveShots?: boolean;
     liveFouls?: boolean;
+    liveCards?: boolean;
     preMatchFouls?: boolean;
     preMatchRemates?: boolean;
+    preMatchCards?: boolean;
   };
   supplementKeys?: string[];
   error?: string;
