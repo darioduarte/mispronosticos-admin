@@ -1,8 +1,8 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { fetchFixtureStatistics, fetchMelbetStatistics } from '@/lib/api';
+import { fetchFixtureStatistics, fetchMelbetStatistics, syncPartidoFromApi } from '@/lib/api';
 
 type Props = {
   fixtureId: number | null;
@@ -13,7 +13,10 @@ type Props = {
 type Tab = 'bd' | 'melbet';
 
 export function FixtureStatsModal({ fixtureId, matchLabel, onClose }: Props) {
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('bd');
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
 
   const bdQuery = useQuery({
     queryKey: ['fixture-stats', fixtureId],
@@ -26,6 +29,27 @@ export function FixtureStatsModal({ fixtureId, matchLabel, onClose }: Props) {
     queryFn: () => fetchMelbetStatistics(fixtureId!),
     enabled: fixtureId != null && tab === 'melbet',
   });
+
+  async function handleSync() {
+    if (fixtureId == null) return;
+    setSyncBusy(true);
+    setSyncMsg('');
+    try {
+      const result = await syncPartidoFromApi(fixtureId);
+      if (!result.success) {
+        setSyncMsg(result.error || 'Error al sincronizar');
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ['fixture-stats', fixtureId] });
+      await queryClient.invalidateQueries({ queryKey: ['partido-stats', fixtureId] });
+      await queryClient.invalidateQueries({ queryKey: ['partidos'] });
+      setSyncMsg('Sincronizado desde API-Football');
+    } catch (e) {
+      setSyncMsg((e as Error).message);
+    } finally {
+      setSyncBusy(false);
+    }
+  }
 
   if (fixtureId == null) return null;
 
@@ -85,8 +109,8 @@ export function FixtureStatsModal({ fixtureId, matchLabel, onClose }: Props) {
                     Fuente: BD ({bdQuery.data.dataSource ?? 'database'}) · Fixture {bdQuery.data.fixtureId}
                   </p>
                   {bdQuery.data.rows.length === 0 ? (
-                    <p className="rounded-lg border border-white/10 bg-[#0b0f14] px-4 py-6 text-center text-sm text-slate-500">
-                      Sin estadísticas en BD para este partido.
+                    <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-6 text-center text-sm text-amber-200/80">
+                      Sin estadísticas en BD. Usa «Sincronizar desde API» abajo para traerlas.
                     </p>
                   ) : (
                     <div className="overflow-x-auto rounded-lg border border-white/10">
@@ -130,6 +154,33 @@ export function FixtureStatsModal({ fixtureId, matchLabel, onClose }: Props) {
               )}
             </>
           )}
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-white/10 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5">
+          <div className="min-h-[1.25rem] text-xs text-slate-500">
+            {syncMsg && (
+              <span className={syncMsg.startsWith('Sincronizado') ? 'text-emerald-400' : 'text-red-300'}>
+                {syncMsg}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:gap-2">
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncBusy}
+              className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:w-auto"
+            >
+              {syncBusy ? 'Sincronizando…' : 'Sincronizar desde API'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-lg border border-white/10 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 sm:w-auto"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       </div>
     </div>
