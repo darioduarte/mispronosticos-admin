@@ -325,12 +325,48 @@ export type RefereeHistoryResponse = {
   error?: string;
 };
 
+export type PartidoStatisticsApiResponse = {
+  success: boolean;
+  fixtureId?: number;
+  fixtureApi?: unknown;
+  statisticsApi?: unknown;
+  statisticsApiError?: string | null;
+  error?: string;
+};
+
+export type PartidoStatisticsFlbResponse = {
+  success: boolean;
+  fixtureId?: number;
+  eventId?: string | null;
+  flbRaw?: unknown;
+  mapped?: unknown;
+  error?: string;
+};
+
+export type SyncPartidoStatsResponse = {
+  success: boolean;
+  fixtureId?: number;
+  statisticsPersisted?: boolean;
+  statisticsSource?: string;
+  statsSource?: string;
+  message?: string;
+  error?: string;
+  statistics?: FixtureStatisticsResponse;
+};
+
 export type SyncStatsResponse = {
   success?: boolean;
   error?: string;
   message?: string;
+  summary?: string;
   daysProcessed?: number;
   fixturesUpdated?: number;
+  totals?: {
+    processed?: number;
+    failed?: number;
+    missingAfter?: number;
+    flbUpdated?: number;
+  };
   [key: string]: unknown;
 };
 
@@ -457,15 +493,6 @@ export type PromediosRecalculateResponse = {
     removedData?: number;
   } | null;
   summary?: PromediosSummaryResponse | null;
-  error?: string;
-};
-
-export type PartidoStatisticsApiResponse = {
-  success: boolean;
-  fixtureId?: number;
-  fixtureApi?: unknown;
-  statisticsApi?: unknown;
-  statisticsApiError?: string | null;
   error?: string;
 };
 

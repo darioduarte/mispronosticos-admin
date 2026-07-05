@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { fetchFixtureStatistics, fetchMelbetStatistics, syncPartidoFromApi } from '@/lib/api';
+import { fetchFixtureStatistics, fetchMelbetStatistics, syncPartidoStats } from '@/lib/api';
 
 type Props = {
   fixtureId: number | null;
@@ -35,7 +35,7 @@ export function FixtureStatsModal({ fixtureId, matchLabel, onClose }: Props) {
     setSyncBusy(true);
     setSyncMsg('');
     try {
-      const result = await syncPartidoFromApi(fixtureId);
+      const result = await syncPartidoStats(fixtureId);
       if (!result.success) {
         setSyncMsg(result.error || 'Error al sincronizar');
         return;
@@ -43,7 +43,12 @@ export function FixtureStatsModal({ fixtureId, matchLabel, onClose }: Props) {
       await queryClient.invalidateQueries({ queryKey: ['fixture-stats', fixtureId] });
       await queryClient.invalidateQueries({ queryKey: ['partido-stats', fixtureId] });
       await queryClient.invalidateQueries({ queryKey: ['partidos'] });
-      setSyncMsg('Sincronizado desde API-Football');
+      const src = result.statisticsSource || result.statsSource;
+      setSyncMsg(
+        src === 'flb'
+          ? 'Sincronizado desde Live-Football-Data (FLB)'
+          : result.message || 'Sincronizado',
+      );
     } catch (e) {
       setSyncMsg((e as Error).message);
     } finally {
@@ -110,7 +115,7 @@ export function FixtureStatsModal({ fixtureId, matchLabel, onClose }: Props) {
                   </p>
                   {bdQuery.data.rows.length === 0 ? (
                     <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-6 text-center text-sm text-amber-200/80">
-                      Sin estadísticas en BD. Usa «Sincronizar desde API» abajo para traerlas.
+                      Sin estadísticas en BD. Usa «Sincronizar stats (FLB)» abajo.
                     </p>
                   ) : (
                     <div className="overflow-x-auto rounded-lg border border-white/10">
@@ -171,7 +176,7 @@ export function FixtureStatsModal({ fixtureId, matchLabel, onClose }: Props) {
               disabled={syncBusy}
               className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:w-auto"
             >
-              {syncBusy ? 'Sincronizando…' : 'Sincronizar desde API'}
+              {syncBusy ? 'Sincronizando…' : 'Sincronizar stats (FLB)'}
             </button>
             <button
               type="button"

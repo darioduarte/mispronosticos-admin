@@ -7,7 +7,7 @@ import { PartidoStatsModal } from '@/components/partidos/stats-modal';
 import { PromediosModal } from '@/components/partidos/promedios-modal';
 import { RefereeModal } from '@/components/partidos/referee-modal';
 import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
-import { fetchPartidos, repairPartidosReferees, syncPartidosStats } from '@/lib/api';
+import { fetchPartidos, repairPartidosReferees, syncPartidoStats, syncPartidosStats } from '@/lib/api';
 import {
   DEFAULT_PARTIDOS_FILTERS,
   filterPartidosRows,
@@ -49,9 +49,9 @@ export function PartidosView() {
   const [filters, setFilters] = useState<PartidosClientFilters>(DEFAULT_PARTIDOS_FILTERS);
   const [sortMode, setSortMode] = useState<PartidosSortMode>('fecha_asc');
   const [syncOnlyMissing, setSyncOnlyMissing] = useState(true);
-  const [syncUseFlb, setSyncUseFlb] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
+  const [syncRowId, setSyncRowId] = useState<number | null>(null);
   const [repairBusy, setRepairBusy] = useState(false);
   const [repairMsg, setRepairMsg] = useState('');
   const [statsModal, setStatsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
@@ -107,7 +107,7 @@ export function PartidosView() {
   async function handleSyncRange() {
     if (
       !confirm(
-        `¿Sincronizar estadísticas del ${applied.desde} al ${applied.hasta}?`,
+        `¿Sincronizar estadísticas (FLB) de ligas destacadas del ${applied.desde} al ${applied.hasta}?`,
       )
     ) {
       return;
@@ -119,20 +119,46 @@ export function PartidosView() {
         desde: applied.desde,
         hasta: applied.hasta,
         onlyMissing: syncOnlyMissing,
-        useFlb: syncUseFlb,
       });
       if (result.success === false) {
         setSyncMsg(result.error || result.message || 'Error al sincronizar');
       } else {
-        setSyncMsg(
-          `Listo${result.daysProcessed != null ? `: ${result.daysProcessed} día(s) procesados` : ''}`,
-        );
+        const t = result.totals;
+        const parts = [
+          result.summary,
+          t?.flbUpdated != null ? `refuerzo FLB: ${t.flbUpdated}` : null,
+          t?.missingAfter != null ? `sin stats: ${t.missingAfter}` : null,
+        ].filter(Boolean);
+        setSyncMsg(parts.join(' · ') || 'Sincronización completada');
         await queryClient.invalidateQueries({ queryKey: ['partidos'] });
       }
     } catch (e) {
       setSyncMsg((e as Error).message);
     } finally {
       setSyncBusy(false);
+    }
+  }
+
+  async function handleSyncOne(fixtureId: number) {
+    setSyncRowId(fixtureId);
+    try {
+      const result = await syncPartidoStats(fixtureId);
+      if (!result.success) {
+        window.alert(result.error || result.message || 'Error al sincronizar');
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ['partidos'] });
+      const src = result.statisticsSource || result.statsSource || 'flb';
+      window.alert(
+        result.message ||
+          (src === 'flb'
+            ? 'Estadísticas sincronizadas desde Live-Football-Data'
+            : `Sincronizado (fuente: ${src})`),
+      );
+    } catch (e) {
+      window.alert((e as Error).message);
+    } finally {
+      setSyncRowId(null);
     }
   }
 
@@ -185,8 +211,9 @@ export function PartidosView() {
       <header className="mb-4 sm:mb-6">
         <h1 className="text-xl font-bold text-white sm:text-2xl">Partidos</h1>
         <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-400">
-          Ligas destacadas · árbitros y estadísticas. Consulta, filtra y sincroniza desde
-          API-Football.
+          Ligas destacadas · estadísticas vía{' '}
+          <strong className="font-medium text-emerald-400/90">Live-Football-Data (FLB)</strong>
+          {' '}con nombres canónicos en BD. Marcador y árbitro siguen en API-Football.
         </p>
       </header>
 
@@ -227,7 +254,7 @@ export function PartidosView() {
 
         <div className="mt-4 border-t border-white/10 pt-4">
           <p className="mb-2 text-xs text-slate-500">
-            Sincronizar estadísticas del rango (día a día, solo ligas destacadas)
+            Sincronizar estadísticas FLB del rango visible (ligas destacadas, día a día)
           </p>
           <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
             <label className="flex items-center gap-2 text-sm text-slate-400">
@@ -237,16 +264,7 @@ export function PartidosView() {
                 onChange={(e) => setSyncOnlyMissing(e.target.checked)}
                 className="rounded border-white/20"
               />
-              Solo sin estadísticas
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-400">
-              <input
-                type="checkbox"
-                checked={syncUseFlb}
-                onChange={(e) => setSyncUseFlb(e.target.checked)}
-                className="rounded border-white/20"
-              />
-              FLB en vivo (fallback)
+              Solo partidos sin estadísticas
             </label>
             <button
               type="button"
@@ -254,7 +272,7 @@ export function PartidosView() {
               disabled={syncBusy}
               className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:w-auto"
             >
-              {syncBusy ? 'Sincronizando…' : 'Sincronizar rango'}
+              {syncBusy ? 'Sincronizando rango…' : 'Sincronizar rango (FLB)'}
             </button>
             <button
               type="button"
@@ -463,6 +481,8 @@ export function PartidosView() {
                   })
                 }
                 showLiveOdds={row.estadoBadgeClass === 'live'}
+                onSyncFlb={() => handleSyncOne(row.fixtureid)}
+                syncBusy={syncRowId === row.fixtureid}
               />
             ))}
             {filtered.length === 0 && (
@@ -520,6 +540,8 @@ export function PartidosView() {
                       })
                     }
                     showLiveOdds={row.estadoBadgeClass === 'live'}
+                    onSyncFlb={() => handleSyncOne(row.fixtureid)}
+                    syncBusy={syncRowId === row.fixtureid}
                   />
                 ))}
                 {filtered.length === 0 && (
@@ -581,6 +603,8 @@ function PartidoMobileCard({
   onPromedios,
   onReferee,
   onLiveOdds,
+  onSyncFlb,
+  syncBusy,
   showLiveOdds,
 }: {
   row: PartidoRow;
@@ -589,6 +613,8 @@ function PartidoMobileCard({
   onPromedios: () => void;
   onReferee: () => void;
   onLiveOdds: () => void;
+  onSyncFlb: () => void;
+  syncBusy?: boolean;
   showLiveOdds?: boolean;
 }) {
   const iaHref = `/pronosticos-ia?search=${row.fixtureid}&desde=${dateRange.desde}&hasta=${dateRange.hasta}`;
@@ -629,6 +655,7 @@ function PartidoMobileCard({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
+        <ActionBtn label={syncBusy ? '…' : 'Sync FLB'} onClick={onSyncFlb} disabled={syncBusy} />
         <ActionBtn label="Stats" onClick={onStats} />
         <ActionBtn label="Promedios" onClick={onPromedios} />
         <ActionBtn label="Árbitro" onClick={onReferee} />
@@ -670,6 +697,8 @@ function PartidoTableRow({
   onPromedios,
   onReferee,
   onLiveOdds,
+  onSyncFlb,
+  syncBusy,
   showLiveOdds,
 }: {
   row: PartidoRow;
@@ -678,6 +707,8 @@ function PartidoTableRow({
   onPromedios: () => void;
   onReferee: () => void;
   onLiveOdds: () => void;
+  onSyncFlb: () => void;
+  syncBusy?: boolean;
   showLiveOdds?: boolean;
 }) {
   const iaHref = `/pronosticos-ia?search=${row.fixtureid}&desde=${dateRange.desde}&hasta=${dateRange.hasta}`;
@@ -721,6 +752,7 @@ function PartidoTableRow({
       </td>
       <td className="px-3 py-2">
         <div className="flex flex-wrap gap-1">
+          <ActionBtn label={syncBusy ? '…' : 'Sync FLB'} onClick={onSyncFlb} disabled={syncBusy} />
           <ActionBtn label="Stats" onClick={onStats} />
           <ActionBtn label="Promedios" onClick={onPromedios} />
           <ActionBtn label="Árbitro" onClick={onReferee} />
@@ -826,12 +858,21 @@ function SelectFilter({
   );
 }
 
-function ActionBtn({ label, onClick }: { label: string; onClick: () => void }) {
+function ActionBtn({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rounded border border-white/10 px-2.5 py-1 text-xs text-slate-400 hover:border-indigo-500/40 hover:text-indigo-300 sm:px-2 sm:py-0.5 sm:text-[10px]"
+      disabled={disabled}
+      className="rounded border border-white/10 px-2.5 py-1 text-xs text-slate-400 hover:border-emerald-500/40 hover:text-emerald-300 disabled:opacity-50 sm:px-2 sm:py-0.5 sm:text-[10px]"
     >
       {label}
     </button>

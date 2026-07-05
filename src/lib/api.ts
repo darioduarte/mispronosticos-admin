@@ -23,6 +23,8 @@ import type {
   RefereeSearchResponse,
   RepairRefereesResponse,
   PartidoStatisticsApiResponse,
+  PartidoStatisticsFlbResponse,
+  SyncPartidoStatsResponse,
   PromediosMuestraResponse,
   PromediosRecalculateResponse,
   PromediosSummaryResponse,
@@ -616,11 +618,10 @@ export function syncPartidosStats(payload: {
   desde: string;
   hasta: string;
   onlyMissing?: boolean;
-  useFlb?: boolean;
 }) {
   return adminFetch<SyncStatsResponse>('/api/admin/partidos/sync-stats', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, useFlb: true }),
   });
 }
 
@@ -663,11 +664,22 @@ export function fetchPartidoStatisticsApi(fixtureId: number) {
   );
 }
 
-export function syncPartidoFromApi(fixtureId: number) {
-  return adminFetch<{ success: boolean; statistics?: FixtureStatisticsResponse; error?: string }>(
-    `/api/admin/partidos/fixtures/${fixtureId}/sync-from-api`,
+export function fetchPartidoStatisticsFlb(fixtureId: number) {
+  return adminFetch<PartidoStatisticsFlbResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/statistics-flb`,
+  );
+}
+
+export function syncPartidoStats(fixtureId: number) {
+  return adminFetch<SyncPartidoStatsResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/sync-stats`,
     { method: 'POST' },
   );
+}
+
+/** @deprecated Usar syncPartidoStats */
+export function syncPartidoFromApi(fixtureId: number) {
+  return syncPartidoStats(fixtureId);
 }
 
 export function fetchPartidoH2H(fixtureId: number) {

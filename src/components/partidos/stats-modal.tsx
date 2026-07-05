@@ -5,8 +5,8 @@ import { useState } from 'react';
 import {
   fetchPartidoH2H,
   fetchPartidoStatistics,
-  fetchPartidoStatisticsApi,
-  syncPartidoFromApi,
+  fetchPartidoStatisticsFlb,
+  syncPartidoStats,
   syncPartidoH2HStats,
 } from '@/lib/api';
 import type { H2HMatchRow } from '@/lib/types';
@@ -18,7 +18,21 @@ type Props = {
   onSynced?: () => void;
 };
 
-type Tab = 'bd' | 'api' | 'h2h';
+type Tab = 'bd' | 'flb' | 'h2h';
+
+function formatSyncMessage(result: {
+  message?: string;
+  statisticsSource?: string;
+  statsSource?: string;
+  statisticsPersisted?: boolean;
+}) {
+  if (result.message) return result.message;
+  const src = result.statisticsSource || result.statsSource;
+  if (src === 'flb') return 'Sincronizado desde Live-Football-Data (FLB)';
+  if (src === 'api-football') return 'Stats vía API-Football (fallback FLB)';
+  if (result.statisticsPersisted) return 'Sincronizado';
+  return 'Sin estadísticas disponibles';
+}
 
 export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: Props) {
   const queryClient = useQueryClient();
@@ -34,10 +48,10 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
     enabled: tab === 'bd',
   });
 
-  const apiQuery = useQuery({
-    queryKey: ['partido-stats-api', fixtureId],
-    queryFn: () => fetchPartidoStatisticsApi(fixtureId),
-    enabled: tab === 'api',
+  const flbQuery = useQuery({
+    queryKey: ['partido-stats-flb', fixtureId],
+    queryFn: () => fetchPartidoStatisticsFlb(fixtureId),
+    enabled: tab === 'flb',
   });
 
   const h2hQuery = useQuery({
@@ -49,16 +63,16 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
     setSyncBusy(true);
     setSyncMsg('');
     try {
-      const result = await syncPartidoFromApi(fixtureId);
+      const result = await syncPartidoStats(fixtureId);
       if (!result.success) {
-        setSyncMsg(result.error || 'Error al sincronizar');
+        setSyncMsg(result.error || result.message || 'Error al sincronizar');
         return;
       }
       await queryClient.invalidateQueries({ queryKey: ['partido-stats', fixtureId] });
-      await queryClient.invalidateQueries({ queryKey: ['partido-stats-api', fixtureId] });
+      await queryClient.invalidateQueries({ queryKey: ['partido-stats-flb', fixtureId] });
       await queryClient.invalidateQueries({ queryKey: ['partido-h2h', fixtureId] });
       await queryClient.invalidateQueries({ queryKey: ['partidos'] });
-      setSyncMsg('Sincronizado desde API-Football');
+      setSyncMsg(formatSyncMessage(result));
       onSynced?.();
     } catch (e) {
       setSyncMsg((e as Error).message);
@@ -79,7 +93,7 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
       queryClient.setQueryData(['partido-h2h', fixtureId], result.h2h);
       await queryClient.invalidateQueries({ queryKey: ['partidos'] });
       setH2hSyncMsg(
-        `H2H: ${result.syncedOk}/${result.requested} sincronizado(s)${
+        `H2H (FLB): ${result.syncedOk}/${result.requested} sincronizado(s)${
           result.syncedFailed ? ` · ${result.syncedFailed} fallo(s)` : ''
         }`,
       );
@@ -114,6 +128,9 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
                 <TabBtn active={tab === 'bd'} onClick={() => setTab('bd')}>
                   Base de datos
                 </TabBtn>
+                <TabBtn active={tab === 'flb'} onClick={() => setTab('flb')}>
+                  FLB (crudo)
+                </TabBtn>
                 <TabBtn active={tab === 'h2h'} onClick={() => setTab('h2h')}>
                   H2H
                   {h2hWithoutStats > 0 && tab !== 'h2h' && (
@@ -121,9 +138,6 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
                       {h2hWithoutStats} sin stats
                     </span>
                   )}
-                </TabBtn>
-                <TabBtn active={tab === 'api'} onClick={() => setTab('api')}>
-                  API crudo
                 </TabBtn>
               </div>
             </div>
@@ -155,11 +169,11 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
                     <StatChip label="Árbitro" value={bdQuery.data.fixturereferee ?? '—'} />
                   </div>
                   <p className="mb-2 text-xs text-slate-500">
-                    Fuente: BD · Fixture {bdQuery.data.fixtureId}
+                    Fuente: BD (nombres canónicos API-Football) · Fixture {bdQuery.data.fixtureId}
                   </p>
                   {bdQuery.data.rows.length === 0 ? (
                     <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-6 text-center text-sm text-amber-200/80">
-                      Sin estadísticas en BD. Usa «Sincronizar desde API» o revisa la pestaña H2H.
+                      Sin estadísticas en BD. Usa «Sincronizar stats (FLB)» o revisa H2H.
                     </p>
                   ) : (
                     <StatsTable
@@ -188,7 +202,7 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
                       <span className="font-medium text-slate-100">
                         {h2hData.summary.withStats}/{h2hData.summary.total}
                       </span>{' '}
-                      partidos H2H con stats en BD
+                      partidos H2H con stats en BD (FLB)
                       {h2hData.summary.withoutStats > 0 && (
                         <span className="block text-xs text-amber-300 sm:inline sm:ml-2">
                           · {h2hData.summary.withoutStats} sin estadísticas
@@ -204,7 +218,7 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
                       >
                         {h2hSyncBusy === 'bulk'
                           ? 'Sincronizando H2H…'
-                          : `Sincronizar ${h2hData.summary.withoutStats} sin stats`}
+                          : `Sincronizar ${h2hData.summary.withoutStats} (FLB)`}
                       </button>
                     )}
                   </div>
@@ -245,27 +259,27 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
             </>
           )}
 
-          {tab === 'api' && (
+          {tab === 'flb' && (
             <>
-              {apiQuery.isLoading && (
-                <p className="text-sm text-slate-400">Consultando API-Football…</p>
+              {flbQuery.isLoading && (
+                <p className="text-sm text-slate-400">Consultando Live-Football-Data…</p>
               )}
-              {apiQuery.isError && (
-                <p className="text-sm text-red-300">{(apiQuery.error as Error).message}</p>
+              {flbQuery.isError && (
+                <p className="text-sm text-red-300">{(flbQuery.error as Error).message}</p>
               )}
-              {apiQuery.data && (
+              {flbQuery.data && (
                 <div className="space-y-4">
                   <p className="text-xs text-slate-500">
-                    Respuesta directa de API-Football (sin transformar). Útil para depurar sync.
+                    Respuesta FLB y bloque mapeado a nombres API-Football (lo que se guarda en BD).
+                    {flbQuery.data.eventId != null && (
+                      <span className="ml-1 text-slate-400">eventId: {flbQuery.data.eventId}</span>
+                    )}
                   </p>
-                  <ApiBlock title="Fixture (v3/fixtures)" data={apiQuery.data.fixtureApi} />
-                  {apiQuery.data.statisticsApiError ? (
-                    <p className="text-sm text-amber-300">
-                      Estadísticas API: {apiQuery.data.statisticsApiError}
-                    </p>
-                  ) : (
-                    <ApiBlock title="Estadísticas (v3/fixtures/statistics)" data={apiQuery.data.statisticsApi} />
+                  {flbQuery.data.error && (
+                    <p className="text-sm text-amber-300">{flbQuery.data.error}</p>
                   )}
+                  <ApiBlock title="Mapeado (canonical)" data={flbQuery.data.mapped} />
+                  <ApiBlock title="FLB crudo" data={flbQuery.data.flbRaw} />
                 </div>
               )}
             </>
@@ -275,7 +289,7 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
         <div className="flex flex-col gap-2 border-t border-white/10 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5">
           <div className="min-h-[1.25rem] text-xs text-slate-500">
             {syncMsg && (
-              <span className={syncMsg.startsWith('Sincronizado') ? 'text-emerald-400' : 'text-red-300'}>
+              <span className={syncMsg.startsWith('Sin') ? 'text-amber-300' : 'text-emerald-400'}>
                 {syncMsg}
               </span>
             )}
@@ -287,7 +301,7 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
               disabled={syncBusy}
               className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:w-auto"
             >
-              {syncBusy ? 'Sincronizando…' : 'Sincronizar partido actual'}
+              {syncBusy ? 'Sincronizando…' : 'Sincronizar stats (FLB)'}
             </button>
             <button
               type="button"
@@ -380,7 +394,7 @@ function H2HMatchCard({
             onClick={onSync}
             className="w-full shrink-0 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50 sm:w-auto"
           >
-            {syncing ? '…' : 'Sync stats'}
+            {syncing ? '…' : 'Sync FLB'}
           </button>
         )}
       </div>
