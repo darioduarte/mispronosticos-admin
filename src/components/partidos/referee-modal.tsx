@@ -1,14 +1,15 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchRefereeFromApi,
   fetchRefereeHistory,
   saveFixtureReferee,
   searchReferees,
+  syncRefereeHistoryStats,
 } from '@/lib/api';
-import type { RefereeSearchItem } from '@/lib/types';
+import type { RefereeHistoryMatch, RefereeSearchItem } from '@/lib/types';
 
 type Props = {
   fixtureId: number;
@@ -35,6 +36,7 @@ export function RefereeModal({
   onClose,
   onSaved,
 }: Props) {
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('assign');
   const [search, setSearch] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
@@ -43,6 +45,8 @@ export function RefereeModal({
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'ok' | 'err' | ''>('');
   const [busy, setBusy] = useState(false);
+  const [statsSyncBusy, setStatsSyncBusy] = useState<number | 'bulk' | null>(null);
+  const [statsSyncMsg, setStatsSyncMsg] = useState('');
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(search.trim()), DEBOUNCE_MS);
@@ -107,6 +111,39 @@ export function RefereeModal({
     setSelectedName(item.name);
     setCustomName('');
     showMsg(`Seleccionado: ${item.name}`, 'ok');
+  }
+
+  const historyMatches = historyQuery.data?.matches ?? [];
+  const historySummary = useMemo(() => {
+    const total = historyMatches.length;
+    const withStats = historyMatches.filter((m) => m.hasStats).length;
+    return { total, withStats, withoutStats: total - withStats };
+  }, [historyMatches]);
+
+  async function handleStatsSync(targetIds?: number[]) {
+    if (!reviewName) return;
+    const targetId = targetIds?.length === 1 ? targetIds[0] : null;
+    setStatsSyncBusy(targetId ?? 'bulk');
+    setStatsSyncMsg('');
+    try {
+      const result = await syncRefereeHistoryStats(reviewName, fixtureId, targetIds);
+      if (!result.success) {
+        setStatsSyncMsg(result.error || 'Error al sincronizar stats');
+        return;
+      }
+      queryClient.setQueryData(['referee-history', fixtureId, reviewName], result);
+      await queryClient.invalidateQueries({ queryKey: ['partidos'] });
+      setStatsSyncMsg(
+        `Muestra (FLB): ${result.syncedOk}/${result.requested} sincronizado(s)${
+          result.syncedFailed ? ` · ${result.syncedFailed} fallo(s)` : ''
+        }`,
+      );
+      onSaved();
+    } catch (e) {
+      setStatsSyncMsg((e as Error).message);
+    } finally {
+      setStatsSyncBusy(null);
+    }
   }
 
   return (
@@ -263,7 +300,46 @@ export function RefereeModal({
                       {historyQuery.data.summaryLabel}
                     </p>
                   )}
-                  {historyQuery.data?.matches && historyQuery.data.matches.length > 0 ? (
+                  {historyMatches.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs text-slate-400">
+                        <span className="font-semibold text-emerald-300">
+                          {historySummary.withStats}/{historySummary.total}
+                        </span>{' '}
+                        partidos de la muestra con stats en BD (FLB)
+                        {historySummary.withoutStats > 0 && (
+                          <span className="text-amber-300">
+                            {' '}
+                            · {historySummary.withoutStats} sin estadísticas
+                          </span>
+                        )}
+                      </p>
+                      {historySummary.withoutStats > 0 && (
+                        <button
+                          type="button"
+                          disabled={statsSyncBusy !== null}
+                          onClick={() => handleStatsSync()}
+                          className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
+                        >
+                          {statsSyncBusy === 'bulk'
+                            ? 'Sincronizando…'
+                            : `Sincronizar ${historySummary.withoutStats} (FLB)`}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {statsSyncMsg && (
+                    <p
+                      className={`text-xs ${
+                        statsSyncMsg.includes('fallo') && !statsSyncMsg.includes('0/')
+                          ? 'text-amber-300'
+                          : 'text-emerald-300'
+                      }`}
+                    >
+                      {statsSyncMsg}
+                    </p>
+                  )}
+                  {historyMatches.length > 0 ? (
                     <div className="overflow-x-auto rounded-lg border border-white/10">
                       <table className="w-full text-xs">
                         <thead className="bg-[#0c1017] text-slate-400">
@@ -273,37 +349,19 @@ export function RefereeModal({
                             <th className="px-2 py-2 text-center">🟨</th>
                             <th className="px-2 py-2 text-center">🟥</th>
                             <th className="px-2 py-2 text-center">Faltas</th>
+                            <th className="px-2 py-2 text-right">Acción</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {historyQuery.data.matches.map((m, i) => (
-                            <tr key={m.fixtureId ?? i} className="border-t border-white/5">
-                              <td className="whitespace-nowrap px-2 py-2 text-slate-400">
-                                {m.dateTimeDisplay || m.dateDisplay || '—'}
-                              </td>
-                              <td className="max-w-[220px] px-2 py-2 text-slate-300">
-                                <span>
-                                  {m.homeTeam || '—'} vs {m.awayTeam || '—'}
-                                  {m.score ? (
-                                    <span className="text-emerald-300"> ({m.score})</span>
-                                  ) : null}
-                                </span>
-                                {m.league ? (
-                                  <span className="mt-0.5 block text-[10px] text-slate-500">
-                                    {m.league}
-                                  </span>
-                                ) : null}
-                              </td>
-                              <td className="px-2 py-2 text-center text-slate-400">
-                                {formatStatCell(m.yellowTotal)}
-                              </td>
-                              <td className="px-2 py-2 text-center text-slate-400">
-                                {formatStatCell(m.redTotal)}
-                              </td>
-                              <td className="px-2 py-2 text-center text-slate-400">
-                                {formatStatCell(m.foulsTotal)}
-                              </td>
-                            </tr>
+                          {historyMatches.map((m, i) => (
+                            <RefereeHistoryRow
+                              key={m.fixtureId ?? i}
+                              match={m}
+                              syncing={statsSyncBusy === parseInt(String(m.fixtureId), 10)}
+                              onSync={() =>
+                                handleStatsSync([parseInt(String(m.fixtureId), 10)])
+                              }
+                            />
                           ))}
                         </tbody>
                       </table>
@@ -330,6 +388,60 @@ export function RefereeModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function RefereeHistoryRow({
+  match,
+  syncing,
+  onSync,
+}: {
+  match: RefereeHistoryMatch;
+  syncing: boolean;
+  onSync: () => void;
+}) {
+  return (
+    <tr className="border-t border-white/5">
+      <td className="whitespace-nowrap px-2 py-2 text-slate-400">
+        {match.dateTimeDisplay || match.dateDisplay || '—'}
+      </td>
+      <td className="max-w-[220px] px-2 py-2 text-slate-300">
+        <span>
+          {match.homeTeam || '—'} vs {match.awayTeam || '—'}
+          {match.score ? <span className="text-emerald-300"> ({match.score})</span> : null}
+        </span>
+        {match.league ? (
+          <span className="mt-0.5 block text-[10px] text-slate-500">{match.league}</span>
+        ) : null}
+        <span className="mt-1 block text-[10px] text-slate-600">ID {match.fixtureId ?? '—'}</span>
+        {match.hasStats ? (
+          <span className="mt-1 inline-block rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+            Stats OK
+          </span>
+        ) : (
+          <span className="mt-1 inline-block rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">
+            Sin stats
+          </span>
+        )}
+      </td>
+      <td className="px-2 py-2 text-center text-slate-400">{formatStatCell(match.yellowTotal)}</td>
+      <td className="px-2 py-2 text-center text-slate-400">{formatStatCell(match.redTotal)}</td>
+      <td className="px-2 py-2 text-center text-slate-400">{formatStatCell(match.foulsTotal)}</td>
+      <td className="px-2 py-2 text-right">
+        {!match.hasStats ? (
+          <button
+            type="button"
+            disabled={syncing}
+            onClick={onSync}
+            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
+          >
+            {syncing ? '…' : 'Sync FLB'}
+          </button>
+        ) : (
+          <span className="text-[10px] text-slate-600">—</span>
+        )}
+      </td>
+    </tr>
   );
 }
 

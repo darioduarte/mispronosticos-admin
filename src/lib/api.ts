@@ -20,6 +20,7 @@ import type {
   PronosticoIaRow,
   PronosticosIaResponse,
   RefereeHistoryResponse,
+  RefereeHistorySyncStatsResponse,
   RefereeSearchResponse,
   RepairRefereesResponse,
   PartidoStatisticsApiResponse,
@@ -712,6 +713,22 @@ export function fetchRefereeHistory(name: string, fixtureId?: number) {
   if (fixtureId) qs.set('fixtureId', String(fixtureId));
   return adminFetch<RefereeHistoryResponse>(
     `/api/admin/partidos/referees/discipline-history?${qs}`,
+  );
+}
+
+export function syncRefereeHistoryStats(
+  name: string,
+  fixtureId: number,
+  fixtureIds?: number[],
+) {
+  return adminFetch<RefereeHistorySyncStatsResponse>(
+    '/api/admin/partidos/referees/discipline-history/sync-stats',
+    {
+      method: 'POST',
+      body: JSON.stringify(
+        fixtureIds?.length ? { name, fixtureId, fixtureIds } : { name, fixtureId },
+      ),
+    },
   );
 }
 
