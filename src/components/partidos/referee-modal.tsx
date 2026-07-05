@@ -23,6 +23,11 @@ type Tab = 'assign' | 'review';
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 400;
 
+function formatStatCell(val: number | string | null | undefined) {
+  if (val == null || val === '') return '—';
+  return String(val);
+}
+
 export function RefereeModal({
   fixtureId,
   matchLabel,
@@ -274,14 +279,30 @@ export function RefereeModal({
                           {historyQuery.data.matches.map((m, i) => (
                             <tr key={m.fixtureId ?? i} className="border-t border-white/5">
                               <td className="whitespace-nowrap px-2 py-2 text-slate-400">
-                                {m.fechaDisplay || m.fecha || '—'}
+                                {m.dateTimeDisplay || m.dateDisplay || '—'}
                               </td>
-                              <td className="max-w-[180px] px-2 py-2 text-slate-300">
-                                {m.partido || '—'}
+                              <td className="max-w-[220px] px-2 py-2 text-slate-300">
+                                <span>
+                                  {m.homeTeam || '—'} vs {m.awayTeam || '—'}
+                                  {m.score ? (
+                                    <span className="text-emerald-300"> ({m.score})</span>
+                                  ) : null}
+                                </span>
+                                {m.league ? (
+                                  <span className="mt-0.5 block text-[10px] text-slate-500">
+                                    {m.league}
+                                  </span>
+                                ) : null}
                               </td>
-                              <td className="px-2 py-2 text-center text-slate-400">{m.amarillas ?? '—'}</td>
-                              <td className="px-2 py-2 text-center text-slate-400">{m.rojas ?? '—'}</td>
-                              <td className="px-2 py-2 text-center text-slate-400">{m.faltas ?? '—'}</td>
+                              <td className="px-2 py-2 text-center text-slate-400">
+                                {formatStatCell(m.yellowTotal)}
+                              </td>
+                              <td className="px-2 py-2 text-center text-slate-400">
+                                {formatStatCell(m.redTotal)}
+                              </td>
+                              <td className="px-2 py-2 text-center text-slate-400">
+                                {formatStatCell(m.foulsTotal)}
+                              </td>
                             </tr>
                           ))}
                         </tbody>

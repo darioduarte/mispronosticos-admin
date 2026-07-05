@@ -307,13 +307,18 @@ export type RefereeSearchResponse = {
 };
 
 export type RefereeHistoryMatch = {
-  fixtureId?: number;
-  fecha?: string;
-  fechaDisplay?: string;
-  partido?: string;
-  amarillas?: number | string | null;
-  rojas?: number | string | null;
-  faltas?: number | string | null;
+  fixtureId?: number | string;
+  date?: string;
+  dateDisplay?: string;
+  dateTimeDisplay?: string | null;
+  homeTeam?: string;
+  awayTeam?: string;
+  league?: string;
+  score?: string | null;
+  yellowTotal?: number | string | null;
+  redTotal?: number | string | null;
+  foulsTotal?: number | string | null;
+  hasStats?: boolean;
 };
 
 export type RefereeHistoryResponse = {
