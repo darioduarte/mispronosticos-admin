@@ -26,6 +26,8 @@ import type {
   PartidoStatisticsFlbResponse,
   SyncPartidoStatsResponse,
   PromediosMuestraResponse,
+  PromediosRecalcPlanResponse,
+  PromediosRecalcRangeResponse,
   PromediosRecalculateResponse,
   PromediosSummaryResponse,
   SyncStatsPlanResponse,
@@ -648,6 +650,29 @@ export function recalculatePartidoPromedios(fixtureId: number) {
     `/api/admin/partidos/fixtures/${fixtureId}/promedios/recalcular`,
     { method: 'POST' },
   );
+}
+
+export function fetchPromediosRecalcPlan(payload: {
+  desde: string;
+  hasta: string;
+  onlyStale?: boolean;
+}) {
+  const qs = new URLSearchParams({ desde: payload.desde, hasta: payload.hasta });
+  if (payload.onlyStale === false) qs.set('onlyStale', '0');
+  return adminFetch<PromediosRecalcPlanResponse>(
+    `/api/admin/partidos/promedios/recalcular/plan?${qs}`,
+  );
+}
+
+export function recalculatePromediosRange(payload: {
+  desde: string;
+  hasta: string;
+  onlyStale?: boolean;
+}) {
+  return adminFetch<PromediosRecalcRangeResponse>('/api/admin/partidos/promedios/recalcular', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 export function fetchPartidoPromedios(fixtureId: number) {

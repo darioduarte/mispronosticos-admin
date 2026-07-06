@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react';
 import { PartidoStatsModal } from '@/components/partidos/stats-modal';
 import { PromediosModal } from '@/components/partidos/promedios-modal';
+import {
+  PromediosRangeProgressModal,
+  type PromediosRangeProgressState,
+} from '@/components/partidos/promedios-range-progress';
 import { RefereeModal } from '@/components/partidos/referee-modal';
 import {
   SyncRangeProgressModal,
@@ -18,7 +22,9 @@ import {
 } from '@/lib/sync-stats-source';
 import {
   fetchPartidos,
+  fetchPromediosRecalcPlan,
   fetchSyncStatsPlan,
+  recalculatePartidoPromedios,
   repairPartidosReferees,
   syncPartidoStats,
 } from '@/lib/api';
@@ -59,6 +65,22 @@ const SYNC_PAUSE_OPTIONS = [
 ] as const;
 const DEFAULT_SYNC_PAUSE_MS = 1500;
 
+const PROMEDIOS_PAUSE_STORAGE_KEY = 'partidos.promediosPauseMs';
+const PROMEDIOS_PAUSE_OPTIONS = [
+  { value: 0, label: 'Sin pausa' },
+  { value: 200, label: '0.2 s' },
+  { value: 500, label: '0.5 s' },
+  { value: 1000, label: '1 s' },
+] as const;
+const DEFAULT_PROMEDIOS_PAUSE_MS = 0;
+
+function readStoredPromediosPauseMs() {
+  if (typeof window === 'undefined') return DEFAULT_PROMEDIOS_PAUSE_MS;
+  const raw = localStorage.getItem(PROMEDIOS_PAUSE_STORAGE_KEY);
+  const n = parseInt(raw || '', 10);
+  return PROMEDIOS_PAUSE_OPTIONS.some((o) => o.value === n) ? n : DEFAULT_PROMEDIOS_PAUSE_MS;
+}
+
 function readStoredSyncPauseMs() {
   if (typeof window === 'undefined') return DEFAULT_SYNC_PAUSE_MS;
   const raw = localStorage.getItem(SYNC_PAUSE_STORAGE_KEY);
@@ -98,6 +120,14 @@ export function PartidosView() {
   const [syncMsg, setSyncMsg] = useState('');
   const [syncProgress, setSyncProgress] = useState<SyncRangeProgressState | null>(null);
   const syncCancelRef = useRef(false);
+  const [promediosOnlyStale, setPromediosOnlyStale] = useState(true);
+  const [promediosPauseMs, setPromediosPauseMs] = useState(DEFAULT_PROMEDIOS_PAUSE_MS);
+  const [promediosBusy, setPromediosBusy] = useState(false);
+  const [promediosMsg, setPromediosMsg] = useState('');
+  const [promediosProgress, setPromediosProgress] = useState<PromediosRangeProgressState | null>(
+    null,
+  );
+  const promediosCancelRef = useRef(false);
   const [syncRowId, setSyncRowId] = useState<number | null>(null);
   const [repairBusy, setRepairBusy] = useState(false);
   const [repairMsg, setRepairMsg] = useState('');
@@ -108,7 +138,15 @@ export function PartidosView() {
 
   useEffect(() => {
     setSyncPauseMs(readStoredSyncPauseMs());
+    setPromediosPauseMs(readStoredPromediosPauseMs());
   }, []);
+
+  function handlePromediosPauseChange(ms: number) {
+    setPromediosPauseMs(ms);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(PROMEDIOS_PAUSE_STORAGE_KEY, String(ms));
+    }
+  }
 
   function handleSyncPauseChange(ms: number) {
     setSyncPauseMs(ms);
@@ -336,6 +374,176 @@ export function PartidosView() {
     setSyncProgress(null);
   }
 
+  async function handleRecalcPromediosRange() {
+    if (
+      !confirm(
+        `¿Recalcular promedios especiales del ${applied.desde} al ${applied.hasta}? Se procesará partido por partido (solo BD, sin APIs externas).`,
+      )
+    ) {
+      return;
+    }
+    setPromediosBusy(true);
+    setPromediosMsg('');
+    promediosCancelRef.current = false;
+    setPromediosProgress({
+      phase: 'planning',
+      total: 0,
+      current: 0,
+      ok: 0,
+      failed: 0,
+      currentFixture: null,
+      recentLog: [],
+      pauseMs: promediosPauseMs,
+    });
+
+    try {
+      const plan = await fetchPromediosRecalcPlan({
+        desde: applied.desde,
+        hasta: applied.hasta,
+        onlyStale: promediosOnlyStale,
+      });
+      if (!plan.success) {
+        setPromediosMsg(plan.error || 'No se pudo planificar el recálculo');
+        setPromediosProgress(null);
+        return;
+      }
+
+      const fixtures = plan.fixtures ?? [];
+      if (!fixtures.length) {
+        setPromediosMsg(
+          promediosOnlyStale
+            ? 'No hay partidos con promedios desactualizados en ese rango.'
+            : 'No hay partidos destacados en ese rango.',
+        );
+        setPromediosProgress(null);
+        return;
+      }
+
+      let ok = 0;
+      let failed = 0;
+      const recentLog: string[] = [`Plan: ${fixtures.length} partido(s)`];
+
+      const progressBase = () => ({
+        total: fixtures.length,
+        pauseMs: promediosPauseMs,
+      });
+
+      setPromediosProgress({
+        phase: 'recalculating',
+        current: 0,
+        ok: 0,
+        failed: 0,
+        currentFixture: fixtures[0] ?? null,
+        recentLog: [`Plan: ${fixtures.length} partido(s) en ${plan.days ?? 0} día(s)`],
+        ...progressBase(),
+      });
+
+      for (let i = 0; i < fixtures.length; i += 1) {
+        if (promediosCancelRef.current) {
+          setPromediosProgress({
+            phase: 'cancelled',
+            current: i,
+            ok,
+            failed,
+            currentFixture: fixtures[i] ?? null,
+            recentLog: recentLog.slice(-12),
+            isPausing: false,
+            ...progressBase(),
+          });
+          setPromediosMsg(`Cancelado: ${ok} OK · ${failed} fallo(s).`);
+          break;
+        }
+
+        const fx = fixtures[i];
+        setPromediosProgress({
+          phase: 'recalculating',
+          current: i,
+          ok,
+          failed,
+          currentFixture: fx,
+          recentLog: recentLog.slice(-12),
+          isPausing: false,
+          ...progressBase(),
+        });
+
+        try {
+          const result = await recalculatePartidoPromedios(fx.fixtureId);
+          if (!result.success) {
+            failed += 1;
+            recentLog.push(
+              `✗ ${fx.fixtureId} ${fx.homeTeam} vs ${fx.awayTeam} — ${result.error || 'error'}`,
+            );
+          } else {
+            ok += 1;
+            recentLog.push(
+              `✓ ${fx.fixtureId} ${result.metricsCount ?? 26} métricas · ${fx.homeTeam} vs ${fx.awayTeam}`,
+            );
+          }
+        } catch (e) {
+          failed += 1;
+          recentLog.push(
+            `✗ ${fx.fixtureId} ${fx.homeTeam} vs ${fx.awayTeam} — ${(e as Error).message}`,
+          );
+        }
+
+        setPromediosProgress({
+          phase: 'recalculating',
+          current: i + 1,
+          ok,
+          failed,
+          currentFixture: fixtures[i + 1] ?? null,
+          recentLog: recentLog.slice(-12),
+          isPausing: false,
+          ...progressBase(),
+        });
+
+        if (i < fixtures.length - 1 && promediosPauseMs > 0 && !promediosCancelRef.current) {
+          setPromediosProgress({
+            phase: 'recalculating',
+            current: i + 1,
+            ok,
+            failed,
+            currentFixture: fixtures[i + 1] ?? null,
+            recentLog: recentLog.slice(-12),
+            isPausing: true,
+            ...progressBase(),
+          });
+          await sleepCancellable(promediosPauseMs, promediosCancelRef);
+        }
+      }
+
+      if (!promediosCancelRef.current) {
+        setPromediosProgress({
+          phase: 'done',
+          current: fixtures.length,
+          ok,
+          failed,
+          currentFixture: null,
+          recentLog: recentLog.slice(-12),
+          isPausing: false,
+          ...progressBase(),
+        });
+        setPromediosMsg(`${ok} recalculados${failed ? ` · ${failed} fallo(s)` : ''}.`);
+      }
+    } catch (e) {
+      setPromediosMsg((e as Error).message);
+      setPromediosProgress(null);
+    } finally {
+      setPromediosBusy(false);
+    }
+  }
+
+  function handlePromediosProgressCancel() {
+    if (
+      promediosProgress?.phase === 'planning' ||
+      promediosProgress?.phase === 'recalculating'
+    ) {
+      promediosCancelRef.current = true;
+      return;
+    }
+    setPromediosProgress(null);
+  }
+
   async function handleSyncOne(fixtureId: number) {
     setSyncRowId(fixtureId);
     try {
@@ -497,6 +705,48 @@ export function PartidosView() {
             </button>
             {syncMsg && <span className="text-xs text-slate-400">{syncMsg}</span>}
             {repairMsg && <span className="text-xs text-amber-300">{repairMsg}</span>}
+          </div>
+        </div>
+
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <p className="mb-2 text-xs text-slate-500">
+            Recalcular promedios especiales del rango (córners recibidos, pases, posesión, etc.) —
+            solo consulta BD
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              <input
+                type="checkbox"
+                checked={promediosOnlyStale}
+                onChange={(e) => setPromediosOnlyStale(e.target.checked)}
+                className="rounded border-white/20"
+              />
+              Solo desactualizados (sin registro o métricas en cero)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              <span className="whitespace-nowrap">Pausa entre partidos</span>
+              <select
+                value={promediosPauseMs}
+                disabled={promediosBusy}
+                onChange={(e) => handlePromediosPauseChange(parseInt(e.target.value, 10))}
+                className="rounded-lg border border-white/10 bg-[#0b0f14] px-2 py-1.5 text-sm text-slate-200"
+              >
+                {PROMEDIOS_PAUSE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={handleRecalcPromediosRange}
+              disabled={promediosBusy || syncBusy}
+              className="w-full rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-600 disabled:opacity-50 sm:w-auto"
+            >
+              {promediosBusy ? 'Recalculando promedios…' : 'Recalcular promedios (rango)'}
+            </button>
+            {promediosMsg && <span className="text-xs text-violet-300">{promediosMsg}</span>}
           </div>
         </div>
       </section>
@@ -809,6 +1059,16 @@ export function PartidosView() {
           onlyMissing={syncOnlyMissing}
           pauseMs={syncPauseMs}
           onCancel={handleSyncProgressCancel}
+        />
+      )}
+      {promediosProgress && (
+        <PromediosRangeProgressModal
+          progress={promediosProgress}
+          desde={applied.desde}
+          hasta={applied.hasta}
+          onlyStale={promediosOnlyStale}
+          pauseMs={promediosPauseMs}
+          onCancel={handlePromediosProgressCancel}
         />
       )}
     </div>

@@ -524,6 +524,40 @@ export type PromediosRecalculateResponse = {
   error?: string;
 };
 
+export type PromediosRecalcPlanFixture = {
+  fixtureId: number;
+  date: string;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  reason: 'sin_registro' | 'metricas_desactualizadas';
+};
+
+export type PromediosRecalcPlanResponse = {
+  success: boolean;
+  dateFrom?: string;
+  dateTo?: string;
+  onlyStale?: boolean;
+  days?: number;
+  total?: number;
+  fixtures?: PromediosRecalcPlanFixture[];
+  byDay?: Record<string, { count: number; fixtureIds: number[] }>;
+  error?: string;
+};
+
+export type PromediosRecalcRangeResponse = {
+  success: boolean;
+  dateFrom?: string;
+  dateTo?: string;
+  onlyStale?: boolean;
+  daysProcessed?: number;
+  total?: number;
+  repaired?: number[];
+  failed?: { fixtureId: number; error: string }[];
+  summary?: string;
+  error?: string;
+};
+
 export type SuscripcionStatus = 'activa' | 'cancelada' | 'expirada' | 'pendiente';
 
 export type SuscripcionRow = {
