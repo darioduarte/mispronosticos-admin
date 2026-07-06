@@ -41,6 +41,11 @@ import type {
   RenewalSyncResponse,
   DashboardSummary,
   DashboardActividadResponse,
+  LigaDetailResponse,
+  LigaPatchPayload,
+  LigaPatchResponse,
+  LigasResponse,
+  LigaSyncResponse,
   OpsSnapshot,
   RuntimeSettingsSnapshot,
 } from './types';
@@ -772,6 +777,43 @@ export function saveFixtureReferee(fixtureId: number, fixturereferee: string) {
 
 export function fetchSuscripcionProductos() {
   return adminFetch<SuscripcionProductosResponse>('/api/admin/suscripciones/productos');
+}
+
+export function fetchLigas(params: {
+  q?: string;
+  country?: string;
+  outstanding?: string;
+  active?: string;
+  lock?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.country) qs.set('country', params.country);
+  if (params.outstanding) qs.set('outstanding', params.outstanding);
+  if (params.active) qs.set('active', params.active);
+  if (params.lock) qs.set('lock', params.lock);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  return adminFetch<LigasResponse>(`/api/admin/ligas?${qs}`);
+}
+
+export function fetchLiga(id: string) {
+  return adminFetch<LigaDetailResponse>(`/api/admin/ligas/${encodeURIComponent(id)}`);
+}
+
+export function patchLiga(id: string, payload: LigaPatchPayload) {
+  return adminFetch<LigaPatchResponse>(`/api/admin/ligas/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function syncLigaFromApi(id: string) {
+  return adminFetch<LigaSyncResponse>(`/api/admin/ligas/${encodeURIComponent(id)}/sync-api`, {
+    method: 'POST',
+  });
 }
 
 export function fetchSuscripciones(params: {

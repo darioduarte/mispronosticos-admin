@@ -558,6 +558,83 @@ export type PromediosRecalcRangeResponse = {
   error?: string;
 };
 
+export type LigaRow = {
+  id: string;
+  name: string;
+  type: string | null;
+  logo: string | null;
+  countryName: string;
+  countryCode: string | null;
+  countryFlag: string | null;
+  active: boolean;
+  outstanding: boolean;
+  trusPrediction: boolean;
+  lock: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type LigaSeasonRow = {
+  id: string;
+  year: string;
+  start: string | null;
+  end: string | null;
+  current: boolean;
+  events: boolean;
+  lineups: boolean;
+  statisticsFixtures: boolean;
+  statisticsPlayers: boolean;
+  standings: boolean;
+  players: boolean;
+  topScorers: boolean;
+  topAssists: boolean;
+  topCards: boolean;
+  injuries: boolean;
+  predictions: boolean;
+  odds: boolean;
+};
+
+export type LigasResponse = {
+  success: boolean;
+  data?: LigaRow[];
+  meta?: {
+    total: number;
+    limit: number;
+    offset: number;
+    countries: string[];
+    summary: {
+      totalInDb: number;
+      outstanding: number;
+      active: number;
+      locked: number;
+    };
+  };
+  error?: string;
+};
+
+export type LigaDetailResponse = {
+  success: boolean;
+  league?: LigaRow & { seasons: LigaSeasonRow[] };
+  error?: string;
+};
+
+export type LigaPatchPayload = Partial<
+  Pick<LigaRow, 'active' | 'outstanding' | 'trusPrediction' | 'lock'>
+>;
+
+export type LigaPatchResponse = {
+  success: boolean;
+  league?: LigaRow;
+  error?: string;
+};
+
+export type LigaSyncResponse = {
+  success: boolean;
+  message?: string;
+  league?: LigaRow & { seasons: LigaSeasonRow[] };
+  error?: string;
+};
+
 export type SuscripcionStatus = 'activa' | 'cancelada' | 'expirada' | 'pendiente';
 
 export type SuscripcionRow = {
