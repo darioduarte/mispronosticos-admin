@@ -308,6 +308,7 @@ export type RefereeSearchResponse = {
 
 export type RefereeHistoryMatch = {
   fixtureId?: number | string;
+  aliasUsed?: string | null;
   date?: string;
   dateDisplay?: string;
   dateTimeDisplay?: string | null;
@@ -633,6 +634,117 @@ export type LigaSyncResponse = {
   message?: string;
   league?: LigaRow & { seasons: LigaSeasonRow[] };
   error?: string;
+};
+
+export type RefereeAliasRow = {
+  id: string;
+  refereeId: string;
+  aliasRaw: string;
+  aliasKey: string;
+  aliasType: 'api' | 'abbrev' | 'nickname' | 'manual';
+  source?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ArbitroRow = {
+  id: string;
+  canonicalName: string;
+  country?: string | null;
+  notes?: string | null;
+  aliases: RefereeAliasRow[];
+  aliasCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ArbitrosResponse = {
+  success: boolean;
+  data?: ArbitroRow[];
+  meta?: { total: number; limit: number; offset: number };
+  error?: string;
+};
+
+export type ArbitroDetailResponse = {
+  success: boolean;
+  referee?: ArbitroRow;
+  error?: string;
+};
+
+export type ArbitroUnlinkedRow = {
+  name: string;
+  fixtureCount: number;
+};
+
+export type ArbitrosUnlinkedResponse = {
+  success: boolean;
+  data?: ArbitroUnlinkedRow[];
+  error?: string;
+};
+
+export type ArbitroSuggestRow = {
+  name: string;
+  fixtureCount: number;
+  confidence: 'alta' | 'media';
+};
+
+export type ArbitroSuggestResponse = {
+  success: boolean;
+  name?: string;
+  suggestions?: ArbitroSuggestRow[];
+  error?: string;
+};
+
+export type ArbitroCreatePayload = {
+  canonicalName: string;
+  country?: string;
+  notes?: string;
+  initialAlias?: string;
+  aliasType?: RefereeAliasRow['aliasType'];
+};
+
+export type ArbitroCreateResponse = {
+  success: boolean;
+  referee?: ArbitroRow;
+  error?: string;
+};
+
+export type ArbitroPatchPayload = {
+  canonicalName?: string;
+  country?: string | null;
+  notes?: string | null;
+};
+
+export type ArbitroPatchResponse = {
+  success: boolean;
+  referee?: ArbitroRow;
+  error?: string;
+};
+
+export type ArbitroAddAliasPayload = {
+  aliasRaw: string;
+  aliasType?: RefereeAliasRow['aliasType'];
+  source?: string;
+};
+
+export type ArbitroAddAliasResponse = {
+  success: boolean;
+  alias?: RefereeAliasRow;
+  referee?: ArbitroRow;
+  error?: string;
+};
+
+export type ArbitroRemoveAliasResponse = {
+  success: boolean;
+  refereeId?: string;
+  referee?: ArbitroRow;
+  error?: string;
+};
+
+export type ArbitroDisciplineHistoryResponse = RefereeHistoryResponse & {
+  referee?: ArbitroRow;
+  refereeId?: string | null;
+  aliases?: string[];
 };
 
 export type SuscripcionStatus = 'activa' | 'cancelada' | 'expirada' | 'pendiente';

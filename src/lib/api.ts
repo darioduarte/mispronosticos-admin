@@ -46,6 +46,18 @@ import type {
   LigaPatchResponse,
   LigasResponse,
   LigaSyncResponse,
+  ArbitrosResponse,
+  ArbitroDetailResponse,
+  ArbitrosUnlinkedResponse,
+  ArbitroSuggestResponse,
+  ArbitroCreatePayload,
+  ArbitroCreateResponse,
+  ArbitroPatchPayload,
+  ArbitroPatchResponse,
+  ArbitroAddAliasPayload,
+  ArbitroAddAliasResponse,
+  ArbitroRemoveAliasResponse,
+  ArbitroDisciplineHistoryResponse,
   OpsSnapshot,
   RuntimeSettingsSnapshot,
 } from './types';
@@ -814,6 +826,67 @@ export function syncLigaFromApi(id: string) {
   return adminFetch<LigaSyncResponse>(`/api/admin/ligas/${encodeURIComponent(id)}/sync-api`, {
     method: 'POST',
   });
+}
+
+export function fetchArbitros(params: { q?: string; limit?: number; offset?: number }) {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  return adminFetch<ArbitrosResponse>(`/api/admin/arbitros?${qs}`);
+}
+
+export function fetchArbitro(id: string) {
+  return adminFetch<ArbitroDetailResponse>(`/api/admin/arbitros/${encodeURIComponent(id)}`);
+}
+
+export function fetchArbitrosUnlinked(params: { q?: string; limit?: number }) {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.limit) qs.set('limit', String(params.limit ?? 50));
+  return adminFetch<ArbitrosUnlinkedResponse>(`/api/admin/arbitros/unlinked?${qs}`);
+}
+
+export function fetchArbitroSuggest(name: string) {
+  const qs = new URLSearchParams({ name });
+  return adminFetch<ArbitroSuggestResponse>(`/api/admin/arbitros/suggest?${qs}`);
+}
+
+export function createArbitro(payload: ArbitroCreatePayload) {
+  return adminFetch<ArbitroCreateResponse>('/api/admin/arbitros', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function patchArbitro(id: string, payload: ArbitroPatchPayload) {
+  return adminFetch<ArbitroPatchResponse>(`/api/admin/arbitros/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function addArbitroAlias(id: string, payload: ArbitroAddAliasPayload) {
+  return adminFetch<ArbitroAddAliasResponse>(`/api/admin/arbitros/${encodeURIComponent(id)}/aliases`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function removeArbitroAlias(aliasId: string) {
+  return adminFetch<ArbitroRemoveAliasResponse>(
+    `/api/admin/arbitros/aliases/${encodeURIComponent(aliasId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function fetchArbitroDisciplineHistory(id: string, fixtureId?: number) {
+  const qs = new URLSearchParams();
+  if (fixtureId) qs.set('fixtureId', String(fixtureId));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return adminFetch<ArbitroDisciplineHistoryResponse>(
+    `/api/admin/arbitros/${encodeURIComponent(id)}/discipline-history${suffix}`,
+  );
 }
 
 export function fetchSuscripciones(params: {
