@@ -14,9 +14,10 @@ import {
   removeArbitroAlias,
   repairArbitroVariants,
 } from '@/lib/api';
-import type { ArbitroRow, ArbitroUnlinkedRow, RefereeHistoryMatch } from '@/lib/types';
+import type { ArbitroRow, ArbitroUnlinkedRow } from '@/lib/types';
 import { isRefereeNameLinked } from '@/lib/referee-name';
 import { RefereeSampleModal } from '@/components/arbitros/referee-sample-modal';
+import { RefereeHistorySamplePanel } from '@/components/referee-history-sample-panel';
 
 type Tab = 'canonicos' | 'sin-vincular';
 
@@ -526,39 +527,19 @@ export function ArbitrosView() {
               ) : null}
 
               <div className="mt-6">
-                <h3 className="text-sm font-medium text-slate-300">
+                <h3 className="mb-2 text-sm font-medium text-slate-300">
                   Muestra unificada ({historyMatches.length} partidos)
                 </h3>
-                <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-white/10">
-                  <table className="w-full text-left text-xs">
-                    <thead className="sticky top-0 bg-[#111827] text-slate-500">
-                      <tr>
-                        <th className="px-2 py-2">Fecha</th>
-                        <th className="px-2 py-2">Partido</th>
-                        <th className="px-2 py-2">Alias</th>
-                        <th className="px-2 py-2">Am/Rj/Ft</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historyMatches.map((m: RefereeHistoryMatch) => (
-                        <tr key={String(m.fixtureId)} className="border-t border-white/5">
-                          <td className="px-2 py-2 text-slate-400">{m.dateDisplay || '—'}</td>
-                          <td className="px-2 py-2 text-slate-300">
-                            {m.homeTeam} vs {m.awayTeam}
-                            {m.score ? ` (${m.score})` : ''}
-                          </td>
-                          <td className="px-2 py-2 text-violet-300">{m.aliasUsed || '—'}</td>
-                          <td className="px-2 py-2 text-slate-400">
-                            {m.yellowTotal ?? '—'}/{m.redTotal ?? '—'}/{m.foulsTotal ?? '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {!historyQuery.isLoading && !historyMatches.length ? (
-                    <p className="px-3 py-6 text-center text-slate-500">Sin historial previo</p>
-                  ) : null}
-                </div>
+                <RefereeHistorySamplePanel
+                  matches={historyMatches}
+                  isLoading={historyQuery.isLoading}
+                  showAliasColumn
+                  invalidateQueryKeys={[
+                    ['arbitro-history', detailId],
+                    ['arbitro-detail', detailId],
+                  ]}
+                  emptyMessage="Sin historial previo unificado"
+                />
               </div>
             </>
           )}

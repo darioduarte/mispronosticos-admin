@@ -2,24 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchRefereeHistory } from '@/lib/api';
-import type { RefereeHistoryMatch } from '@/lib/types';
+import { RefereeHistorySamplePanel } from '@/components/referee-history-sample-panel';
 
 type Props = {
   refereeName: string;
   fixtureCount?: number;
   onClose: () => void;
 };
-
-function formatStatCell(val: number | string | null | undefined) {
-  if (val == null || val === '') return '—';
-  return String(val);
-}
-
-function matchHasStats(m: RefereeHistoryMatch) {
-  if (m.hasStats === true) return true;
-  if (m.hasStats === false) return false;
-  return m.yellowTotal != null || m.redTotal != null || m.foulsTotal != null;
-}
 
 export function RefereeSampleModal({ refereeName, fixtureCount, onClose }: Props) {
   const historyQuery = useQuery({
@@ -29,7 +18,6 @@ export function RefereeSampleModal({ refereeName, fixtureCount, onClose }: Props
   });
 
   const matches = historyQuery.data?.matches ?? [];
-  const withStats = matches.filter((m) => matchHasStats(m)).length;
 
   return (
     <div
@@ -68,96 +56,16 @@ export function RefereeSampleModal({ refereeName, fixtureCount, onClose }: Props
         </div>
 
         <div className="max-h-[calc(92vh-140px)] overflow-y-auto p-5">
-          {historyQuery.isLoading ? (
-            <p className="text-sm text-slate-500">Cargando historial…</p>
-          ) : historyQuery.isError ? (
+          {historyQuery.isError ? (
             <p className="text-sm text-red-300">{(historyQuery.error as Error).message}</p>
           ) : (
-            <>
-              {historyQuery.data?.summaryLabel ? (
-                <p className="mb-4 rounded-lg border border-white/10 bg-[#0c1017] px-3 py-2 text-sm text-slate-300">
-                  {historyQuery.data.summaryLabel}
-                </p>
-              ) : null}
-
-              {matches.length > 0 ? (
-                <>
-                  <p className="mb-3 text-xs text-slate-500">
-                    Últimos {matches.length} partidos finalizados con este nombre en BD
-                    {withStats < matches.length ? (
-                      <span className="text-amber-300">
-                        {' '}
-                        · {matches.length - withStats} sin estadísticas de tarjetas/faltas
-                      </span>
-                    ) : null}
-                  </p>
-                  <div className="overflow-x-auto rounded-lg border border-white/10">
-                    <table className="w-full text-xs">
-                      <thead className="bg-[#0c1017] text-slate-400">
-                        <tr>
-                          <th className="px-2 py-2 text-left">Fecha</th>
-                          <th className="px-2 py-2 text-left">Partido</th>
-                          <th className="px-2 py-2 text-center">🟨</th>
-                          <th className="px-2 py-2 text-center">🟥</th>
-                          <th className="px-2 py-2 text-center">Faltas</th>
-                          <th className="px-2 py-2 text-center">Stats</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {matches.map((m, i) => {
-                          const hasStats = matchHasStats(m);
-                          return (
-                            <tr key={String(m.fixtureId ?? i)} className="border-t border-white/5">
-                              <td className="whitespace-nowrap px-2 py-2 text-slate-400">
-                                {m.dateTimeDisplay || m.dateDisplay || '—'}
-                              </td>
-                              <td className="max-w-[260px] px-2 py-2 text-slate-300">
-                                <span>
-                                  {m.homeTeam || '—'} vs {m.awayTeam || '—'}
-                                  {m.score ? (
-                                    <span className="text-emerald-300"> ({m.score})</span>
-                                  ) : null}
-                                </span>
-                                {m.league ? (
-                                  <span className="mt-0.5 block text-[10px] text-slate-500">{m.league}</span>
-                                ) : null}
-                                {m.fixtureId != null ? (
-                                  <span className="mt-0.5 block text-[10px] text-slate-600">ID {m.fixtureId}</span>
-                                ) : null}
-                              </td>
-                              <td className="px-2 py-2 text-center text-slate-400">
-                                {formatStatCell(m.yellowTotal)}
-                              </td>
-                              <td className="px-2 py-2 text-center text-slate-400">
-                                {formatStatCell(m.redTotal)}
-                              </td>
-                              <td className="px-2 py-2 text-center text-slate-400">
-                                {formatStatCell(m.foulsTotal)}
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                {hasStats ? (
-                                  <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
-                                    OK
-                                  </span>
-                                ) : (
-                                  <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">
-                                    Sin stats
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-slate-500">
-                  Sin partidos finalizados previos con este nombre exacto en BD.
-                </p>
-              )}
-            </>
+            <RefereeHistorySamplePanel
+              matches={matches}
+              summaryLabel={historyQuery.data?.summaryLabel}
+              isLoading={historyQuery.isLoading}
+              invalidateQueryKeys={[['referee-sample', refereeName]]}
+              emptyMessage="Sin partidos finalizados previos con este nombre exacto en BD."
+            />
           )}
         </div>
 
