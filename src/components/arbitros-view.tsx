@@ -16,6 +16,7 @@ import {
 } from '@/lib/api';
 import type { ArbitroRow, ArbitroUnlinkedRow, RefereeHistoryMatch } from '@/lib/types';
 import { isRefereeNameLinked } from '@/lib/referee-name';
+import { RefereeSampleModal } from '@/components/arbitros/referee-sample-modal';
 
 type Tab = 'canonicos' | 'sin-vincular';
 
@@ -30,6 +31,7 @@ export function ArbitrosView() {
   const [newAlias, setNewAlias] = useState('');
   const [createName, setCreateName] = useState('');
   const [createCountry, setCreateCountry] = useState('');
+  const [sampleRow, setSampleRow] = useState<ArbitroUnlinkedRow | null>(null);
 
   const listQuery = useQuery({
     queryKey: ['arbitros', appliedQ],
@@ -298,7 +300,15 @@ export function ArbitrosView() {
                       <p className="text-sm text-slate-200">{row.name}</p>
                       <p className="text-xs text-slate-500">{row.fixtureCount} partidos</p>
                     </div>
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setSampleRow(row)}
+                        className="rounded-lg border border-white/15 px-2 py-1 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-50"
+                      >
+                        Ver muestra
+                      </button>
                       {detailId ? (
                         <button
                           type="button"
@@ -554,6 +564,14 @@ export function ArbitrosView() {
           )}
         </section>
       </div>
+
+      {sampleRow ? (
+        <RefereeSampleModal
+          refereeName={sampleRow.name}
+          fixtureCount={sampleRow.fixtureCount}
+          onClose={() => setSampleRow(null)}
+        />
+      ) : null}
     </div>
   );
 }
