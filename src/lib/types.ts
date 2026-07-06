@@ -330,19 +330,6 @@ export type RefereeHistoryResponse = {
   error?: string;
 };
 
-export type RefereeHistorySyncStatsResponse = {
-  success: boolean;
-  parentFixtureId?: number | null;
-  name?: string;
-  requested: number;
-  syncedOk: number;
-  syncedFailed: number;
-  results: { fixtureId: number; success: boolean; error?: string; hadStatisticsInApi?: boolean }[];
-  summaryLabel?: string;
-  matches?: RefereeHistoryMatch[];
-  error?: string;
-};
-
 export type PartidoStatisticsApiResponse = {
   success: boolean;
   fixtureId?: number;
