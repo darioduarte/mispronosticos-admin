@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import type { SyncStatsPlanFixture } from '@/lib/types';
+import type { SyncRangeResultEntry, SyncRangeSourceBreakdown } from '@/lib/sync-stats-source';
 
 export type SyncRangeProgressState = {
   phase: 'planning' | 'syncing' | 'done' | 'cancelled';
@@ -12,6 +14,7 @@ export type SyncRangeProgressState = {
   recentLog: string[];
   isPausing?: boolean;
   pauseMs?: number;
+  sourceBreakdown: SyncRangeSourceBreakdown;
 };
 
 type Props = {
@@ -31,6 +34,14 @@ export function SyncRangeProgressModal({
   pauseMs,
   onCancel,
 }: Props) {
+  const [showFlbList, setShowFlbList] = useState(false);
+  const [showApifList, setShowApifList] = useState(true);
+  const bd = progress.sourceBreakdown;
+  const flbCount = bd.flb.length;
+  const apifCount = bd.apiFootball.length;
+  const noneCount = bd.none.length;
+  const failedCount = bd.failed.length;
+
   const pct =
     progress.total > 0 ? Math.min(100, Math.round((progress.current / progress.total) * 100)) : 0;
   const busy = progress.phase === 'planning' || progress.phase === 'syncing';
@@ -48,7 +59,7 @@ export function SyncRangeProgressModal({
       role="presentation"
     >
       <div
-        className="w-full max-w-lg rounded-xl border border-white/10 bg-[#151b24] shadow-2xl"
+        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#151b24] shadow-2xl"
         role="dialog"
         aria-labelledby="sync-range-title"
       >
@@ -67,7 +78,7 @@ export function SyncRangeProgressModal({
           </p>
         </div>
 
-        <div className="space-y-4 p-5">
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
           <div>
             <div className="mb-2 flex items-center justify-between text-sm">
               <span className="text-slate-300">
@@ -93,19 +104,52 @@ export function SyncRangeProgressModal({
             )}
           </div>
 
-          <div className="flex gap-4 text-sm">
-            <span className="text-emerald-400">
-              OK: <strong>{progress.ok}</strong>
-            </span>
-            <span className="text-red-300">
-              Fallos: <strong>{progress.failed}</strong>
-            </span>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <SourcePill tone="flb" label="FLB" count={flbCount} />
+            <SourcePill tone="apif" label="API-Football" count={apifCount} />
+            <SourcePill tone="none" label="Sin stats" count={noneCount} />
+            <SourcePill tone="fail" label="Fallos" count={failedCount} />
           </div>
 
+          {(flbCount > 0 || apifCount > 0) && (
+            <div className="space-y-2">
+              {flbCount > 0 && (
+                <BreakdownSection
+                  title={`FLB (${flbCount})`}
+                  open={showFlbList}
+                  onToggle={() => setShowFlbList((v) => !v)}
+                  tone="flb"
+                  entries={bd.flb}
+                />
+              )}
+              {apifCount > 0 && (
+                <BreakdownSection
+                  title={`API-Football — fallback (${apifCount})`}
+                  open={showApifList}
+                  onToggle={() => setShowApifList((v) => !v)}
+                  tone="apif"
+                  entries={bd.apiFootball}
+                  showReason
+                />
+              )}
+            </div>
+          )}
+
           {progress.recentLog.length > 0 && (
-            <div className="max-h-28 overflow-y-auto rounded-lg border border-white/5 bg-[#0b0f14] p-2">
+            <div className="max-h-24 overflow-y-auto rounded-lg border border-white/5 bg-[#0b0f14] p-2">
               {progress.recentLog.map((line, i) => (
-                <p key={`${i}-${line}`} className="truncate font-mono text-[10px] text-slate-500">
+                <p
+                  key={`${i}-${line}`}
+                  className={`truncate font-mono text-[10px] ${
+                    line.startsWith('✓ FLB')
+                      ? 'text-emerald-500'
+                      : line.startsWith('◆ APIF')
+                        ? 'text-amber-400'
+                        : line.startsWith('✗')
+                          ? 'text-red-400'
+                          : 'text-slate-500'
+                  }`}
+                >
                   {line}
                 </p>
               ))}
@@ -114,14 +158,14 @@ export function SyncRangeProgressModal({
 
           {progress.phase === 'done' && (
             <p className="text-sm text-emerald-400">
-              Completado: {progress.ok} sincronizado(s)
-              {progress.failed > 0 ? `, ${progress.failed} fallo(s)` : ''}.
+              Completado: {flbCount} FLB · {apifCount} API-Football
+              {noneCount > 0 ? ` · ${noneCount} sin stats` : ''}
+              {failedCount > 0 ? ` · ${failedCount} fallo(s)` : ''}.
             </p>
           )}
           {progress.phase === 'cancelled' && (
             <p className="text-sm text-amber-300">
-              Cancelado tras {progress.current} partido(s). {progress.ok} OK, {progress.failed}{' '}
-              fallo(s).
+              Cancelado: {flbCount} FLB · {apifCount} API-Football · {failedCount} fallo(s).
             </p>
           )}
         </div>
@@ -146,6 +190,73 @@ export function SyncRangeProgressModal({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SourcePill({
+  tone,
+  label,
+  count,
+}: {
+  tone: 'flb' | 'apif' | 'none' | 'fail';
+  label: string;
+  count: number;
+}) {
+  const styles = {
+    flb: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+    apif: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
+    none: 'border-slate-500/30 bg-slate-500/10 text-slate-400',
+    fail: 'border-red-500/30 bg-red-500/10 text-red-300',
+  }[tone];
+  return (
+    <span className={`rounded-full border px-2.5 py-1 font-medium ${styles}`}>
+      {label}: {count}
+    </span>
+  );
+}
+
+function BreakdownSection({
+  title,
+  open,
+  onToggle,
+  tone,
+  entries,
+  showReason = false,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  tone: 'flb' | 'apif';
+  entries: SyncRangeResultEntry[];
+  showReason?: boolean;
+}) {
+  const border = tone === 'flb' ? 'border-emerald-500/20' : 'border-amber-500/20';
+  return (
+    <div className={`rounded-lg border ${border} bg-[#0b0f14]`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold text-slate-300 hover:bg-white/5"
+      >
+        <span>{title}</span>
+        <span className="text-slate-500">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <ul className="max-h-40 overflow-y-auto border-t border-white/5 px-2 py-1">
+          {entries.map((e) => (
+            <li key={e.fixtureId} className="border-b border-white/5 py-1.5 last:border-0">
+              <p className="text-xs text-slate-200">
+                <span className="font-mono text-slate-500">{e.fixtureId}</span> {e.label}
+              </p>
+              {showReason && e.reasonLabel && (
+                <p className="mt-0.5 text-[10px] text-amber-300/90">↳ {e.reasonLabel}</p>
+              )}
+              {e.detail && <p className="mt-0.5 text-[10px] text-slate-500">{e.detail}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

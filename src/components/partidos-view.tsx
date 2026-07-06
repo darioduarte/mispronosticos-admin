@@ -12,6 +12,11 @@ import {
 } from '@/components/partidos/sync-range-progress';
 import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import {
+  appendToBreakdown,
+  classifySyncResult,
+  emptySourceBreakdown,
+} from '@/lib/sync-stats-source';
+import {
   fetchPartidos,
   fetchSyncStatsPlan,
   repairPartidosReferees,
@@ -177,6 +182,7 @@ export function PartidosView() {
       currentFixture: null,
       recentLog: [],
       pauseMs: syncPauseMs,
+      sourceBreakdown: emptySourceBreakdown(),
     });
 
     try {
@@ -198,89 +204,100 @@ export function PartidosView() {
         return;
       }
 
+      let ok = 0;
+      let failed = 0;
+      let sourceBreakdown = emptySourceBreakdown();
+      const recentLog: string[] = [`Plan: ${fixtures.length} partido(s)`];
+
+      const progressBase = () => ({
+        total: fixtures.length,
+        pauseMs: syncPauseMs,
+        sourceBreakdown,
+      });
+
       setSyncProgress({
         phase: 'syncing',
-        total: fixtures.length,
         current: 0,
         ok: 0,
         failed: 0,
         currentFixture: fixtures[0] ?? null,
         recentLog: [`Plan: ${fixtures.length} partido(s) en ${plan.days ?? 0} día(s)`],
-        pauseMs: syncPauseMs,
+        ...progressBase(),
       });
-
-      let ok = 0;
-      let failed = 0;
-      const recentLog: string[] = [`Plan: ${fixtures.length} partido(s)`];
 
       for (let i = 0; i < fixtures.length; i += 1) {
         if (syncCancelRef.current) {
           setSyncProgress({
             phase: 'cancelled',
-            total: fixtures.length,
             current: i,
             ok,
             failed,
             currentFixture: fixtures[i] ?? null,
-            recentLog: recentLog.slice(-8),
-            pauseMs: syncPauseMs,
+            recentLog: recentLog.slice(-12),
+            isPausing: false,
+            ...progressBase(),
           });
-          setSyncMsg(`Cancelado: ${ok}/${i} sincronizado(s) antes de detener.`);
+          setSyncMsg(
+            `Cancelado: ${sourceBreakdown.flb.length} FLB · ${sourceBreakdown.apiFootball.length} APIF · ${failed} fallo(s).`,
+          );
           break;
         }
 
         const fx = fixtures[i];
         setSyncProgress({
           phase: 'syncing',
-          total: fixtures.length,
           current: i,
           ok,
           failed,
           currentFixture: fx,
-          recentLog: recentLog.slice(-8),
+          recentLog: recentLog.slice(-12),
           isPausing: false,
-          pauseMs: syncPauseMs,
+          ...progressBase(),
         });
 
         try {
           const result = await syncPartidoStats(fx.fixtureId);
-          if (result.success && result.statisticsPersisted !== false) {
-            ok += 1;
-            recentLog.push(`✓ ${fx.fixtureId} ${fx.homeTeam} vs ${fx.awayTeam}`);
-          } else {
+          const { bucket, entry, logLine } = classifySyncResult(result, fx);
+          sourceBreakdown = appendToBreakdown(sourceBreakdown, bucket, entry);
+          recentLog.push(logLine);
+          if (bucket === 'failed' || bucket === 'none') {
             failed += 1;
-            recentLog.push(
-              `✗ ${fx.fixtureId} ${result.error || result.message || 'sin stats'}`,
-            );
+          } else {
+            ok += 1;
           }
         } catch (e) {
           failed += 1;
-          recentLog.push(`✗ ${fx.fixtureId} ${(e as Error).message}`);
+          const entry = {
+            fixtureId: fx.fixtureId,
+            label: `${fx.homeTeam} vs ${fx.awayTeam}`,
+            source: 'failed' as const,
+            detail: (e as Error).message,
+          };
+          sourceBreakdown = appendToBreakdown(sourceBreakdown, 'failed', entry);
+          recentLog.push(`✗ ${fx.fixtureId} ${entry.label} — ${entry.detail}`);
         }
 
         setSyncProgress({
           phase: 'syncing',
-          total: fixtures.length,
           current: i + 1,
           ok,
           failed,
           currentFixture: fixtures[i + 1] ?? null,
-          recentLog: recentLog.slice(-8),
+          recentLog: recentLog.slice(-12),
           isPausing: false,
-          pauseMs: syncPauseMs,
+          ...progressBase(),
         });
 
         if (i < fixtures.length - 1 && syncPauseMs > 0 && !syncCancelRef.current) {
           setSyncProgress({
             phase: 'syncing',
-            total: fixtures.length,
             current: i + 1,
             ok,
             failed,
             currentFixture: fixtures[i + 1] ?? null,
-            recentLog: recentLog.slice(-8),
+            recentLog: recentLog.slice(-12),
             isPausing: true,
-            pauseMs: syncPauseMs,
+            ...progressBase(),
           });
           await sleepCancellable(syncPauseMs, syncCancelRef);
         }
@@ -289,16 +306,16 @@ export function PartidosView() {
       if (!syncCancelRef.current) {
         setSyncProgress({
           phase: 'done',
-          total: fixtures.length,
           current: fixtures.length,
           ok,
           failed,
           currentFixture: null,
-          recentLog: recentLog.slice(-8),
-          pauseMs: syncPauseMs,
+          recentLog: recentLog.slice(-12),
+          isPausing: false,
+          ...progressBase(),
         });
         setSyncMsg(
-          `FLB: ${ok}/${fixtures.length} sincronizado(s)${failed ? ` · ${failed} fallo(s)` : ''}`,
+          `FLB: ${sourceBreakdown.flb.length} · API-Football: ${sourceBreakdown.apiFootball.length} · sin stats: ${sourceBreakdown.none.length}${failed ? ` · fallos: ${failed}` : ''}`,
         );
       }
 

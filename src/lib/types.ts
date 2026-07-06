@@ -353,6 +353,8 @@ export type SyncPartidoStatsResponse = {
   fixtureId?: number;
   statisticsPersisted?: boolean;
   statisticsSource?: string;
+  statisticsSourceReason?: string | null;
+  statisticsSourceDetail?: string | null;
   statsSource?: string;
   message?: string;
   error?: string;
