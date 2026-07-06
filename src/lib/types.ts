@@ -731,6 +731,16 @@ export type ArbitroAddAliasResponse = {
   success: boolean;
   alias?: RefereeAliasRow;
   referee?: ArbitroRow;
+  aliasesAdded?: number;
+  message?: string;
+  error?: string;
+};
+
+export type ArbitroRepairVariantsResponse = {
+  success: boolean;
+  referee?: ArbitroRow;
+  aliasesAdded?: number;
+  message?: string;
   error?: string;
 };
 

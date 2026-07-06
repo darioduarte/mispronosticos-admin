@@ -56,6 +56,7 @@ import type {
   ArbitroPatchResponse,
   ArbitroAddAliasPayload,
   ArbitroAddAliasResponse,
+  ArbitroRepairVariantsResponse,
   ArbitroRemoveAliasResponse,
   ArbitroDisciplineHistoryResponse,
   OpsSnapshot,
@@ -877,6 +878,13 @@ export function removeArbitroAlias(aliasId: string) {
   return adminFetch<ArbitroRemoveAliasResponse>(
     `/api/admin/arbitros/aliases/${encodeURIComponent(aliasId)}`,
     { method: 'DELETE' },
+  );
+}
+
+export function repairArbitroVariants(id: string) {
+  return adminFetch<ArbitroRepairVariantsResponse>(
+    `/api/admin/arbitros/${encodeURIComponent(id)}/repair-variants`,
+    { method: 'POST' },
   );
 }
 

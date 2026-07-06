@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   addArbitroAlias,
   createArbitro,
@@ -12,8 +12,10 @@ import {
   fetchArbitrosUnlinked,
   patchArbitro,
   removeArbitroAlias,
+  repairArbitroVariants,
 } from '@/lib/api';
 import type { ArbitroRow, ArbitroUnlinkedRow, RefereeHistoryMatch } from '@/lib/types';
+import { isRefereeNameLinked } from '@/lib/referee-name';
 
 type Tab = 'canonicos' | 'sin-vincular';
 
@@ -65,13 +67,9 @@ export function ArbitrosView() {
   const historyMatches = historyQuery.data?.matches ?? [];
   const suggestions = suggestQuery.data?.suggestions ?? [];
 
-  const linkedAliasSet = useMemo(() => {
-    const set = new Set<string>();
-    for (const a of referee?.aliases ?? []) set.add(a.aliasRaw);
-    return set;
-  }, [referee?.aliases]);
-
-  const filteredSuggestions = suggestions.filter((s) => !linkedAliasSet.has(s.name));
+  const filteredSuggestions = suggestions.filter(
+    (s) => !referee?.aliases?.length || !isRefereeNameLinked(s.name, referee.aliases),
+  );
 
   function applySearch() {
     setAppliedQ(q.trim());
@@ -145,6 +143,7 @@ export function ArbitrosView() {
         setMsg(result.error || 'No se pudo agregar alias');
         return;
       }
+      setMsg(result.message || `Alias vinculado${result.aliasesAdded ? ` (${result.aliasesAdded} variantes)` : ''}`);
       setNewAlias('');
       await queryClient.invalidateQueries({ queryKey: ['arbitro-detail', detailId] });
       await queryClient.invalidateQueries({ queryKey: ['arbitro-history', detailId] });
@@ -194,6 +193,27 @@ export function ArbitrosView() {
       setMsg('Datos guardados');
       await queryClient.invalidateQueries({ queryKey: ['arbitros'] });
       await queryClient.invalidateQueries({ queryKey: ['arbitro-detail', detailId] });
+    } catch (e) {
+      setMsg((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRepairVariants() {
+    if (!detailId) return;
+    setBusy(true);
+    setMsg('');
+    try {
+      const result = await repairArbitroVariants(detailId);
+      if (!result.success) {
+        setMsg(result.error || 'No se pudieron completar variantes');
+        return;
+      }
+      setMsg(result.message || 'Variantes actualizadas');
+      await queryClient.invalidateQueries({ queryKey: ['arbitro-detail', detailId] });
+      await queryClient.invalidateQueries({ queryKey: ['arbitro-history', detailId] });
+      await queryClient.invalidateQueries({ queryKey: ['arbitros-unlinked'] });
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
@@ -278,14 +298,26 @@ export function ArbitrosView() {
                       <p className="text-sm text-slate-200">{row.name}</p>
                       <p className="text-xs text-slate-500">{row.fixtureCount} partidos</p>
                     </div>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => handleCreateFromUnlinked(row)}
-                      className="shrink-0 rounded-lg border border-indigo-500/40 px-2 py-1 text-xs text-indigo-300 hover:bg-indigo-500/10 disabled:opacity-50"
-                    >
-                      Crear canónico
-                    </button>
+                    <div className="flex shrink-0 gap-2">
+                      {detailId ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handleAddAlias(row.name)}
+                          className="rounded-lg bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-500 disabled:opacity-50"
+                        >
+                          Vincular
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleCreateFromUnlinked(row)}
+                        className="rounded-lg border border-indigo-500/40 px-2 py-1 text-xs text-indigo-300 hover:bg-indigo-500/10 disabled:opacity-50"
+                      >
+                        Crear canónico
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {!unlinkedQuery.isLoading && !unlinked.length ? (
@@ -354,7 +386,8 @@ export function ArbitrosView() {
         <section className="rounded-xl border border-white/10 bg-[#111827] p-4">
           {!detailId || !referee ? (
             <p className="py-12 text-center text-sm text-slate-500">
-              Selecciona un árbitro canónico para ver alias e historial unificado
+              Selecciona un árbitro canónico (pestaña Canónicos) para vincular alias desde la lista
+              izquierda con el botón <strong className="text-slate-300">Vincular</strong>
             </p>
           ) : (
             <>
@@ -403,7 +436,20 @@ export function ArbitrosView() {
               </button>
 
               <div className="mt-6">
-                <h3 className="text-sm font-medium text-slate-300">Alias vinculados</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-medium text-slate-300">
+                    Alias vinculados ({referee.aliases.length})
+                  </h3>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={handleRepairVariants}
+                    className="text-xs text-indigo-300 hover:underline disabled:opacity-50"
+                    title="Busca en Fixture todas las variantes con el mismo nombre normalizado"
+                  >
+                    Completar variantes desde Fixture
+                  </button>
+                </div>
                 <ul className="mt-2 space-y-2">
                   {referee.aliases.map((a) => (
                     <li
