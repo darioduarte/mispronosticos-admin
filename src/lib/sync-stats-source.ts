@@ -108,3 +108,122 @@ export function appendToBreakdown(
     [bucket]: [...breakdown[bucket], entry],
   };
 }
+
+function formatEntryLines(entries: SyncRangeResultEntry[], opts?: { showReason?: boolean }) {
+  if (!entries.length) return ['  (ninguno)'];
+  return entries.flatMap((e, idx) => {
+    const lines = [`${idx + 1}. [${e.fixtureId}] ${e.label}`];
+    if (opts?.showReason && e.reasonLabel) {
+      lines.push(`   Motivo: ${e.reasonLabel}`);
+    }
+    if (e.detail) {
+      lines.push(`   Detalle: ${e.detail}`);
+    }
+    return lines;
+  });
+}
+
+function summarizeApifReasons(entries: SyncRangeResultEntry[]) {
+  const counts = new Map<string, number>();
+  for (const e of entries) {
+    const key = e.reasonLabel || e.reasonCode || 'Sin motivo registrado';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+export type SyncRangeReportInput = {
+  desde: string;
+  hasta: string;
+  onlyMissing: boolean;
+  pauseMs: number;
+  phase: 'planning' | 'syncing' | 'done' | 'cancelled';
+  total: number;
+  current: number;
+  sourceBreakdown: SyncRangeSourceBreakdown;
+};
+
+export function formatSyncRangeReport(input: SyncRangeReportInput): string {
+  const bd = input.sourceBreakdown;
+  const flb = bd.flb.length;
+  const apif = bd.apiFootball.length;
+  const none = bd.none.length;
+  const failed = bd.failed.length;
+  const processed = flb + apif + none + failed;
+
+  const phaseLabel = {
+    planning: 'Planificando',
+    syncing: 'En curso',
+    done: 'Completado',
+    cancelled: 'Cancelado',
+  }[input.phase];
+
+  const lines: string[] = [
+    'INFORME — SINCRONIZACIÓN DE ESTADÍSTICAS (FLB)',
+    '='.repeat(48),
+    `Generado: ${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}`,
+    `Rango: ${input.desde} → ${input.hasta}`,
+    `Modo: ${input.onlyMissing ? 'solo partidos sin estadísticas' : 'todos los destacados del rango'}`,
+    `Pausa entre partidos: ${input.pauseMs > 0 ? `${input.pauseMs / 1000} s` : 'sin pausa'}`,
+    `Estado: ${phaseLabel}`,
+    `Progreso: ${input.current}/${input.total} partidos en cola · ${processed} procesados en este informe`,
+    '',
+    'RESUMEN',
+    '-'.repeat(48),
+    `FLB (Live-Football-Data):     ${flb}`,
+    `API-Football (fallback):    ${apif}`,
+    `Sin estadísticas guardadas: ${none}`,
+    `Fallos de sincronización:   ${failed}`,
+    '',
+  ];
+
+  if (apif > 0) {
+    lines.push('MOTIVOS API-FOOTBALL (agrupado)', '-'.repeat(48));
+    for (const [reason, count] of summarizeApifReasons(bd.apiFootball)) {
+      lines.push(`  · ${count}× ${reason}`);
+    }
+    lines.push('');
+  }
+
+  lines.push(`DETALLE FLB (${flb})`, '-'.repeat(48), ...formatEntryLines(bd.flb), '');
+  lines.push(
+    `DETALLE API-FOOTBALL — FALLBACK (${apif})`,
+    '-'.repeat(48),
+    ...formatEntryLines(bd.apiFootball, { showReason: true }),
+    '',
+  );
+
+  if (none > 0) {
+    lines.push(`SIN ESTADÍSTICAS (${none})`, '-'.repeat(48), ...formatEntryLines(bd.none), '');
+  }
+  if (failed > 0) {
+    lines.push(`FALLOS (${failed})`, '-'.repeat(48), ...formatEntryLines(bd.failed), '');
+  }
+
+  lines.push('—', 'Fin del informe');
+  return lines.join('\n');
+}
+
+export async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fallback abajo */
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}

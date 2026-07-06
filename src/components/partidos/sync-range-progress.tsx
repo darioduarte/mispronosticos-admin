@@ -1,8 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { SyncStatsPlanFixture } from '@/lib/types';
-import type { SyncRangeResultEntry, SyncRangeSourceBreakdown } from '@/lib/sync-stats-source';
+import {
+  copyTextToClipboard,
+  formatSyncRangeReport,
+  type SyncRangeResultEntry,
+  type SyncRangeSourceBreakdown,
+} from '@/lib/sync-stats-source';
 
 export type SyncRangeProgressState = {
   phase: 'planning' | 'syncing' | 'done' | 'cancelled';
@@ -36,11 +41,30 @@ export function SyncRangeProgressModal({
 }: Props) {
   const [showFlbList, setShowFlbList] = useState(false);
   const [showApifList, setShowApifList] = useState(true);
+  const [copyState, setCopyState] = useState<'idle' | 'ok' | 'err'>('idle');
   const bd = progress.sourceBreakdown;
   const flbCount = bd.flb.length;
   const apifCount = bd.apiFootball.length;
   const noneCount = bd.none.length;
   const failedCount = bd.failed.length;
+  const processedCount = flbCount + apifCount + noneCount + failedCount;
+  const hasReportData = processedCount > 0;
+
+  const handleCopyReport = useCallback(async () => {
+    const text = formatSyncRangeReport({
+      desde,
+      hasta,
+      onlyMissing,
+      pauseMs: progress.pauseMs ?? pauseMs,
+      phase: progress.phase,
+      total: progress.total,
+      current: progress.current,
+      sourceBreakdown: bd,
+    });
+    const ok = await copyTextToClipboard(text);
+    setCopyState(ok ? 'ok' : 'err');
+    window.setTimeout(() => setCopyState('idle'), 2500);
+  }, [bd, desde, hasta, onlyMissing, pauseMs, progress]);
 
   const pct =
     progress.total > 0 ? Math.min(100, Math.round((progress.current / progress.total) * 100)) : 0;
@@ -170,24 +194,54 @@ export function SyncRangeProgressModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-white/10 px-5 py-3">
-          {busy ? (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm text-amber-200 hover:bg-amber-500/10"
-            >
-              Cancelar
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-            >
-              Cerrar
-            </button>
-          )}
+        <div className="flex flex-col gap-2 border-t border-white/10 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-h-[1.25rem] text-xs">
+            {copyState === 'ok' && (
+              <span className="text-emerald-400">Informe copiado al portapapeles.</span>
+            )}
+            {copyState === 'err' && (
+              <span className="text-red-300">No se pudo copiar. Intenta de nuevo.</span>
+            )}
+            {copyState === 'idle' && hasReportData && (
+              <span className="text-slate-500">
+                {busy
+                  ? 'Puedes copiar el informe parcial hasta ahora.'
+                  : 'Copia el informe completo para Notas, Slack o correo.'}
+              </span>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            {hasReportData && (
+              <button
+                type="button"
+                onClick={handleCopyReport}
+                className="rounded-lg border border-white/15 px-4 py-2 text-sm text-slate-200 hover:bg-white/5"
+              >
+                {copyState === 'ok'
+                  ? 'Copiado ✓'
+                  : busy
+                    ? 'Copiar informe parcial'
+                    : 'Copiar informe'}
+              </button>
+            )}
+            {busy ? (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm text-amber-200 hover:bg-amber-500/10"
+              >
+                Cancelar
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+              >
+                Cerrar
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
