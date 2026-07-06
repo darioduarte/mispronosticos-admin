@@ -10,6 +10,8 @@ export type SyncRangeProgressState = {
   failed: number;
   currentFixture: SyncStatsPlanFixture | null;
   recentLog: string[];
+  isPausing?: boolean;
+  pauseMs?: number;
 };
 
 type Props = {
@@ -17,18 +19,28 @@ type Props = {
   desde: string;
   hasta: string;
   onlyMissing: boolean;
+  pauseMs: number;
   onCancel: () => void;
 };
 
-export function SyncRangeProgressModal({ progress, desde, hasta, onlyMissing, onCancel }: Props) {
+export function SyncRangeProgressModal({
+  progress,
+  desde,
+  hasta,
+  onlyMissing,
+  pauseMs,
+  onCancel,
+}: Props) {
   const pct =
     progress.total > 0 ? Math.min(100, Math.round((progress.current / progress.total) * 100)) : 0;
   const busy = progress.phase === 'planning' || progress.phase === 'syncing';
-  const label = progress.currentFixture
-    ? `${progress.currentFixture.homeTeam} vs ${progress.currentFixture.awayTeam}`
-    : progress.phase === 'planning'
-      ? 'Preparando lista de partidos…'
-      : '—';
+  const label = progress.isPausing
+    ? `Pausa ${formatPauseMs(progress.pauseMs ?? 0)} antes del siguiente…`
+    : progress.currentFixture
+      ? `${progress.currentFixture.homeTeam} vs ${progress.currentFixture.awayTeam}`
+      : progress.phase === 'planning'
+        ? 'Preparando lista de partidos…'
+        : '—';
 
   return (
     <div
@@ -47,6 +59,11 @@ export function SyncRangeProgressModal({ progress, desde, hasta, onlyMissing, on
           <p className="mt-1 text-sm text-slate-400">
             {desde} → {hasta}
             {onlyMissing ? ' · solo sin stats' : ' · todos los destacados'}
+            {(progress.pauseMs ?? pauseMs) > 0 && (
+              <span className="block text-xs text-slate-500 sm:inline sm:ml-2">
+                · pausa {formatPauseMs(progress.pauseMs ?? pauseMs)} entre partidos
+              </span>
+            )}
           </p>
         </div>
 
@@ -131,4 +148,10 @@ export function SyncRangeProgressModal({ progress, desde, hasta, onlyMissing, on
       </div>
     </div>
   );
+}
+
+function formatPauseMs(ms: number) {
+  if (ms <= 0) return '0 s';
+  if (ms % 1000 === 0) return `${ms / 1000} s`;
+  return `${(ms / 1000).toFixed(1)} s`;
 }

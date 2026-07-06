@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react';
 import { PartidoStatsModal } from '@/components/partidos/stats-modal';
 import { PromediosModal } from '@/components/partidos/promedios-modal';
 import { RefereeModal } from '@/components/partidos/referee-modal';
@@ -43,6 +43,36 @@ type RowModal = {
   referee: string;
 };
 
+const SYNC_PAUSE_STORAGE_KEY = 'partidos.syncPauseMs';
+const SYNC_PAUSE_OPTIONS = [
+  { value: 0, label: 'Sin pausa' },
+  { value: 500, label: '0.5 s' },
+  { value: 1000, label: '1 s' },
+  { value: 1500, label: '1.5 s (recomendado)' },
+  { value: 2000, label: '2 s' },
+  { value: 3000, label: '3 s' },
+] as const;
+const DEFAULT_SYNC_PAUSE_MS = 1500;
+
+function readStoredSyncPauseMs() {
+  if (typeof window === 'undefined') return DEFAULT_SYNC_PAUSE_MS;
+  const raw = localStorage.getItem(SYNC_PAUSE_STORAGE_KEY);
+  const n = parseInt(raw || '', 10);
+  return SYNC_PAUSE_OPTIONS.some((o) => o.value === n) ? n : DEFAULT_SYNC_PAUSE_MS;
+}
+
+async function sleepCancellable(ms: number, cancelRef: { current: boolean }) {
+  if (ms <= 0) return;
+  const step = 100;
+  let elapsed = 0;
+  while (elapsed < ms) {
+    if (cancelRef.current) return;
+    const chunk = Math.min(step, ms - elapsed);
+    await new Promise((resolve) => setTimeout(resolve, chunk));
+    elapsed += chunk;
+  }
+}
+
 export function PartidosView() {
   const queryClient = useQueryClient();
   const [desde, setDesde] = useState(defaultDesde);
@@ -58,6 +88,7 @@ export function PartidosView() {
   const [filters, setFilters] = useState<PartidosClientFilters>(DEFAULT_PARTIDOS_FILTERS);
   const [sortMode, setSortMode] = useState<PartidosSortMode>('fecha_asc');
   const [syncOnlyMissing, setSyncOnlyMissing] = useState(true);
+  const [syncPauseMs, setSyncPauseMs] = useState(DEFAULT_SYNC_PAUSE_MS);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
   const [syncProgress, setSyncProgress] = useState<SyncRangeProgressState | null>(null);
@@ -69,6 +100,17 @@ export function PartidosView() {
   const [promediosModal, setPromediosModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [refereeModal, setRefereeModal] = useState<RowModal | null>(null);
   const [liveOddsModal, setLiveOddsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
+
+  useEffect(() => {
+    setSyncPauseMs(readStoredSyncPauseMs());
+  }, []);
+
+  function handleSyncPauseChange(ms: number) {
+    setSyncPauseMs(ms);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SYNC_PAUSE_STORAGE_KEY, String(ms));
+    }
+  }
 
   const query = useQuery({
     queryKey: ['partidos', applied],
@@ -134,6 +176,7 @@ export function PartidosView() {
       failed: 0,
       currentFixture: null,
       recentLog: [],
+      pauseMs: syncPauseMs,
     });
 
     try {
@@ -163,6 +206,7 @@ export function PartidosView() {
         failed: 0,
         currentFixture: fixtures[0] ?? null,
         recentLog: [`Plan: ${fixtures.length} partido(s) en ${plan.days ?? 0} día(s)`],
+        pauseMs: syncPauseMs,
       });
 
       let ok = 0;
@@ -179,6 +223,7 @@ export function PartidosView() {
             failed,
             currentFixture: fixtures[i] ?? null,
             recentLog: recentLog.slice(-8),
+            pauseMs: syncPauseMs,
           });
           setSyncMsg(`Cancelado: ${ok}/${i} sincronizado(s) antes de detener.`);
           break;
@@ -193,6 +238,8 @@ export function PartidosView() {
           failed,
           currentFixture: fx,
           recentLog: recentLog.slice(-8),
+          isPausing: false,
+          pauseMs: syncPauseMs,
         });
 
         try {
@@ -219,7 +266,24 @@ export function PartidosView() {
           failed,
           currentFixture: fixtures[i + 1] ?? null,
           recentLog: recentLog.slice(-8),
+          isPausing: false,
+          pauseMs: syncPauseMs,
         });
+
+        if (i < fixtures.length - 1 && syncPauseMs > 0 && !syncCancelRef.current) {
+          setSyncProgress({
+            phase: 'syncing',
+            total: fixtures.length,
+            current: i + 1,
+            ok,
+            failed,
+            currentFixture: fixtures[i + 1] ?? null,
+            recentLog: recentLog.slice(-8),
+            isPausing: true,
+            pauseMs: syncPauseMs,
+          });
+          await sleepCancellable(syncPauseMs, syncCancelRef);
+        }
       }
 
       if (!syncCancelRef.current) {
@@ -231,6 +295,7 @@ export function PartidosView() {
           failed,
           currentFixture: null,
           recentLog: recentLog.slice(-8),
+          pauseMs: syncPauseMs,
         });
         setSyncMsg(
           `FLB: ${ok}/${fixtures.length} sincronizado(s)${failed ? ` · ${failed} fallo(s)` : ''}`,
@@ -381,6 +446,21 @@ export function PartidosView() {
                 className="rounded border-white/20"
               />
               Solo partidos sin estadísticas
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              <span className="whitespace-nowrap">Pausa entre partidos</span>
+              <select
+                value={syncPauseMs}
+                disabled={syncBusy}
+                onChange={(e) => handleSyncPauseChange(parseInt(e.target.value, 10))}
+                className="rounded-lg border border-white/10 bg-[#0b0f14] px-2 py-1.5 text-sm text-slate-200"
+              >
+                {SYNC_PAUSE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <button
               type="button"
@@ -710,6 +790,7 @@ export function PartidosView() {
           desde={applied.desde}
           hasta={applied.hasta}
           onlyMissing={syncOnlyMissing}
+          pauseMs={syncPauseMs}
           onCancel={handleSyncProgressCancel}
         />
       )}
