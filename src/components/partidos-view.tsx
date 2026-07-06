@@ -2,12 +2,21 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { PartidoStatsModal } from '@/components/partidos/stats-modal';
 import { PromediosModal } from '@/components/partidos/promedios-modal';
 import { RefereeModal } from '@/components/partidos/referee-modal';
+import {
+  SyncRangeProgressModal,
+  type SyncRangeProgressState,
+} from '@/components/partidos/sync-range-progress';
 import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
-import { fetchPartidos, repairPartidosReferees, syncPartidoStats, syncPartidosStats } from '@/lib/api';
+import {
+  fetchPartidos,
+  fetchSyncStatsPlan,
+  repairPartidosReferees,
+  syncPartidoStats,
+} from '@/lib/api';
 import {
   DEFAULT_PARTIDOS_FILTERS,
   filterPartidosRows,
@@ -51,6 +60,8 @@ export function PartidosView() {
   const [syncOnlyMissing, setSyncOnlyMissing] = useState(true);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
+  const [syncProgress, setSyncProgress] = useState<SyncRangeProgressState | null>(null);
+  const syncCancelRef = useRef(false);
   const [syncRowId, setSyncRowId] = useState<number | null>(null);
   const [repairBusy, setRepairBusy] = useState(false);
   const [repairMsg, setRepairMsg] = useState('');
@@ -107,36 +118,140 @@ export function PartidosView() {
   async function handleSyncRange() {
     if (
       !confirm(
-        `¿Sincronizar estadísticas (FLB) de ligas destacadas del ${applied.desde} al ${applied.hasta}?`,
+        `¿Sincronizar estadísticas (FLB) de ligas destacadas del ${applied.desde} al ${applied.hasta}? Se procesará partido por partido con barra de progreso.`,
       )
     ) {
       return;
     }
     setSyncBusy(true);
     setSyncMsg('');
+    syncCancelRef.current = false;
+    setSyncProgress({
+      phase: 'planning',
+      total: 0,
+      current: 0,
+      ok: 0,
+      failed: 0,
+      currentFixture: null,
+      recentLog: [],
+    });
+
     try {
-      const result = await syncPartidosStats({
+      const plan = await fetchSyncStatsPlan({
         desde: applied.desde,
         hasta: applied.hasta,
         onlyMissing: syncOnlyMissing,
       });
-      if (result.success === false) {
-        setSyncMsg(result.error || result.message || 'Error al sincronizar');
-      } else {
-        const t = result.totals;
-        const parts = [
-          result.summary,
-          t?.flbUpdated != null ? `refuerzo FLB: ${t.flbUpdated}` : null,
-          t?.missingAfter != null ? `sin stats: ${t.missingAfter}` : null,
-        ].filter(Boolean);
-        setSyncMsg(parts.join(' · ') || 'Sincronización completada');
-        await queryClient.invalidateQueries({ queryKey: ['partidos'] });
+      if (!plan.success) {
+        setSyncMsg(plan.error || 'No se pudo planificar la sincronización');
+        setSyncProgress(null);
+        return;
       }
+
+      const fixtures = plan.fixtures ?? [];
+      if (!fixtures.length) {
+        setSyncMsg('No hay partidos pendientes de sincronizar en ese rango.');
+        setSyncProgress(null);
+        return;
+      }
+
+      setSyncProgress({
+        phase: 'syncing',
+        total: fixtures.length,
+        current: 0,
+        ok: 0,
+        failed: 0,
+        currentFixture: fixtures[0] ?? null,
+        recentLog: [`Plan: ${fixtures.length} partido(s) en ${plan.days ?? 0} día(s)`],
+      });
+
+      let ok = 0;
+      let failed = 0;
+      const recentLog: string[] = [`Plan: ${fixtures.length} partido(s)`];
+
+      for (let i = 0; i < fixtures.length; i += 1) {
+        if (syncCancelRef.current) {
+          setSyncProgress({
+            phase: 'cancelled',
+            total: fixtures.length,
+            current: i,
+            ok,
+            failed,
+            currentFixture: fixtures[i] ?? null,
+            recentLog: recentLog.slice(-8),
+          });
+          setSyncMsg(`Cancelado: ${ok}/${i} sincronizado(s) antes de detener.`);
+          break;
+        }
+
+        const fx = fixtures[i];
+        setSyncProgress({
+          phase: 'syncing',
+          total: fixtures.length,
+          current: i,
+          ok,
+          failed,
+          currentFixture: fx,
+          recentLog: recentLog.slice(-8),
+        });
+
+        try {
+          const result = await syncPartidoStats(fx.fixtureId);
+          if (result.success && result.statisticsPersisted !== false) {
+            ok += 1;
+            recentLog.push(`✓ ${fx.fixtureId} ${fx.homeTeam} vs ${fx.awayTeam}`);
+          } else {
+            failed += 1;
+            recentLog.push(
+              `✗ ${fx.fixtureId} ${result.error || result.message || 'sin stats'}`,
+            );
+          }
+        } catch (e) {
+          failed += 1;
+          recentLog.push(`✗ ${fx.fixtureId} ${(e as Error).message}`);
+        }
+
+        setSyncProgress({
+          phase: 'syncing',
+          total: fixtures.length,
+          current: i + 1,
+          ok,
+          failed,
+          currentFixture: fixtures[i + 1] ?? null,
+          recentLog: recentLog.slice(-8),
+        });
+      }
+
+      if (!syncCancelRef.current) {
+        setSyncProgress({
+          phase: 'done',
+          total: fixtures.length,
+          current: fixtures.length,
+          ok,
+          failed,
+          currentFixture: null,
+          recentLog: recentLog.slice(-8),
+        });
+        setSyncMsg(
+          `FLB: ${ok}/${fixtures.length} sincronizado(s)${failed ? ` · ${failed} fallo(s)` : ''}`,
+        );
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['partidos'] });
     } catch (e) {
       setSyncMsg((e as Error).message);
+      setSyncProgress(null);
     } finally {
       setSyncBusy(false);
     }
+  }
+
+  function handleSyncProgressCancel() {
+    if (syncProgress?.phase === 'planning' || syncProgress?.phase === 'syncing') {
+      syncCancelRef.current = true;
+      return;
+    }
+    setSyncProgress(null);
   }
 
   async function handleSyncOne(fixtureId: number) {
@@ -254,7 +369,8 @@ export function PartidosView() {
 
         <div className="mt-4 border-t border-white/10 pt-4">
           <p className="mb-2 text-xs text-slate-500">
-            Sincronizar estadísticas FLB del rango visible (ligas destacadas, día a día)
+            Sincronizar estadísticas FLB del rango visible (ligas destacadas, partido a partido con
+            progreso)
           </p>
           <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
             <label className="flex items-center gap-2 text-sm text-slate-400">
@@ -586,6 +702,15 @@ export function PartidosView() {
           fixtureId={liveOddsModal.fixtureId}
           matchLabel={liveOddsModal.label}
           onClose={() => setLiveOddsModal(null)}
+        />
+      )}
+      {syncProgress && (
+        <SyncRangeProgressModal
+          progress={syncProgress}
+          desde={applied.desde}
+          hasta={applied.hasta}
+          onlyMissing={syncOnlyMissing}
+          onCancel={handleSyncProgressCancel}
         />
       )}
     </div>

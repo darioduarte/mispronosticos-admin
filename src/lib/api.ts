@@ -28,6 +28,7 @@ import type {
   PromediosMuestraResponse,
   PromediosRecalculateResponse,
   PromediosSummaryResponse,
+  SyncStatsPlanResponse,
   SyncStatsResponse,
   SuscripcionesResponse,
   SuscripcionProductosResponse,
@@ -612,6 +613,16 @@ export function fetchPartidos(params: {
   if (params.sinArbitro) qs.set('sinArbitro', '1');
   if (params.sinStats) qs.set('sinStats', '1');
   return adminFetch<PartidosResponse>(`/api/admin/partidos/rango?${qs}`);
+}
+
+export function fetchSyncStatsPlan(payload: {
+  desde: string;
+  hasta: string;
+  onlyMissing?: boolean;
+}) {
+  const qs = new URLSearchParams({ desde: payload.desde, hasta: payload.hasta });
+  if (payload.onlyMissing) qs.set('onlyMissing', '1');
+  return adminFetch<SyncStatsPlanResponse>(`/api/admin/partidos/sync-stats/plan?${qs}`);
 }
 
 export function syncPartidosStats(payload: {

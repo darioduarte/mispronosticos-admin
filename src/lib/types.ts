@@ -359,6 +359,27 @@ export type SyncPartidoStatsResponse = {
   statistics?: FixtureStatisticsResponse;
 };
 
+export type SyncStatsPlanFixture = {
+  fixtureId: number;
+  date: string;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  hasStats: boolean;
+};
+
+export type SyncStatsPlanResponse = {
+  success: boolean;
+  dateFrom?: string;
+  dateTo?: string;
+  onlyMissing?: boolean;
+  days?: number;
+  total?: number;
+  fixtures?: SyncStatsPlanFixture[];
+  byDay?: Record<string, { count: number; fixtureIds: number[] }>;
+  error?: string;
+};
+
 export type SyncStatsResponse = {
   success?: boolean;
   error?: string;
