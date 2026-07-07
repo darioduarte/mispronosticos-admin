@@ -980,6 +980,34 @@ export function fetchOpsIncidentsReport(params: { hours?: number; type?: string;
   return adminFetch<OpsIncidentsReportResponse>(`/api/admin/dashboard/ops-incidents/report?${qs}`);
 }
 
+export async function downloadOpsIncidentsLog(hours?: number) {
+  const token = getAccessToken();
+  if (!token) throw new Error('Sesión expirada — vuelve a iniciar sesión');
+  const qs = new URLSearchParams();
+  if (hours) qs.set('hours', String(hours));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  const res = await fetch(`${API_BASE}/api/admin/dashboard/ops-incidents/download${suffix}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    let msg = `Error ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.error) msg = body.error;
+    } catch {
+      /* respuesta no JSON */
+    }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ops-incidents${hours ? `-${hours}h` : ''}-${new Date().toISOString().slice(0, 10)}.log`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function fetchRuntimeSettings() {
   return adminFetch<RuntimeSettingsSnapshot>('/api/admin/runtime-settings');
 }

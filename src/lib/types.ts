@@ -1007,7 +1007,7 @@ export type OpsIncidentRow = {
 export type OpsIncidentsResponse = {
   success: boolean;
   data?: OpsIncidentRow[];
-  meta?: { total: number; limit: number; offset: number; hours: number; since: string };
+  meta?: { total: number; limit: number; offset: number; hours: number; since: string; storage?: string; logPath?: string };
   error?: string;
 };
 

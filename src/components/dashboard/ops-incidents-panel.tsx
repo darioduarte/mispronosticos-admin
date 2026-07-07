@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { fetchOpsIncidents, fetchOpsIncidentsReport } from '@/lib/api';
+import { fetchOpsIncidents, fetchOpsIncidentsReport, downloadOpsIncidentsLog } from '@/lib/api';
 import type { OpsIncidentRow } from '@/lib/types';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -112,6 +112,16 @@ export function OpsIncidentsPanel() {
     }
   }
 
+  async function handleDownloadLog() {
+    setCopyMsg('');
+    try {
+      await downloadOpsIncidentsLog(hours);
+      setCopyMsg('Log descargado');
+    } catch (e) {
+      setCopyMsg((e as Error).message || 'No se pudo descargar');
+    }
+  }
+
   return (
     <section className="rounded-xl border border-white/10 bg-[#111827] p-4">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -120,8 +130,11 @@ export function OpsIncidentsPanel() {
             Incidentes operacionales
           </h3>
           <p className="mt-1 text-sm text-slate-400">
-            Registro persistente de saturación, circuit breaker, jobs diferidos y bloqueos.
+            Log en archivo del servidor (sin MySQL) — saturación, circuit breaker, jobs diferidos y bloqueos.
             {meta ? ` · últimas ${meta.hours}h` : ''}
+            {meta?.logPath ? (
+              <span className="block text-[11px] text-slate-500">Archivo: {meta.logPath}</span>
+            ) : null}
             {openCount > 0 ? (
               <span className="ml-2 font-medium text-red-300">{openCount} abierto(s)</span>
             ) : null}
@@ -153,9 +166,16 @@ export function OpsIncidentsPanel() {
           <button
             type="button"
             onClick={handleCopyReport}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
           >
             Copiar informe
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadLog}
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+          >
+            Descargar log
           </button>
         </div>
       </div>
