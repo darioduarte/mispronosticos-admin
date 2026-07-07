@@ -30,8 +30,33 @@ function formatWhen(iso?: string | null) {
   }
 }
 
+const MODULE_LABELS: Record<string, string> = {
+  live: 'En vivo',
+  'ai-live': 'IA en vivo',
+  ai: 'IA / predicciones',
+  cron: 'Cron',
+  'cron-fixtures': 'Cron fixtures',
+  'cron-ai': 'Cron IA',
+  'cron-stats': 'Cron estadísticas',
+  'api-fixture': 'API fixtures',
+  'api-stats': 'API estadísticas',
+  'stats-sync': 'Sync estadísticas',
+  'admin-api': 'Admin API',
+  admin: 'Admin',
+  system: 'Sistema',
+  other: 'Otro',
+};
+
 function IncidentCard({ inc }: { inc: OpsIncidentRow }) {
   const [open, setOpen] = useState(false);
+  const ctx = (inc.context || {}) as Record<string, unknown>;
+  const moduleKey = inc.module || (ctx.module as string) || null;
+  const source = inc.source || (ctx.source as string) || (ctx.label as string) || null;
+  const why = inc.why || (ctx.why as string) || (ctx.likelyCause as string) || null;
+  const jobsRunning = ctx.jobsRunning as Array<{ name: string; runningSec?: number | null }> | undefined;
+  const suspects = ctx.suspects as Array<string | { label?: string; name?: string }> | undefined;
+  const impact = (ctx.impactSummary as string) || null;
+
   return (
     <div className={`rounded-lg border-l-2 px-3 py-2 text-xs ${severityClass(inc.severity)}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -50,8 +75,32 @@ function IncidentCard({ inc }: { inc: OpsIncidentRow }) {
             <span className="text-[10px] text-slate-500">
               {TYPE_LABELS[inc.type] || inc.type}
             </span>
+            {moduleKey ? (
+              <span className="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[10px] text-indigo-200">
+                {MODULE_LABELS[moduleKey] || moduleKey}
+              </span>
+            ) : null}
           </div>
           <p className="mt-1 text-sm">{inc.message}</p>
+          {source ? (
+            <p className="mt-1 text-[10px] text-slate-400">
+              Origen: <span className="font-mono text-slate-300">{source}</span>
+            </p>
+          ) : null}
+          {why ? (
+            <p className="mt-1 text-[10px] text-amber-200/90">
+              Por qué: {why}
+            </p>
+          ) : null}
+          {Array.isArray(jobsRunning) && jobsRunning.length > 0 ? (
+            <p className="mt-1 text-[10px] text-slate-400">
+              Corriendo:{' '}
+              {jobsRunning.map((j) => `${j.name}(${j.runningSec ?? '?'}s)`).join(', ')}
+            </p>
+          ) : null}
+          {impact ? (
+            <p className="mt-1 text-[10px] text-slate-400">Impacto: {impact}</p>
+          ) : null}
           <p className="mt-1 text-[10px] text-slate-500">
             {formatWhen(inc.startedAt)}
             {inc.instanceId ? ` · ${inc.instanceId}` : ''}
@@ -68,8 +117,15 @@ function IncidentCard({ inc }: { inc: OpsIncidentRow }) {
         ) : null}
       </div>
       {open && inc.context ? (
-        <pre className="mt-2 max-h-40 overflow-auto rounded bg-black/30 p-2 text-[10px] text-slate-300">
+        <pre className="mt-2 max-h-48 overflow-auto rounded bg-black/30 p-2 text-[10px] text-slate-300">
           {JSON.stringify(inc.context, null, 2)}
+          {Array.isArray(suspects) && suspects.length > 0 ? (
+            `\n\nSospechosos:\n${suspects
+              .map((s) => (typeof s === 'string' ? s : s.label || s.name || JSON.stringify(s)))
+              .join('\n')}`
+          ) : (
+            ''
+          )}
         </pre>
       ) : null}
     </div>

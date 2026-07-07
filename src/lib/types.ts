@@ -996,6 +996,9 @@ export type OpsIncidentRow = {
   severity: 'info' | 'warn' | 'error' | 'critical';
   message: string;
   context?: Record<string, unknown> | null;
+  module?: string | null;
+  source?: string | null;
+  why?: string | null;
   instanceId?: string | null;
   groupKey?: string | null;
   startedAt: string;
