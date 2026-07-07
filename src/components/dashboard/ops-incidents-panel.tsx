@@ -98,6 +98,16 @@ function IncidentCard({ inc }: { inc: OpsIncidentRow }) {
               {jobsRunning.map((j) => `${j.name}(${j.runningSec ?? '?'}s)`).join(', ')}
             </p>
           ) : null}
+          {(() => {
+            const inflight = ctx.inflightActive as Array<{ kind: string; key: string; count: number; maxSec: number }> | undefined;
+            if (!Array.isArray(inflight) || !inflight.length) return null;
+            return (
+              <p className="mt-1 text-[10px] text-cyan-200/90">
+                En curso:{' '}
+                {inflight.map((i) => `${i.kind}:${i.key}×${i.count}(${i.maxSec}s)`).join(', ')}
+              </p>
+            );
+          })()}
           {impact ? (
             <p className="mt-1 text-[10px] text-slate-400">Impacto: {impact}</p>
           ) : null}
