@@ -990,6 +990,35 @@ export type OpsAlert = {
   message: string;
 };
 
+export type OpsIncidentRow = {
+  id: string;
+  type: string;
+  severity: 'info' | 'warn' | 'error' | 'critical';
+  message: string;
+  context?: Record<string, unknown> | null;
+  instanceId?: string | null;
+  groupKey?: string | null;
+  startedAt: string;
+  endedAt?: string | null;
+  open?: boolean;
+  durationSec?: number | null;
+};
+
+export type OpsIncidentsResponse = {
+  success: boolean;
+  data?: OpsIncidentRow[];
+  meta?: { total: number; limit: number; offset: number; hours: number; since: string };
+  error?: string;
+};
+
+export type OpsIncidentsReportResponse = {
+  success: boolean;
+  report?: string;
+  summary?: { total: number; open: number; byType: Record<string, number> };
+  incidents?: OpsIncidentRow[];
+  error?: string;
+};
+
 export type OpsSnapshot = {
   success?: boolean;
   generatedAt: string;

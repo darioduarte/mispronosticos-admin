@@ -60,6 +60,8 @@ import type {
   ArbitroRemoveAliasResponse,
   ArbitroDisciplineHistoryResponse,
   OpsSnapshot,
+  OpsIncidentsResponse,
+  OpsIncidentsReportResponse,
   RuntimeSettingsSnapshot,
 } from './types';
 import type { ConnectionProbe, LoginDiagnostic } from './login-diagnostics';
@@ -952,6 +954,30 @@ export function fetchDashboardActividad(desde: string, hasta: string) {
 
 export function fetchDashboardOps() {
   return adminFetch<OpsSnapshot>('/api/admin/dashboard/ops');
+}
+
+export function fetchOpsIncidents(params: {
+  hours?: number;
+  limit?: number;
+  type?: string;
+  severity?: string;
+  openOnly?: boolean;
+}) {
+  const qs = new URLSearchParams();
+  if (params.hours) qs.set('hours', String(params.hours));
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.type) qs.set('type', params.type);
+  if (params.severity) qs.set('severity', params.severity);
+  if (params.openOnly) qs.set('openOnly', '1');
+  return adminFetch<OpsIncidentsResponse>(`/api/admin/dashboard/ops-incidents?${qs}`);
+}
+
+export function fetchOpsIncidentsReport(params: { hours?: number; type?: string; severity?: string }) {
+  const qs = new URLSearchParams();
+  if (params.hours) qs.set('hours', String(params.hours));
+  if (params.type) qs.set('type', params.type);
+  if (params.severity) qs.set('severity', params.severity);
+  return adminFetch<OpsIncidentsReportResponse>(`/api/admin/dashboard/ops-incidents/report?${qs}`);
 }
 
 export function fetchRuntimeSettings() {
