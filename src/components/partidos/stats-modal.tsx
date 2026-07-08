@@ -571,9 +571,14 @@ function FlbLinkingPanel({
             <p className="mt-1 text-xs text-slate-500">
               API-Football: {data.fixture?.homeTeam} vs {data.fixture?.awayTeam}
             </p>
+            {data.fixture?.primaryDate && (
+              <p className="text-xs text-slate-400">
+                Fecha del partido: <span className="font-medium text-slate-300">{data.fixture.primaryDate}</span>
+              </p>
+            )}
             <p className="text-xs text-slate-500">
-              Fechas consultadas: {(data.datesQueried || []).join(', ') || '—'} ·{' '}
-              {data.flbMatchCount ?? 0} partido(s) en FLB
+              Fechas consultadas en FLB: {(data.datesQueried || []).join(', ') || '—'} ·{' '}
+              {data.flbMatchCount ?? 0} partido(s) encontrado(s)
             </p>
             {activeMapping && (
               <p className="mt-2 text-xs text-emerald-300">
