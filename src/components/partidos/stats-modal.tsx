@@ -532,6 +532,7 @@ function failureReasonLabel(code?: string | null) {
   const map: Record<string, string> = {
     flb_disabled: 'FLB desactivado en el servidor',
     flb_fetch_failed: 'Error al consultar partidos en FLB',
+    flb_quota_exceeded: 'Cuota mensual de RapidAPI FLB agotada',
     missing_fixture_date: 'Sin fecha de partido en BD',
     no_flb_matches_for_date: 'FLB no devolvió partidos para esa fecha',
     not_found: 'Ningún candidato por nombre de equipos',
@@ -597,11 +598,13 @@ function FlbLinkingPanel({
                 )}
               </p>
             )}
-            {reason && !activeMapping && (
+            {reason && !activeMapping && !data.fetchError && (
               <p className="mt-2 text-xs text-amber-300">Auto-match: {reason}</p>
             )}
             {data.fetchError && (
-              <p className="mt-1 text-xs text-red-300">{data.fetchError}</p>
+              <p className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-200">
+                Error FLB: {data.fetchError}
+              </p>
             )}
           </div>
           {activeMapping && (
