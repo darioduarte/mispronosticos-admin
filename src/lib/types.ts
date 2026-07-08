@@ -344,8 +344,64 @@ export type PartidoStatisticsFlbResponse = {
   success: boolean;
   fixtureId?: number;
   eventId?: string | null;
+  mapping?: FlbMappingRow | null;
   flbRaw?: unknown;
   mapped?: unknown;
+  error?: string;
+};
+
+export type FlbMappingRow = {
+  fixtureId: number;
+  flbEventId: string;
+  source: 'auto' | 'manual' | 'cache';
+  homeFlbName?: string | null;
+  awayFlbName?: string | null;
+  matchScore?: number | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type FlbCandidateRow = {
+  eventId: string | null;
+  home: string;
+  away: string;
+  score: number;
+  homeScore?: number | null;
+  awayScore?: number | null;
+  ongoing?: boolean;
+  started?: boolean;
+  timeTS?: number | null;
+};
+
+export type FlbCandidatesResponse = {
+  success: boolean;
+  fixtureId?: number;
+  flbEnabled?: boolean;
+  datesQueried?: string[];
+  flbMatchCount?: number;
+  mapping?: FlbMappingRow | null;
+  failureReason?: string | null;
+  fetchError?: string | null;
+  candidates?: FlbCandidateRow[];
+  dayMatches?: FlbCandidateRow[];
+  fixture?: {
+    homeTeam?: string;
+    awayTeam?: string;
+    fixturedate?: string;
+    goalshome?: string | null;
+    goalsaway?: string | null;
+    leagueid?: number;
+  };
+  error?: string;
+};
+
+export type FlbMappingSaveResponse = {
+  success: boolean;
+  fixtureId?: number;
+  mapping?: FlbMappingRow;
+  deleted?: boolean;
+  message?: string;
   error?: string;
 };
 

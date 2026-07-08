@@ -6,16 +6,20 @@ import {
   fetchPartidoH2H,
   fetchPartidoStatistics,
   fetchPartidoStatisticsFlb,
+  fetchPartidoFlbCandidates,
+  savePartidoFlbMapping,
+  deletePartidoFlbMapping,
   syncPartidoStats,
   syncPartidoH2HStats,
 } from '@/lib/api';
-import type { H2HMatchRow } from '@/lib/types';
+import type { FlbCandidateRow, FlbCandidatesResponse, FlbMappingRow, H2HMatchRow } from '@/lib/types';
 
 type Props = {
   fixtureId: number;
   matchLabel: string;
   onClose: () => void;
   onSynced?: () => void;
+  initialTab?: Tab;
 };
 
 type Tab = 'bd' | 'flb' | 'h2h';
@@ -34,11 +38,13 @@ function formatSyncMessage(result: {
   return 'Sin estadísticas disponibles';
 }
 
-export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: Props) {
+export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, initialTab = 'bd' }: Props) {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>('bd');
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
+  const [flbLinkBusy, setFlbLinkBusy] = useState<string | null>(null);
+  const [flbLinkMsg, setFlbLinkMsg] = useState('');
   const [h2hSyncBusy, setH2hSyncBusy] = useState<number | 'bulk' | null>(null);
   const [h2hSyncMsg, setH2hSyncMsg] = useState('');
 
@@ -51,6 +57,12 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
   const flbQuery = useQuery({
     queryKey: ['partido-stats-flb', fixtureId],
     queryFn: () => fetchPartidoStatisticsFlb(fixtureId),
+    enabled: tab === 'flb',
+  });
+
+  const flbCandidatesQuery = useQuery({
+    queryKey: ['partido-flb-candidates', fixtureId],
+    queryFn: () => fetchPartidoFlbCandidates(fixtureId),
     enabled: tab === 'flb',
   });
 
@@ -70,6 +82,7 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
       }
       await queryClient.invalidateQueries({ queryKey: ['partido-stats', fixtureId] });
       await queryClient.invalidateQueries({ queryKey: ['partido-stats-flb', fixtureId] });
+      await queryClient.invalidateQueries({ queryKey: ['partido-flb-candidates', fixtureId] });
       await queryClient.invalidateQueries({ queryKey: ['partido-h2h', fixtureId] });
       await queryClient.invalidateQueries({ queryKey: ['partidos'] });
       setSyncMsg(formatSyncMessage(result));
@@ -78,6 +91,57 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
       setSyncMsg((e as Error).message);
     } finally {
       setSyncBusy(false);
+    }
+  }
+
+  async function handleFlbLink(candidate: FlbCandidateRow) {
+    if (!candidate.eventId) return;
+    setFlbLinkBusy(candidate.eventId);
+    setFlbLinkMsg('');
+    try {
+      const result = await savePartidoFlbMapping(fixtureId, {
+        flbEventId: candidate.eventId,
+        homeFlbName: candidate.home,
+        awayFlbName: candidate.away,
+      });
+      if (!result.success) {
+        setFlbLinkMsg(result.error || 'No se pudo guardar la vinculación');
+        return;
+      }
+      setFlbLinkMsg(`Vinculado a eventId ${candidate.eventId}. Sincronizando stats…`);
+      await queryClient.invalidateQueries({ queryKey: ['partido-flb-candidates', fixtureId] });
+      await queryClient.invalidateQueries({ queryKey: ['partido-stats-flb', fixtureId] });
+      const syncResult = await syncPartidoStats(fixtureId);
+      if (syncResult.success) {
+        setFlbLinkMsg(formatSyncMessage(syncResult));
+        await queryClient.invalidateQueries({ queryKey: ['partido-stats', fixtureId] });
+        onSynced?.();
+      } else {
+        setFlbLinkMsg(syncResult.error || syncResult.message || 'Vinculado; error al sincronizar stats');
+      }
+    } catch (e) {
+      setFlbLinkMsg((e as Error).message);
+    } finally {
+      setFlbLinkBusy(null);
+    }
+  }
+
+  async function handleFlbUnlink() {
+    setFlbLinkBusy('unlink');
+    setFlbLinkMsg('');
+    try {
+      const result = await deletePartidoFlbMapping(fixtureId);
+      if (!result.success) {
+        setFlbLinkMsg(result.error || 'No se pudo eliminar la vinculación');
+        return;
+      }
+      setFlbLinkMsg(result.message || 'Vinculación eliminada');
+      await queryClient.invalidateQueries({ queryKey: ['partido-flb-candidates', fixtureId] });
+      await queryClient.invalidateQueries({ queryKey: ['partido-stats-flb', fixtureId] });
+    } catch (e) {
+      setFlbLinkMsg((e as Error).message);
+    } finally {
+      setFlbLinkBusy(null);
     }
   }
 
@@ -129,7 +193,7 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
                   Base de datos
                 </TabBtn>
                 <TabBtn active={tab === 'flb'} onClick={() => setTab('flb')}>
-                  FLB (crudo)
+                  FLB / vincular
                 </TabBtn>
                 <TabBtn active={tab === 'h2h'} onClick={() => setTab('h2h')}>
                   H2H
@@ -261,21 +325,32 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced }: 
 
           {tab === 'flb' && (
             <>
-              {flbQuery.isLoading && (
+              {(flbQuery.isLoading || flbCandidatesQuery.isLoading) && (
                 <p className="text-sm text-slate-400">Consultando Live-Football-Data…</p>
               )}
               {flbQuery.isError && (
                 <p className="text-sm text-red-300">{(flbQuery.error as Error).message}</p>
               )}
+              {flbCandidatesQuery.data && (
+                <FlbLinkingPanel
+                  data={flbCandidatesQuery.data}
+                  mapping={flbQuery.data?.mapping || flbCandidatesQuery.data.mapping}
+                  eventId={flbQuery.data?.eventId}
+                  linkBusy={flbLinkBusy}
+                  linkMsg={flbLinkMsg}
+                  onLink={handleFlbLink}
+                  onUnlink={handleFlbUnlink}
+                />
+              )}
               {flbQuery.data && (
-                <div className="space-y-4">
+                <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
                   <p className="text-xs text-slate-500">
                     Respuesta FLB y bloque mapeado a nombres API-Football (lo que se guarda en BD).
                     {flbQuery.data.eventId != null && (
                       <span className="ml-1 text-slate-400">eventId: {flbQuery.data.eventId}</span>
                     )}
                   </p>
-                  {flbQuery.data.error && (
+                  {flbQuery.data.error && !flbQuery.data.eventId && (
                     <p className="text-sm text-amber-300">{flbQuery.data.error}</p>
                   )}
                   <ApiBlock title="Mapeado (canonical)" data={flbQuery.data.mapped} />
@@ -449,6 +524,211 @@ function StatsTable({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function failureReasonLabel(code?: string | null) {
+  const map: Record<string, string> = {
+    flb_disabled: 'FLB desactivado en el servidor',
+    flb_fetch_failed: 'Error al consultar partidos en FLB',
+    no_flb_matches_for_date: 'FLB no devolvió partidos para las fechas consultadas',
+    not_found: 'Ningún candidato por nombre de equipos',
+    ambiguous: 'Varios candidatos con score similar (elige manualmente)',
+  };
+  return (code && map[code]) || code || null;
+}
+
+function FlbLinkingPanel({
+  data,
+  mapping,
+  eventId,
+  linkBusy,
+  linkMsg,
+  onLink,
+  onUnlink,
+}: {
+  data: FlbCandidatesResponse;
+  mapping?: FlbMappingRow | null;
+  eventId?: string | null;
+  linkBusy: string | null;
+  linkMsg: string;
+  onLink: (c: FlbCandidateRow) => void;
+  onUnlink: () => void;
+}) {
+  const activeMapping = mapping?.flbEventId || eventId || null;
+  const candidates = data.candidates?.length ? data.candidates : [];
+  const dayMatches = data.dayMatches || [];
+  const showDayMatches = dayMatches.length > 0;
+  const reason = failureReasonLabel(data.failureReason);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-white/10 bg-[#0b0f14] p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="text-sm text-slate-300">
+            <p className="font-medium text-slate-100">Vinculación FLB</p>
+            <p className="mt-1 text-xs text-slate-500">
+              API-Football: {data.fixture?.homeTeam} vs {data.fixture?.awayTeam}
+            </p>
+            <p className="text-xs text-slate-500">
+              Fechas consultadas: {(data.datesQueried || []).join(', ') || '—'} ·{' '}
+              {data.flbMatchCount ?? 0} partido(s) en FLB
+            </p>
+            {activeMapping && (
+              <p className="mt-2 text-xs text-emerald-300">
+                Vinculado: eventId {activeMapping}
+                {mapping?.source && (
+                  <span className="ml-1 text-slate-500">({mapping.source})</span>
+                )}
+                {mapping?.homeFlbName && mapping?.awayFlbName && (
+                  <span className="block text-slate-400">
+                    {mapping.homeFlbName} vs {mapping.awayFlbName}
+                  </span>
+                )}
+              </p>
+            )}
+            {reason && !activeMapping && (
+              <p className="mt-2 text-xs text-amber-300">Auto-match: {reason}</p>
+            )}
+            {data.fetchError && (
+              <p className="mt-1 text-xs text-red-300">{data.fetchError}</p>
+            )}
+          </div>
+          {activeMapping && (
+            <button
+              type="button"
+              disabled={linkBusy !== null}
+              onClick={onUnlink}
+              className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-200 hover:bg-red-500/20 disabled:opacity-50"
+            >
+              {linkBusy === 'unlink' ? 'Eliminando…' : 'Quitar vínculo'}
+            </button>
+          )}
+        </div>
+        {linkMsg && (
+          <p
+            className={`mt-2 text-xs ${
+              linkMsg.includes('error') || linkMsg.includes('No se')
+                ? 'text-amber-300'
+                : 'text-emerald-400'
+            }`}
+          >
+            {linkMsg}
+          </p>
+        )}
+      </div>
+
+      {candidates.length > 0 && (
+        <FlbCandidateList
+          title="Candidatos por nombre (mejor score)"
+          rows={candidates}
+          activeEventId={activeMapping}
+          linkBusy={linkBusy}
+          onLink={onLink}
+        />
+      )}
+
+      {showDayMatches && (
+        <FlbCandidateList
+          title={
+            candidates.length
+              ? 'Todos los partidos FLB del día (vinculación manual)'
+              : 'Partidos FLB del día'
+          }
+          rows={dayMatches}
+          activeEventId={activeMapping}
+          linkBusy={linkBusy}
+          onLink={onLink}
+          collapsed={candidates.length > 0 && dayMatches.length > 12}
+        />
+      )}
+
+      {!showDayMatches && !data.flbEnabled && (
+        <p className="text-sm text-amber-300">FLB no está habilitado en el servidor.</p>
+      )}
+      {!showDayMatches && data.flbEnabled && !data.fetchError && (
+        <p className="text-sm text-amber-300">
+          No hay partidos en FLB para las fechas consultadas. Este fixture puede estar fuera de
+          cobertura.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FlbCandidateList({
+  title,
+  rows,
+  activeEventId,
+  linkBusy,
+  onLink,
+  collapsed = false,
+}: {
+  title: string;
+  rows: FlbCandidateRow[];
+  activeEventId: string | null;
+  linkBusy: string | null;
+  onLink: (c: FlbCandidateRow) => void;
+  collapsed?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(!collapsed);
+  const visible = expanded ? rows : rows.slice(0, 8);
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-200">{title}</h3>
+        {collapsed && rows.length > 8 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="text-xs text-indigo-300 hover:text-indigo-200"
+          >
+            {expanded ? 'Ver menos' : `Ver todos (${rows.length})`}
+          </button>
+        )}
+      </div>
+      <div className="space-y-2">
+        {visible.map((row) => {
+          const isActive = row.eventId != null && row.eventId === activeEventId;
+          const busy = row.eventId != null && linkBusy === row.eventId;
+          return (
+            <div
+              key={row.eventId || `${row.home}-${row.away}`}
+              className={`flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between ${
+                isActive
+                  ? 'border-emerald-500/40 bg-emerald-500/10'
+                  : 'border-white/10 bg-[#0b0f14]'
+              }`}
+            >
+              <div className="min-w-0 text-sm">
+                <p className="font-medium text-slate-100">
+                  {row.home} vs {row.away}
+                </p>
+                <p className="text-xs text-slate-500">
+                  eventId {row.eventId ?? '—'}
+                  {row.score > 0 && <span className="ml-2">score {row.score}</span>}
+                  {(row.homeScore != null || row.awayScore != null) && (
+                    <span className="ml-2">
+                      {row.homeScore ?? '?'}–{row.awayScore ?? '?'}
+                    </span>
+                  )}
+                  {row.ongoing && <span className="ml-2 text-amber-300">en vivo</span>}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={!row.eventId || busy || isActive || linkBusy !== null}
+                onClick={() => onLink(row)}
+                className="w-full shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50 sm:w-auto"
+              >
+                {isActive ? 'Vinculado' : busy ? 'Vinculando…' : 'Vincular'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

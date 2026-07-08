@@ -24,6 +24,9 @@ import type {
   RepairRefereesResponse,
   PartidoStatisticsApiResponse,
   PartidoStatisticsFlbResponse,
+  FlbCandidatesResponse,
+  FlbMappingSaveResponse,
+  FlbCandidateRow,
   SyncPartidoStatsResponse,
   PromediosMuestraResponse,
   PromediosRecalcPlanResponse,
@@ -723,6 +726,35 @@ export function fetchPartidoStatisticsApi(fixtureId: number) {
 export function fetchPartidoStatisticsFlb(fixtureId: number) {
   return adminFetch<PartidoStatisticsFlbResponse>(
     `/api/admin/partidos/fixtures/${fixtureId}/statistics-flb`,
+  );
+}
+
+export function fetchPartidoFlbCandidates(fixtureId: number, limit = 80) {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  return adminFetch<FlbCandidatesResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/flb-candidates?${qs}`,
+  );
+}
+
+export function savePartidoFlbMapping(
+  fixtureId: number,
+  body: {
+    flbEventId: string;
+    homeFlbName?: string;
+    awayFlbName?: string;
+    notes?: string;
+  },
+) {
+  return adminFetch<FlbMappingSaveResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/flb-mapping`,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}
+
+export function deletePartidoFlbMapping(fixtureId: number) {
+  return adminFetch<FlbMappingSaveResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/flb-mapping`,
+    { method: 'DELETE' },
   );
 }
 
