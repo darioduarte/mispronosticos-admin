@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   fetchPartidoH2H,
   fetchPartidoStatistics,
@@ -38,6 +38,13 @@ function formatSyncMessage(result: {
   return 'Sin estadísticas disponibles';
 }
 
+function shiftDateYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
 export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, initialTab = 'bd' }: Props) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -47,6 +54,13 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, in
   const [flbLinkMsg, setFlbLinkMsg] = useState('');
   const [h2hSyncBusy, setH2hSyncBusy] = useState<number | 'bulk' | null>(null);
   const [h2hSyncMsg, setH2hSyncMsg] = useState('');
+  const [flbSearchDate, setFlbSearchDate] = useState<string | null>(null);
+  const [flbDateInput, setFlbDateInput] = useState('');
+
+  useEffect(() => {
+    setFlbSearchDate(null);
+    setFlbDateInput('');
+  }, [fixtureId]);
 
   const bdQuery = useQuery({
     queryKey: ['partido-stats', fixtureId],
@@ -61,10 +75,30 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, in
   });
 
   const flbCandidatesQuery = useQuery({
-    queryKey: ['partido-flb-candidates', fixtureId],
-    queryFn: () => fetchPartidoFlbCandidates(fixtureId),
+    queryKey: ['partido-flb-candidates', fixtureId, flbSearchDate],
+    queryFn: () => fetchPartidoFlbCandidates(fixtureId, { date: flbSearchDate }),
     enabled: tab === 'flb',
   });
+
+  useEffect(() => {
+    if (tab !== 'flb' || flbDateInput) return;
+    const fromData =
+      flbCandidatesQuery.data?.flbQueryDate ||
+      flbCandidatesQuery.data?.fixture?.flbCalendarDate ||
+      flbCandidatesQuery.data?.fixture?.primaryDate;
+    if (fromData) setFlbDateInput(fromData);
+  }, [tab, flbCandidatesQuery.data, flbDateInput]);
+
+  function applyFlbSearchDate(date: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    setFlbDateInput(date);
+    setFlbSearchDate(date);
+  }
+
+  function resetFlbSearchAuto() {
+    setFlbSearchDate(null);
+    setFlbDateInput('');
+  }
 
   const h2hQuery = useQuery({
     queryKey: ['partido-h2h', fixtureId],
@@ -338,6 +372,11 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, in
                   eventId={flbQuery.data?.eventId}
                   linkBusy={flbLinkBusy}
                   linkMsg={flbLinkMsg}
+                  dateInput={flbDateInput}
+                  dateLoading={flbCandidatesQuery.isFetching}
+                  onDateInputChange={setFlbDateInput}
+                  onSearchDate={applyFlbSearchDate}
+                  onResetAuto={resetFlbSearchAuto}
                   onLink={handleFlbLink}
                   onUnlink={handleFlbUnlink}
                 />
@@ -547,6 +586,11 @@ function FlbLinkingPanel({
   eventId,
   linkBusy,
   linkMsg,
+  dateInput,
+  dateLoading,
+  onDateInputChange,
+  onSearchDate,
+  onResetAuto,
   onLink,
   onUnlink,
 }: {
@@ -555,6 +599,11 @@ function FlbLinkingPanel({
   eventId?: string | null;
   linkBusy: string | null;
   linkMsg: string;
+  dateInput: string;
+  dateLoading: boolean;
+  onDateInputChange: (value: string) => void;
+  onSearchDate: (date: string) => void;
+  onResetAuto: () => void;
   onLink: (c: FlbCandidateRow) => void;
   onUnlink: () => void;
 }) {
@@ -648,6 +697,18 @@ function FlbLinkingPanel({
         )}
       </div>
 
+      <FlbDateSearchBar
+        value={dateInput}
+        primaryDate={data.fixture?.primaryDate}
+        flbCalendarDate={data.fixture?.flbCalendarDate}
+        currentQueryDate={data.flbQueryDate}
+        dateOverride={data.dateOverride}
+        loading={dateLoading}
+        onChange={onDateInputChange}
+        onSearch={onSearchDate}
+        onResetAuto={onResetAuto}
+      />
+
       {candidates.length > 0 && (
         <FlbCandidateList
           title="Candidatos por nombre (mejor score)"
@@ -662,8 +723,8 @@ function FlbLinkingPanel({
         <FlbCandidateList
           title={
             candidates.length
-              ? 'Todos los partidos FLB del día (vinculación manual)'
-              : 'Partidos FLB del día'
+              ? `Todos los partidos FLB del ${data.flbQueryDate || 'día'} (vinculación manual)`
+              : `Partidos FLB del ${data.flbQueryDate || 'día'}`
           }
           rows={dayMatches}
           activeEventId={activeMapping}
@@ -686,6 +747,117 @@ function FlbLinkingPanel({
         <p className="text-sm text-amber-300">Sin fecha de partido en BD para consultar FLB.</p>
       )}
     </div>
+  );
+}
+
+function FlbDateSearchBar({
+  value,
+  primaryDate,
+  flbCalendarDate,
+  currentQueryDate,
+  dateOverride,
+  loading,
+  onChange,
+  onSearch,
+  onResetAuto,
+}: {
+  value: string;
+  primaryDate?: string | null;
+  flbCalendarDate?: string | null;
+  currentQueryDate?: string | null;
+  dateOverride?: boolean;
+  loading: boolean;
+  onChange: (value: string) => void;
+  onSearch: (date: string) => void;
+  onResetAuto: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+      <p className="text-xs font-medium text-slate-200">Buscar partidos FLB por fecha</p>
+      <p className="mt-1 text-xs text-slate-500">
+        Si no ves tu partido, prueba el día anterior o siguiente (FLB indexa por calendario UTC+2).
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="rounded-lg border border-white/10 bg-[#0b0f14] px-2 py-1.5 text-sm text-slate-200"
+        />
+        <button
+          type="button"
+          disabled={loading || !value}
+          onClick={() => value && onSearch(value)}
+          className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+        >
+          {loading ? 'Buscando…' : 'Buscar'}
+        </button>
+        {dateOverride && (
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onResetAuto}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-50"
+          >
+            Volver a automático
+          </button>
+        )}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {primaryDate && (
+          <FlbQuickDateBtn
+            label={`API ${primaryDate}`}
+            disabled={loading}
+            onClick={() => onSearch(primaryDate)}
+          />
+        )}
+        {flbCalendarDate && flbCalendarDate !== primaryDate && (
+          <FlbQuickDateBtn
+            label={`FLB ${flbCalendarDate}`}
+            disabled={loading}
+            onClick={() => onSearch(flbCalendarDate)}
+          />
+        )}
+        {value && (
+          <FlbQuickDateBtn
+            label="−1 día"
+            disabled={loading}
+            onClick={() => onSearch(shiftDateYmd(value, -1))}
+          />
+        )}
+        {value && (
+          <FlbQuickDateBtn
+            label="+1 día"
+            disabled={loading}
+            onClick={() => onSearch(shiftDateYmd(value, 1))}
+          />
+        )}
+      </div>
+      {dateOverride && currentQueryDate && (
+        <p className="mt-2 text-xs text-violet-300">Consulta manual activa: {currentQueryDate}</p>
+      )}
+    </div>
+  );
+}
+
+function FlbQuickDateBtn({
+  label,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="rounded-md border border-white/10 bg-[#0b0f14] px-2 py-1 text-xs text-slate-300 hover:border-violet-500/40 hover:text-violet-200 disabled:opacity-50"
+    >
+      {label}
+    </button>
   );
 }
 

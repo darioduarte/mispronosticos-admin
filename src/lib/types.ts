@@ -380,6 +380,8 @@ export type FlbCandidatesResponse = {
   flbEnabled?: boolean;
   flbQueryDate?: string | null;
   datesQueried?: string[];
+  manualDate?: string | null;
+  dateOverride?: boolean;
   flbMatchCount?: number;
   mapping?: FlbMappingRow | null;
   failureReason?: string | null;

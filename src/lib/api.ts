@@ -729,8 +729,14 @@ export function fetchPartidoStatisticsFlb(fixtureId: number) {
   );
 }
 
-export function fetchPartidoFlbCandidates(fixtureId: number, limit = 80) {
-  const qs = new URLSearchParams({ limit: String(limit) });
+export function fetchPartidoFlbCandidates(
+  fixtureId: number,
+  options: { limit?: number; date?: string | null } = {},
+) {
+  const qs = new URLSearchParams({ limit: String(options.limit ?? 80) });
+  if (options.date && /^\d{4}-\d{2}-\d{2}$/.test(options.date)) {
+    qs.set('date', options.date);
+  }
   return adminFetch<FlbCandidatesResponse>(
     `/api/admin/partidos/fixtures/${fixtureId}/flb-candidates?${qs}`,
   );
