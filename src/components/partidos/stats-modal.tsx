@@ -532,7 +532,8 @@ function failureReasonLabel(code?: string | null) {
   const map: Record<string, string> = {
     flb_disabled: 'FLB desactivado en el servidor',
     flb_fetch_failed: 'Error al consultar partidos en FLB',
-    no_flb_matches_for_date: 'FLB no devolvió partidos para las fechas consultadas',
+    missing_fixture_date: 'Sin fecha de partido en BD',
+    no_flb_matches_for_date: 'FLB no devolvió partidos para esa fecha',
     not_found: 'Ningún candidato por nombre de equipos',
     ambiguous: 'Varios candidatos con score similar (elige manualmente)',
   };
@@ -573,12 +574,15 @@ function FlbLinkingPanel({
             </p>
             {data.fixture?.primaryDate && (
               <p className="text-xs text-slate-400">
-                Fecha del partido: <span className="font-medium text-slate-300">{data.fixture.primaryDate}</span>
+                Fecha consultada en FLB:{' '}
+                <span className="font-medium text-slate-300">
+                  {data.flbQueryDate || data.fixture.primaryDate}
+                </span>
+                <span className="text-slate-500"> (1 petición GET /matches-by-date)</span>
               </p>
             )}
             <p className="text-xs text-slate-500">
-              Fechas consultadas en FLB: {(data.datesQueried || []).join(', ') || '—'} ·{' '}
-              {data.flbMatchCount ?? 0} partido(s) encontrado(s)
+              Partidos devueltos por FLB: {data.flbMatchCount ?? 0}
             </p>
             {activeMapping && (
               <p className="mt-2 text-xs text-emerald-300">
@@ -652,11 +656,14 @@ function FlbLinkingPanel({
       {!showDayMatches && !data.flbEnabled && (
         <p className="text-sm text-amber-300">FLB no está habilitado en el servidor.</p>
       )}
-      {!showDayMatches && data.flbEnabled && !data.fetchError && (
+      {!showDayMatches && data.flbEnabled && !data.fetchError && data.flbQueryDate && (
         <p className="text-sm text-amber-300">
-          No hay partidos en FLB para las fechas consultadas. Este fixture puede estar fuera de
-          cobertura.
+          FLB no devolvió partidos para {data.flbQueryDate}. Puede estar fuera de cobertura o la
+          cuota de la API estar agotada.
         </p>
+      )}
+      {!showDayMatches && data.flbEnabled && !data.fetchError && !data.flbQueryDate && (
+        <p className="text-sm text-amber-300">Sin fecha de partido en BD para consultar FLB.</p>
       )}
     </div>
   );

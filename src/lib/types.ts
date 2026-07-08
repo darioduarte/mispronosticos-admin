@@ -378,6 +378,7 @@ export type FlbCandidatesResponse = {
   success: boolean;
   fixtureId?: number;
   flbEnabled?: boolean;
+  flbQueryDate?: string | null;
   datesQueried?: string[];
   flbMatchCount?: number;
   mapping?: FlbMappingRow | null;
