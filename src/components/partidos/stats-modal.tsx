@@ -575,11 +575,28 @@ function FlbLinkingPanel({
             </p>
             {data.fixture?.primaryDate && (
               <p className="text-xs text-slate-400">
-                Fecha consultada en FLB:{' '}
+                API-Football (UTC):{' '}
+                <span className="font-medium text-slate-300">{data.fixture.primaryDate}</span>
+                {data.fixture.flbCalendarDate &&
+                  data.fixture.flbCalendarDate !== data.fixture.primaryDate && (
+                    <span className="ml-2 text-slate-500">
+                      · FLB calendario (UTC+2): {data.fixture.flbCalendarDate}
+                    </span>
+                  )}
+              </p>
+            )}
+            {(data.flbQueryDate || data.datesQueried?.length) && (
+              <p className="text-xs text-slate-400">
+                Fecha usada en FLB:{' '}
                 <span className="font-medium text-slate-300">
-                  {data.flbQueryDate || data.fixture.primaryDate}
+                  {data.flbQueryDate || data.datesQueried?.[0]}
                 </span>
-                <span className="text-slate-500"> (1 petición GET /matches-by-date)</span>
+                {(data.datesQueried?.length ?? 0) > 1 && (
+                  <span className="text-slate-500">
+                    {' '}
+                    (probó: {data.datesQueried?.join(' → ')})
+                  </span>
+                )}
               </p>
             )}
             <p className="text-xs text-slate-500">

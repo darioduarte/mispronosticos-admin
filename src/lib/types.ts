@@ -391,6 +391,7 @@ export type FlbCandidatesResponse = {
     awayTeam?: string;
     fixturedate?: string;
     primaryDate?: string | null;
+    flbCalendarDate?: string | null;
     goalshome?: string | null;
     goalsaway?: string | null;
     leagueid?: number;
