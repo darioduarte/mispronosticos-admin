@@ -339,7 +339,7 @@ function MuestraTab({
             </p>
             <div className="mt-3 flex flex-wrap gap-4 font-mono text-sm">
               <span>
-                Promedio 5 partidos:{' '}
+                Promedio ({data.usedInAverageCount ?? data.spJoinRows ?? '—'} partidos con stats):{' '}
                 <strong className="text-emerald-300">{fmt(data.promedioCalculado)}</strong>
               </span>
               <span>
@@ -389,34 +389,47 @@ function MuestraTab({
                   <th className="px-3 py-2 text-left">Partido</th>
                   <th className="px-3 py-2 text-left">Rival</th>
                   <th className="px-3 py-2 text-right">Valor</th>
-                  <th className="px-3 py-2 text-center">Filas stat</th>
+                  <th className="px-3 py-2 text-center">En promedio</th>
+                  <th className="px-3 py-2 text-left">Nota</th>
                 </tr>
               </thead>
               <tbody>
                 {(data.muestra ?? []).map((r) => (
                   <tr
                     key={r.fixtureid}
-                    className={`border-t border-white/5 ${r.duplicateStatRows ? 'bg-amber-500/5' : ''}`}
+                    className={`border-t border-white/5 ${
+                      r.duplicateStatRows
+                        ? 'bg-amber-500/5'
+                        : !r.hasStat
+                          ? 'bg-red-500/5 opacity-80'
+                          : r.usedInAverage
+                            ? ''
+                            : 'opacity-70'
+                    }`}
                   >
                     <td className="px-3 py-2 font-mono text-xs text-slate-500">{r.fixtureid}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-slate-400">{r.fecha ?? '—'}</td>
                     <td className="px-3 py-2 text-slate-300">{r.partido}</td>
                     <td className="px-3 py-2 text-slate-400">{r.rival}</td>
-                    <td className="px-3 py-2 text-right font-mono text-emerald-300">{r.valor}</td>
+                    <td className="px-3 py-2 text-right font-mono text-emerald-300">
+                      {r.valor != null ? r.valor : '—'}
+                    </td>
                     <td className="px-3 py-2 text-center text-xs">
-                      {(r.statRowsMatched ?? 1) > 1 ? (
-                        <span className="text-amber-300" title="Duplicados en BD afectan el AVG del SP">
-                          {r.statRowsMatched} dup
-                        </span>
+                      {r.usedInAverage ? (
+                        <span className="text-emerald-400">Sí</span>
                       ) : (
-                        <span className="text-slate-600">1</span>
+                        <span className="text-red-300">No</span>
                       )}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-slate-500">
+                      {r.excludedReason ||
+                        (r.duplicateStatRows ? `${r.statRowsMatched} filas dup` : '')}
                     </td>
                   </tr>
                 ))}
                 {(data.muestra ?? []).length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                       Sin partidos previos en la muestra.
                     </td>
                   </tr>
@@ -425,8 +438,8 @@ function MuestraTab({
             </table>
           </div>
           <p className="text-xs text-slate-600">
-            {data.sampleSize ?? 0} partido(s) únicos — mismo criterio que TempLastFiveHome/Away del SP (
-            fixturedate &lt; NOW(), LIMIT 5). Valor = bloque canónico StatisticsTeams (id más alto).
+            {data.sampleSize ?? 0} partido(s) recientes en tabla — el promedio usa hasta 5 con
+            statistics=1 y fila de la métrica (pool de 30 si faltan en el top 5).
           </p>
 
           {(data.diagnosticoReciente?.length ?? 0) > 0 && (

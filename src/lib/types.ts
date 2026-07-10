@@ -513,11 +513,15 @@ export type PromedioMuestraRow = {
   fecha: string | null;
   partido: string;
   rival: string;
-  valor: number;
+  valor: number | null;
   statType: string;
   teamScope: string;
   statRowsMatched?: number;
   duplicateStatRows?: boolean;
+  hasStat?: boolean;
+  fixtureHasStatistics?: boolean;
+  usedInAverage?: boolean;
+  excludedReason?: string | null;
 };
 
 export type PromedioDiagnosticoRow = {
@@ -552,7 +556,8 @@ export type PromediosMuestraResponse = {
   };
   muestra?: PromedioMuestraRow[];
   sampleSize?: number;
-  promedioCalculado?: number;
+  usedInAverageCount?: number;
+  promedioCalculado?: number | null;
   promedioSpReplica?: number | null;
   spJoinRows?: number;
   hasDuplicateStats?: boolean;
