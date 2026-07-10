@@ -139,7 +139,7 @@ export function PromediosModal({ fixtureId, matchLabel, onClose }: Props) {
 
         <div className="max-h-[calc(92vh-160px)] overflow-y-auto p-5">
           {summaryQuery.isLoading && (
-            <p className="text-sm text-slate-400">Calculando promedios con el SP de producción…</p>
+            <p className="text-sm text-slate-400">Cargando promedios guardados…</p>
           )}
           {summaryQuery.isError && (
             <p className="text-sm text-red-300">{(summaryQuery.error as Error).message}</p>
@@ -195,11 +195,9 @@ function ResumenTab({
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-white/10 bg-[#0c1017] px-4 py-3 text-sm text-slate-400">
-        <span className="text-slate-300">En vivo (SP)</span> = recalculado ahora con{' '}
-        <code className="text-violet-300">GetAveragesForFixtureSimple</code>.
-        {' '}
         <span className="text-slate-300">Guardado</span> = fila en{' '}
         <code className="text-violet-300">PredictionAverageLastFixture</code>.
+        Usa «Recalcular y guardar» para refrescar con el motor bulk optimizado.
         {hasStored && storedAt && (
           <span className="ml-2 text-xs text-slate-500">
             Última persistencia: {new Date(storedAt).toLocaleString('es-CO')}
@@ -238,9 +236,7 @@ function MetricTable({
             <tr>
               <th className="px-3 py-2 text-left">Métrica</th>
               <th className="px-3 py-2 text-left">Stat API</th>
-              <th className="px-3 py-2 text-right">En vivo</th>
               <th className="px-3 py-2 text-right">Guardado</th>
-              <th className="px-3 py-2 text-center">Δ</th>
               <th className="px-3 py-2 text-right">Muestra</th>
             </tr>
           </thead>
@@ -255,15 +251,7 @@ function MetricTable({
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right font-mono text-emerald-300">
-                  {fmt(m.live)}
-                </td>
-                <td className="px-3 py-2 text-right font-mono text-slate-400">{fmt(m.stored)}</td>
-                <td className="px-3 py-2 text-center">
-                  {m.delta != null && !m.aligned ? (
-                    <span className="text-xs text-amber-300">{m.delta > 0 ? '+' : ''}{m.delta}</span>
-                  ) : (
-                    <span className="text-xs text-emerald-500/70">✓</span>
-                  )}
+                  {fmt(m.stored)}
                 </td>
                 <td className="px-3 py-2 text-right">
                   <button
@@ -336,22 +324,16 @@ function MuestraTab({
             </p>
             <p className="mt-1 text-xs text-slate-500">
               Tipo stat: <code>{data.metric.statType}</code>
+              {data.usedInAverageCount != null && (
+                <span className="ml-2">
+                  · {data.usedInAverageCount} partido(s) con stats en el promedio
+                </span>
+              )}
             </p>
             <div className="mt-3 flex flex-wrap gap-4 font-mono text-sm">
               <span>
-                Promedio ({data.usedInAverageCount != null ? data.usedInAverageCount : '—'} partidos con stats):{' '}
+                Calculado ahora:{' '}
                 <strong className="text-emerald-300">{fmt(data.promedioCalculado)}</strong>
-              </span>
-              <span>
-                Réplica JOIN del SP:{' '}
-                <strong className="text-cyan-300">{fmt(data.promedioSpReplica)}</strong>
-                {data.spJoinRows != null && (
-                  <span className="ml-1 text-xs text-slate-500">({data.spJoinRows} filas join)</span>
-                )}
-              </span>
-              <span>
-                SP en vivo:{' '}
-                <strong className="text-violet-300">{fmt(data.liveFromProcedure)}</strong>
               </span>
               <span>
                 BD guardada:{' '}
@@ -359,7 +341,7 @@ function MuestraTab({
               </span>
               {data.integrityOk != null && (
                 <span className={data.integrityOk ? 'text-emerald-400' : 'text-amber-300'}>
-                  {data.integrityOk ? 'Réplica SP = SP en vivo ✓' : 'Réplica SP ≠ SP en vivo'}
+                  {data.integrityOk ? 'Guardado = calculado ✓' : 'Guardado ≠ calculado'}
                 </span>
               )}
             </div>
@@ -525,19 +507,16 @@ function OrigenTab({
         </div>
       )}
       <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-4 text-xs text-slate-400">
-        <p className="mb-2 font-semibold text-violet-300">Procedimientos en MySQL</p>
+        <p className="mb-2 font-semibold text-violet-300">Motor de cálculo</p>
         <ul className="list-inside list-disc space-y-1">
           <li>
-            <code>GetAveragesForFixtureSimple(fixture_id)</code> — usado aquí (local + visitante)
+            <code>bulk-engine</code> — 3 queries (pools local/visitante + stats) y 26 métricas en memoria
           </li>
           <li>
-            <code>GetAveragesHomeFixture(teamshomeid)</code> — solo agregado local (fallback cron)
+            <code>PredictionAverageLastFixture</code> — valores persistidos (cron y «Recalcular y guardar»)
           </li>
           <li>
-            <code>GetAveragesAwayFixture(teamsawayid)</code> — solo agregado visitante
-          </li>
-          <li>
-            <code>GetAveragesAllFixtures(JSON)</code> — batch masivo (no usado en este modal)
+            <code>GetAveragesForFixtureSimple</code> — procedimiento legacy en MySQL (ya no se usa en lectura)
           </li>
         </ul>
       </div>
