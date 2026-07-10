@@ -339,7 +339,7 @@ function MuestraTab({
             </p>
             <div className="mt-3 flex flex-wrap gap-4 font-mono text-sm">
               <span>
-                Promedio ({data.usedInAverageCount ?? data.spJoinRows ?? '—'} partidos con stats):{' '}
+                Promedio ({data.usedInAverageCount != null ? data.usedInAverageCount : '—'} partidos con stats):{' '}
                 <strong className="text-emerald-300">{fmt(data.promedioCalculado)}</strong>
               </span>
               <span>
@@ -402,9 +402,7 @@ function MuestraTab({
                         ? 'bg-amber-500/5'
                         : !r.hasStat
                           ? 'bg-red-500/5 opacity-80'
-                          : r.usedInAverage
-                            ? ''
-                            : 'opacity-70'
+                          : ''
                     }`}
                   >
                     <td className="px-3 py-2 font-mono text-xs text-slate-500">{r.fixtureid}</td>
@@ -412,10 +410,10 @@ function MuestraTab({
                     <td className="px-3 py-2 text-slate-300">{r.partido}</td>
                     <td className="px-3 py-2 text-slate-400">{r.rival}</td>
                     <td className="px-3 py-2 text-right font-mono text-emerald-300">
-                      {r.valor != null ? r.valor : '—'}
+                      {r.hasStat && r.valor != null ? r.valor : '—'}
                     </td>
                     <td className="px-3 py-2 text-center text-xs">
-                      {r.usedInAverage ? (
+                      {r.hasStat ? (
                         <span className="text-emerald-400">Sí</span>
                       ) : (
                         <span className="text-red-300">No</span>
