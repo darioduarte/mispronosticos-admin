@@ -7,10 +7,11 @@ type Props = {
   subtitle?: string;
   text: string;
   loading?: boolean;
+  loadingLabel?: string;
   onClose: () => void;
 };
 
-export function TextModal({ title, subtitle, text, loading, onClose }: Props) {
+export function TextModal({ title, subtitle, text, loading, loadingLabel, onClose }: Props) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -71,7 +72,7 @@ export function TextModal({ title, subtitle, text, loading, onClose }: Props) {
         </div>
         <div className="min-h-0 flex-1 p-4">
           {loading ? (
-            <p className="text-sm text-slate-400">Cargando…</p>
+            <p className="text-sm text-slate-400">{loadingLabel || 'Cargando…'}</p>
           ) : (
             <textarea
               readOnly

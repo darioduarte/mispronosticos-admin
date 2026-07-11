@@ -124,6 +124,14 @@ export type PromptResponse = {
   fullText?: string;
   prompt?: string;
   fixtureId?: number;
+  includesOdds?: boolean;
+  hasOdds?: boolean;
+  promptLength?: number;
+  liveSnapshot?: {
+    status?: { minute?: number | null; short?: string };
+    score?: { home?: number; away?: number };
+    fetchedAt?: string;
+  };
   error?: string;
 };
 
