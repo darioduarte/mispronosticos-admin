@@ -49,8 +49,8 @@ export function PromptModal({ fixtureId, matchLabel, kind, onClose }: Props) {
             : null,
           query.data.includesOdds
             ? query.data.hasOdds
-              ? 'con Bloque 4 (cuotas en vivo)'
-              : 'sin cuotas en API (Bloque 4 vacío)'
+              ? 'con Bloque 5 (cuotas en vivo)'
+              : 'sin cuotas en API (Bloque 5 vacío)'
             : null,
           query.data.promptLength ? `${query.data.promptLength} caracteres` : null,
         ]
