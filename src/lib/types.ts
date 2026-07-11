@@ -154,11 +154,7 @@ export type LiveOddsResponse = {
     liveShots?: boolean;
     liveFouls?: boolean;
     liveCards?: boolean;
-    preMatchFouls?: boolean;
-    preMatchRemates?: boolean;
-    preMatchCards?: boolean;
   };
-  supplementKeys?: string[];
   error?: string;
 };
 
