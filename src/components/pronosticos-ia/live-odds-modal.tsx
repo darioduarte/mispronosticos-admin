@@ -12,8 +12,15 @@ type Props = {
   onClose: () => void;
 };
 
+const TAB_LABELS: Record<Tab, string> = {
+  prompt: 'Bloque prompt',
+  oddsLive: 'JSON /odds/live',
+  oddsLiveBets: 'JSON /odds/live/bets',
+};
+
 export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
   const [tab, setTab] = useState<Tab>('prompt');
+  const [copiedTab, setCopiedTab] = useState<Tab | null>(null);
 
   const query = useQuery({
     queryKey: ['live-odds', fixtureId],
@@ -22,6 +29,29 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
 
   const data = query.data;
   const minuteLabel = data?.minute != null ? `${data.minute}'` : '—';
+
+  function getTabText(target: Tab): string {
+    if (!data?.success) return '';
+    if (target === 'prompt') {
+      return data.oddsBlock || 'Sin bloque de cuotas para este partido.';
+    }
+    if (target === 'oddsLive') {
+      return JSON.stringify(data.apiFootball?.oddsLive ?? {}, null, 2);
+    }
+    return JSON.stringify(data.apiFootball?.oddsLiveBets ?? {}, null, 2);
+  }
+
+  async function copyTab(target: Tab) {
+    const text = getTabText(target);
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedTab(target);
+      setTimeout(() => setCopiedTab(null), 2000);
+    } catch {
+      /* ignore */
+    }
+  }
 
   return (
     <div
@@ -80,12 +110,12 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
           </button>
         </div>
 
-        <div className="flex gap-1 border-b border-white/10 px-4 pt-2">
+        <div className="flex flex-wrap items-center gap-1 border-b border-white/10 px-4 pt-2">
           {(
             [
-              ['prompt', 'Bloque prompt'],
-              ['oddsLive', 'JSON /odds/live'],
-              ['oddsLiveBets', 'JSON /odds/live/bets'],
+              ['prompt', TAB_LABELS.prompt],
+              ['oddsLive', TAB_LABELS.oddsLive],
+              ['oddsLiveBets', TAB_LABELS.oddsLiveBets],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -102,6 +132,27 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
             </button>
           ))}
         </div>
+
+        {data?.success && (
+          <div className="flex flex-wrap gap-2 border-b border-white/10 bg-[#0b0f14]/50 px-4 py-2">
+            {(['prompt', 'oddsLive', 'oddsLiveBets'] as const).map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => copyTab(id)}
+                className={`rounded-lg border px-2.5 py-1 text-xs transition ${
+                  copiedTab === id
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                    : tab === id
+                      ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20'
+                      : 'border-white/10 text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                }`}
+              >
+                {copiedTab === id ? 'Copiado ✓' : `Copiar ${TAB_LABELS[id]}`}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="min-h-0 flex-1 overflow-auto p-4">
           {query.isLoading && <p className="text-sm text-slate-400">Consultando API-Football…</p>}
@@ -132,18 +183,6 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
             </pre>
           )}
         </div>
-
-        {data?.success && data.oddsBlock && (
-          <div className="border-t border-white/10 px-4 py-3">
-            <button
-              type="button"
-              onClick={() => navigator.clipboard.writeText(data.oddsBlock || '')}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5"
-            >
-              Copiar bloque prompt
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
