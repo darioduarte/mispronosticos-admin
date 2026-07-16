@@ -29,13 +29,27 @@ function formatSyncMessage(result: {
   statisticsSource?: string;
   statsSource?: string;
   statisticsPersisted?: boolean;
+  apiFootballMiss?: {
+    code?: string;
+    status?: number | null;
+    message?: string;
+    detail?: string;
+  } | null;
 }) {
-  if (result.message) return result.message;
-  const src = result.statisticsSource || result.statsSource;
-  if (src === 'flb') return 'Sincronizado desde Live-Football-Data (FLB)';
-  if (src === 'api-football') return 'Stats vía API-Football (fallback FLB)';
-  if (result.statisticsPersisted) return 'Sincronizado';
-  return 'Sin estadísticas disponibles';
+  const base = result.message
+    || (result.statisticsSource === 'flb' || result.statsSource === 'flb'
+      ? 'Sincronizado desde Live-Football-Data (FLB)'
+      : result.statisticsSource === 'api-football' || result.statsSource === 'api-football'
+        ? 'Stats vía API-Football (fallback FLB)'
+        : result.statisticsPersisted
+          ? 'Sincronizado'
+          : 'Sin estadísticas disponibles');
+
+  // Si el mensaje del backend ya incluye el detalle de API-Football, no duplicar.
+  if (result.apiFootballMiss?.detail && !String(base).includes(result.apiFootballMiss.detail)) {
+    return `${base} · ${result.apiFootballMiss.detail}`;
+  }
+  return base;
 }
 
 function shiftDateYmd(ymd: string, days: number): string {
@@ -403,7 +417,13 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, in
         <div className="flex flex-col gap-2 border-t border-white/10 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5">
           <div className="min-h-[1.25rem] text-xs text-slate-500">
             {syncMsg && (
-              <span className={syncMsg.startsWith('Sin') ? 'text-amber-300' : 'text-emerald-400'}>
+              <span
+                className={
+                  syncMsg.startsWith('Sin') || syncMsg.includes('falló') || syncMsg.includes('HTTP')
+                    ? 'text-amber-300'
+                    : 'text-emerald-400'
+                }
+              >
                 {syncMsg}
               </span>
             )}

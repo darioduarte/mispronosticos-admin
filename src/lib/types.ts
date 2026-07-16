@@ -422,6 +422,19 @@ export type SyncPartidoStatsResponse = {
   statisticsSourceReason?: string | null;
   statisticsSourceDetail?: string | null;
   statsSource?: string;
+  goalshome?: number | string | null;
+  goalsaway?: number | string | null;
+  fixturestatuselapsed?: number | null;
+  fixturestatusextra?: number | null;
+  statusShort?: string;
+  redisLive?: { snapshot?: boolean; stats?: boolean };
+  apiFootballMissing?: boolean;
+  apiFootballMiss?: {
+    code?: string;
+    status?: number | null;
+    message?: string;
+    detail?: string;
+  } | null;
   message?: string;
   error?: string;
   statistics?: FixtureStatisticsResponse;

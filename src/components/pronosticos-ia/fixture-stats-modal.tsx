@@ -44,10 +44,12 @@ export function FixtureStatsModal({ fixtureId, matchLabel, onClose }: Props) {
       await queryClient.invalidateQueries({ queryKey: ['partido-stats', fixtureId] });
       await queryClient.invalidateQueries({ queryKey: ['partidos'] });
       const src = result.statisticsSource || result.statsSource;
+      const base =
+        result.message ||
+        (src === 'flb' ? 'Sincronizado desde Live-Football-Data (FLB)' : 'Sincronizado');
+      const miss = result.apiFootballMiss?.detail;
       setSyncMsg(
-        src === 'flb'
-          ? 'Sincronizado desde Live-Football-Data (FLB)'
-          : result.message || 'Sincronizado',
+        miss && !String(base).includes(miss) ? `${base} · ${miss}` : base,
       );
     } catch (e) {
       setSyncMsg((e as Error).message);
