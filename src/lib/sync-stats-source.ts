@@ -22,6 +22,7 @@ export function emptySourceBreakdown(): SyncRangeSourceBreakdown {
 
 const API_FALLBACK_LABELS: Record<string, string> = {
   flb_disabled: 'FLB desactivado en el servidor',
+  flb_no_api_key: 'FLB sin key RapidAPI (LIVE_FOOTBALL_DATA_KEY)',
   missing_fixture_row: 'Sin datos del fixture en BD',
   no_flb_event_mapping: 'No se pudo mapear el partido a un evento FLB',
   flb_stats_empty: 'FLB devolvió stats vacías o sin métricas mapeables',
@@ -29,6 +30,7 @@ const API_FALLBACK_LABELS: Record<string, string> = {
   api_football_embedded: 'Stats embebidas en GET /fixtures',
   api_football_dedicated: 'Stats desde GET /fixtures/statistics',
   api_football_fetch_failed: 'API-Football no devolvió estadísticas',
+  api_football_rate_limited: 'API-Football rate limit (429)',
 };
 
 export function labelForSourceReason(code?: string | null) {
