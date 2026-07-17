@@ -29,8 +29,10 @@ const API_FALLBACK_LABELS: Record<string, string> = {
   flb_fetch_failed: 'Error al consultar estadísticas en FLB',
   api_football_embedded: 'Stats embebidas en GET /fixtures',
   api_football_dedicated: 'Stats desde GET /fixtures/statistics',
+  api_football_fixtures_ids: 'Stats embebidas vía GET /fixtures?ids=',
   api_football_fetch_failed: 'API-Football no devolvió estadísticas',
   api_football_rate_limited: 'API-Football rate limit (429)',
+  api_football_stats_empty: 'API-Football sin stats para este partido',
 };
 
 export function labelForSourceReason(code?: string | null) {
