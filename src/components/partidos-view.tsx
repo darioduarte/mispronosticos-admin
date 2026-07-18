@@ -14,6 +14,7 @@ import {
   SyncRangeProgressModal,
   type SyncRangeProgressState,
 } from '@/components/partidos/sync-range-progress';
+import { PreMatchAnalysisModal } from '@/components/partidos/pre-match-analysis-modal';
 import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import {
   appendToBreakdown,
@@ -135,6 +136,7 @@ export function PartidosView() {
   const [promediosModal, setPromediosModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [refereeModal, setRefereeModal] = useState<RowModal | null>(null);
   const [liveOddsModal, setLiveOddsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
+  const [preMatchModal, setPreMatchModal] = useState<Omit<RowModal, 'referee'> | null>(null);
 
   useEffect(() => {
     setSyncPauseMs(readStoredSyncPauseMs());
@@ -943,6 +945,12 @@ export function PartidosView() {
                     label: matchLabel(row),
                   })
                 }
+                onPreMatch={() =>
+                  setPreMatchModal({
+                    fixtureId: row.fixtureid,
+                    label: matchLabel(row),
+                  })
+                }
                 showLiveOdds={row.estadoBadgeClass === 'live'}
                 onSyncFlb={() => handleSyncOne(row.fixtureid)}
                 syncBusy={syncRowId === row.fixtureid}
@@ -1002,6 +1010,12 @@ export function PartidosView() {
                         label: matchLabel(row),
                       })
                     }
+                    onPreMatch={() =>
+                      setPreMatchModal({
+                        fixtureId: row.fixtureid,
+                        label: matchLabel(row),
+                      })
+                    }
                     showLiveOdds={row.estadoBadgeClass === 'live'}
                     onSyncFlb={() => handleSyncOne(row.fixtureid)}
                     syncBusy={syncRowId === row.fixtureid}
@@ -1051,6 +1065,13 @@ export function PartidosView() {
           onClose={() => setLiveOddsModal(null)}
         />
       )}
+      {preMatchModal && (
+        <PreMatchAnalysisModal
+          fixtureId={preMatchModal.fixtureId}
+          matchLabel={preMatchModal.label}
+          onClose={() => setPreMatchModal(null)}
+        />
+      )}
       {syncProgress && (
         <SyncRangeProgressModal
           progress={syncProgress}
@@ -1086,6 +1107,7 @@ function PartidoMobileCard({
   onPromedios,
   onReferee,
   onLiveOdds,
+  onPreMatch,
   onSyncFlb,
   syncBusy,
   showLiveOdds,
@@ -1096,6 +1118,7 @@ function PartidoMobileCard({
   onPromedios: () => void;
   onReferee: () => void;
   onLiveOdds: () => void;
+  onPreMatch: () => void;
   onSyncFlb: () => void;
   syncBusy?: boolean;
   showLiveOdds?: boolean;
@@ -1142,6 +1165,7 @@ function PartidoMobileCard({
         <ActionBtn label="Stats" onClick={onStats} />
         <ActionBtn label="Promedios" onClick={onPromedios} />
         <ActionBtn label="Árbitro" onClick={onReferee} />
+        <ActionBtn label="IA pre" onClick={onPreMatch} />
         {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
         <Link
           href={iaHref}
@@ -1180,6 +1204,7 @@ function PartidoTableRow({
   onPromedios,
   onReferee,
   onLiveOdds,
+  onPreMatch,
   onSyncFlb,
   syncBusy,
   showLiveOdds,
@@ -1190,6 +1215,7 @@ function PartidoTableRow({
   onPromedios: () => void;
   onReferee: () => void;
   onLiveOdds: () => void;
+  onPreMatch: () => void;
   onSyncFlb: () => void;
   syncBusy?: boolean;
   showLiveOdds?: boolean;
@@ -1239,6 +1265,7 @@ function PartidoTableRow({
           <ActionBtn label="Stats" onClick={onStats} />
           <ActionBtn label="Promedios" onClick={onPromedios} />
           <ActionBtn label="Árbitro" onClick={onReferee} />
+          <ActionBtn label="IA pre" onClick={onPreMatch} />
           {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
           <Link
             href={iaHref}

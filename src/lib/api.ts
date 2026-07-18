@@ -17,6 +17,8 @@ import type {
   PromptResponse,
   LiveOddsResponse,
   LiveAnalysisRunsResponse,
+  PreMatchAnalysis,
+  PreMatchAnalysisResponse,
   PronosticoIaRow,
   PronosticosIaResponse,
   RefereeHistoryResponse,
@@ -1108,5 +1110,33 @@ export function triggerLiveAnalysisManual(fixtureId: number) {
 export function fetchLiveAnalysisRuns(fixtureId: number) {
   return adminFetch<LiveAnalysisRunsResponse>(
     `/api/admin/pronosticos-ia/live-analysis/${fixtureId}`,
+  );
+}
+
+export type PreMatchAnalysisTriggerResult = {
+  ok: boolean;
+  fixtureId?: number;
+  published?: number;
+  skipped?: boolean;
+  regenerated?: boolean;
+  message?: string;
+  reason?: string;
+  error?: string;
+  analysis?: PreMatchAnalysis | null;
+};
+
+export function fetchPreMatchAnalysis(fixtureId: number) {
+  return adminFetch<PreMatchAnalysisResponse>(
+    `/api/admin/pronosticos-ia/pre-match/${fixtureId}`,
+  );
+}
+
+export function triggerPreMatchAnalysisManual(fixtureId: number, force = false) {
+  return adminFetch<PreMatchAnalysisTriggerResult>(
+    '/api/admin/pronosticos-ia/pre-match/trigger',
+    {
+      method: 'POST',
+      body: JSON.stringify({ fixtureId, force }),
+    },
   );
 }

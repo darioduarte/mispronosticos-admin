@@ -201,6 +201,50 @@ export type LiveAnalysisRunsResponse = {
   error?: string;
 };
 
+export type PreMatchAnalysisPick = {
+  id: string | number;
+  tipo: string;
+  pronostico?: string | null;
+  probabilidad: number | null;
+  cuota_llm_decimal?: number | null;
+  cuota_decimal?: number | null;
+  explicacion: string;
+  categoria_pronostico: string;
+  createdAt?: string;
+};
+
+export type PreMatchAnalysis = {
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  analysis: string;
+  createdAt?: string;
+  updatedAt?: string;
+  publishedCount: number;
+  picks: PreMatchAnalysisPick[];
+};
+
+export type PreMatchAnalysisResponse = {
+  ok: boolean;
+  fixtureId: number;
+  fixture: {
+    fixtureid: number;
+    teamshomename?: string | null;
+    teamsawayname?: string | null;
+    leaguename?: string | null;
+    fixturestatusshort?: string | null;
+    fixturestatuselapsed?: number | null;
+    goalshome?: number | null;
+    goalsaway?: number | null;
+    fixturedate?: string | null;
+  } | null;
+  analysis: PreMatchAnalysis | null;
+  hasAnalysis?: boolean;
+  publishedCount?: number;
+  error?: string;
+};
+
 export type MelbetOddItem = {
   linea?: string;
   betName?: string;
