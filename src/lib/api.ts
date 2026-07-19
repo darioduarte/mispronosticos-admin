@@ -1140,3 +1140,39 @@ export function triggerPreMatchAnalysisManual(fixtureId: number, force = false) 
     },
   );
 }
+
+export type ClearCacheFixtureResult = {
+  success: boolean;
+  fixtureId?: number;
+  message?: string;
+  error?: string;
+};
+
+export type ClearCacheFechaResult = {
+  success: boolean;
+  date?: string;
+  fixturesAffected?: number;
+  predictionKeysRemoved?: number;
+  rangoKeysRemoved?: number;
+  message?: string;
+  error?: string;
+};
+
+/** Reinicia la caché del análisis IA (y promedios) de un partido. */
+export function clearPredictionCacheForFixture(fixtureId: number) {
+  return adminFetch<ClearCacheFixtureResult>(
+    `/api/admin/pronosticos-ia/cache/fixture/${fixtureId}`,
+    { method: 'POST' },
+  );
+}
+
+/** Reinicia la caché del análisis IA de todos los partidos de una fecha. */
+export function clearPredictionCacheForFecha(date: string) {
+  return adminFetch<ClearCacheFechaResult>(
+    '/api/admin/pronosticos-ia/cache/fecha',
+    {
+      method: 'POST',
+      body: JSON.stringify({ date }),
+    },
+  );
+}

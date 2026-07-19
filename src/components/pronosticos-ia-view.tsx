@@ -12,6 +12,8 @@ import { OddsReferenciaModal } from '@/components/pronosticos-ia/odds-referencia
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
 import {
+  clearPredictionCacheForFecha,
+  clearPredictionCacheForFixture,
   fetchOddsForPronostico,
   fetchPronosticosIa,
   savePrognosticOdd,
@@ -106,6 +108,10 @@ export function PronosticosIaView() {
   const [comparadorModal, setComparadorModal] = useState<RowModal | null>(null);
   const [oddsRefModal, setOddsRefModal] = useState<RowModal | null>(null);
   const [cuotaBusy, setCuotaBusy] = useState<string | null>(null);
+  const [cacheDate, setCacheDate] = useState(defaultHasta());
+  const [cacheBusy, setCacheBusy] = useState(false);
+  const [cacheMsg, setCacheMsg] = useState<string | null>(null);
+  const [cacheFixtureBusy, setCacheFixtureBusy] = useState<number | null>(null);
 
   useEffect(() => {
     if (urlDesde) {
@@ -159,6 +165,51 @@ export function PronosticosIaView() {
     setFilters((prev) => ({ ...prev, ...patch }));
   }
 
+  async function handleClearCacheFixture(row: PronosticoIaRow) {
+    setCacheFixtureBusy(row.fixtureid);
+    try {
+      const res = await clearPredictionCacheForFixture(row.fixtureid);
+      window.alert(
+        res.success
+          ? res.message || `Caché reiniciada para el partido ${row.fixtureid}`
+          : res.error || 'No se pudo reiniciar la caché',
+      );
+    } catch (e) {
+      window.alert((e as Error).message);
+    } finally {
+      setCacheFixtureBusy(null);
+    }
+  }
+
+  async function handleClearCacheFecha() {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cacheDate)) {
+      setCacheMsg('Fecha inválida (YYYY-MM-DD)');
+      return;
+    }
+    if (
+      !window.confirm(
+        `¿Reiniciar la caché del análisis IA de TODOS los partidos del ${cacheDate}?\n\nLa app mostrará la versión actualizada en su próxima consulta.`,
+      )
+    ) {
+      return;
+    }
+    setCacheBusy(true);
+    setCacheMsg(null);
+    try {
+      const res = await clearPredictionCacheForFecha(cacheDate);
+      setCacheMsg(
+        res.success
+          ? res.message || `Caché reiniciada para ${cacheDate}`
+          : res.error || 'No se pudo reiniciar la caché',
+      );
+      await queryClient.invalidateQueries({ queryKey: ['pronosticos-ia'] });
+    } catch (e) {
+      setCacheMsg((e as Error).message);
+    } finally {
+      setCacheBusy(false);
+    }
+  }
+
   return (
     <div className="p-3 pb-6 sm:p-6 lg:p-8">
       <header className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
@@ -194,6 +245,22 @@ export function PronosticosIaView() {
             Aplicar rango
           </button>
         </form>
+      </section>
+
+      <section className="mb-4 rounded-xl border border-amber-500/20 bg-[#151b24] p-3 sm:mb-6 sm:p-4">
+        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
+          <DateField label="Reiniciar caché de fecha" value={cacheDate} onChange={setCacheDate} />
+          <button
+            type="button"
+            onClick={handleClearCacheFecha}
+            disabled={cacheBusy}
+            className="w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 sm:w-auto"
+            title="Borra la caché del análisis IA y promedios de todos los partidos de esa fecha para que la app muestre la versión actual"
+          >
+            {cacheBusy ? 'Reiniciando…' : 'Reiniciar caché de esta fecha'}
+          </button>
+          {cacheMsg && <span className="text-xs text-amber-300">{cacheMsg}</span>}
+        </div>
       </section>
 
       {query.isLoading && <p className="text-sm text-slate-400">Cargando pronósticos…</p>}
@@ -294,6 +361,7 @@ export function PronosticosIaView() {
             key={row.pronostico_id}
             row={row}
             cuotaBusy={cuotaBusy}
+            cacheFixtureBusy={cacheFixtureBusy}
             onFetchCuota={handleFetchCuota}
             onStats={() =>
               setStatsFixture({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
@@ -316,6 +384,7 @@ export function PronosticosIaView() {
             onComparador={() =>
               setComparadorModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
             }
+            onClearCache={handleClearCacheFixture}
           />
         ))}
         {!query.isLoading && filtered.length === 0 && (
@@ -397,6 +466,7 @@ export function PronosticosIaView() {
                   <PronosticoRowActions
                     row={row}
                     cuotaBusy={cuotaBusy}
+                    cacheFixtureBusy={cacheFixtureBusy}
                     onFetchCuota={handleFetchCuota}
                     onStats={() =>
                       setStatsFixture({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
@@ -419,6 +489,7 @@ export function PronosticosIaView() {
                     onComparador={() =>
                       setComparadorModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
                     }
+                    onClearCache={handleClearCacheFixture}
                   />
                 </td>
               </tr>
@@ -504,6 +575,7 @@ export function PronosticosIaView() {
 function PronosticoRowActions({
   row,
   cuotaBusy,
+  cacheFixtureBusy,
   onFetchCuota,
   onStats,
   onPrompt,
@@ -512,10 +584,12 @@ function PronosticoRowActions({
   onMelbet,
   onOddsRef,
   onComparador,
+  onClearCache,
   className = 'mt-1 flex flex-wrap gap-1',
 }: {
   row: PronosticoIaRow;
   cuotaBusy: string | null;
+  cacheFixtureBusy: number | null;
   onFetchCuota: (row: PronosticoIaRow) => void;
   onStats: () => void;
   onPrompt: (kind: PromptKind) => void;
@@ -524,6 +598,7 @@ function PronosticoRowActions({
   onMelbet: () => void;
   onOddsRef: () => void;
   onComparador: () => void;
+  onClearCache: (row: PronosticoIaRow) => void;
   className?: string;
 }) {
   return (
@@ -541,6 +616,11 @@ function PronosticoRowActions({
       <ActionBtn label="Melbet" onClick={onMelbet} />
       <ActionBtn label="Ref." onClick={onOddsRef} />
       <ActionBtn label="Cmp" onClick={onComparador} />
+      <ActionBtn
+        label={cacheFixtureBusy === row.fixtureid ? '…' : 'Caché'}
+        onClick={() => onClearCache(row)}
+        disabled={cacheFixtureBusy === row.fixtureid}
+      />
     </div>
   );
 }
@@ -548,6 +628,7 @@ function PronosticoRowActions({
 function PronosticoMobileCard({
   row,
   cuotaBusy,
+  cacheFixtureBusy,
   onFetchCuota,
   onStats,
   onPrompt,
@@ -556,9 +637,11 @@ function PronosticoMobileCard({
   onMelbet,
   onOddsRef,
   onComparador,
+  onClearCache,
 }: {
   row: PronosticoIaRow;
   cuotaBusy: string | null;
+  cacheFixtureBusy: number | null;
   onFetchCuota: (row: PronosticoIaRow) => void;
   onStats: () => void;
   onPrompt: (kind: PromptKind) => void;
@@ -567,6 +650,7 @@ function PronosticoMobileCard({
   onMelbet: () => void;
   onOddsRef: () => void;
   onComparador: () => void;
+  onClearCache: (row: PronosticoIaRow) => void;
 }) {
   return (
     <article className="rounded-xl border border-white/10 bg-[#151b24] p-3">
@@ -634,6 +718,7 @@ function PronosticoMobileCard({
       <PronosticoRowActions
         row={row}
         cuotaBusy={cuotaBusy}
+        cacheFixtureBusy={cacheFixtureBusy}
         onFetchCuota={onFetchCuota}
         onStats={onStats}
         onPrompt={onPrompt}
@@ -642,6 +727,7 @@ function PronosticoMobileCard({
         onMelbet={onMelbet}
         onOddsRef={onOddsRef}
         onComparador={onComparador}
+        onClearCache={onClearCache}
         className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3"
       />
     </article>

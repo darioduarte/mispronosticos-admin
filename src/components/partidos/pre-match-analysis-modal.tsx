@@ -2,7 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { fetchPreMatchAnalysis, triggerPreMatchAnalysisManual } from '@/lib/api';
+import {
+  clearPredictionCacheForFixture,
+  fetchPreMatchAnalysis,
+  triggerPreMatchAnalysisManual,
+} from '@/lib/api';
 import type { PreMatchAnalysisPick } from '@/lib/types';
 
 type Props = {
@@ -76,6 +80,17 @@ export function PreMatchAnalysisModal({ fixtureId, matchLabel, onClose }: Props)
       );
       await qc.invalidateQueries({ queryKey: ['pre-match-analysis', fixtureId] });
     },
+    onError: (err: Error) => setStatusMsg(err.message),
+  });
+
+  const clearCacheMutation = useMutation({
+    mutationFn: () => clearPredictionCacheForFixture(fixtureId),
+    onSuccess: (data) =>
+      setStatusMsg(
+        data.success
+          ? data.message || 'Caché reiniciada. La app mostrará la versión actualizada.'
+          : data.error || 'No se pudo reiniciar la caché',
+      ),
     onError: (err: Error) => setStatusMsg(err.message),
   });
 
@@ -162,6 +177,18 @@ export function PreMatchAnalysisModal({ fixtureId, matchLabel, onClose }: Props)
             className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/5 disabled:opacity-50"
           >
             {query.isFetching ? 'Actualizando…' : 'Actualizar'}
+          </button>
+          <button
+            type="button"
+            disabled={clearCacheMutation.isPending}
+            onClick={() => {
+              setStatusMsg(null);
+              clearCacheMutation.mutate();
+            }}
+            className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200 hover:bg-amber-500/20 disabled:opacity-50"
+            title="Borra la caché del análisis y promedios de este partido para que la app muestre la versión actual"
+          >
+            {clearCacheMutation.isPending ? 'Reiniciando…' : 'Reiniciar caché'}
           </button>
           {analysis && (
             <span className="text-xs text-slate-500">
