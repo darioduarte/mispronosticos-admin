@@ -26,6 +26,7 @@ type Tab = 'bd' | 'flb' | 'h2h';
 
 function formatSyncMessage(result: {
   message?: string;
+  error?: string;
   statisticsSource?: string;
   statsSource?: string;
   statisticsPersisted?: boolean;
@@ -39,6 +40,8 @@ function formatSyncMessage(result: {
   const base = result.message
     || (result.statisticsSource === 'flb' || result.statsSource === 'flb'
       ? 'Sincronizado desde Live-Football-Data (FLB)'
+      : result.statisticsSource === 'database' || result.statsSource === 'database'
+        ? 'Stats en BD OK (tarjetas actualizadas desde eventos)'
       : result.statisticsSource === 'api-football' || result.statsSource === 'api-football'
         ? 'Stats vía API-Football (fallback FLB)'
         : result.statisticsPersisted
@@ -419,7 +422,8 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, in
             {syncMsg && (
               <span
                 className={
-                  syncMsg.startsWith('Sin') || syncMsg.includes('falló') || syncMsg.includes('HTTP')
+                  /falló|error|sin estadísticas disponibles|no mapeado a evento/i.test(syncMsg) &&
+                  !/se mantuvieron|tarjetas desde eventos|stats en bd/i.test(syncMsg)
                     ? 'text-amber-300'
                     : 'text-emerald-400'
                 }
