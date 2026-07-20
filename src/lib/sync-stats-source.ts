@@ -26,6 +26,7 @@ const API_FALLBACK_LABELS: Record<string, string> = {
   missing_fixture_row: 'Sin datos del fixture en BD',
   no_flb_event_mapping: 'No se pudo mapear el partido a un evento FLB',
   flb_stats_empty: 'FLB devolvió stats vacías o sin métricas mapeables',
+  flb_stats_unavailable: 'FLB vinculado pero sin stats detalladas (cobertura baja)',
   flb_fetch_failed: 'Error al consultar estadísticas en FLB',
   api_football_embedded: 'Stats embebidas en GET /fixtures',
   api_football_dedicated: 'Stats desde GET /fixtures/statistics',

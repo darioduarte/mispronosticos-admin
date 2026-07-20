@@ -395,6 +395,9 @@ export type PartidoStatisticsFlbResponse = {
   mapping?: FlbMappingRow | null;
   flbRaw?: unknown;
   mapped?: unknown;
+  matchDetail?: unknown;
+  coverageLevel?: string | null;
+  flbStatsError?: string | null;
   error?: string;
 };
 

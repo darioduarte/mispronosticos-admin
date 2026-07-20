@@ -405,11 +405,22 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, in
                     {flbQuery.data.eventId != null && (
                       <span className="ml-1 text-slate-400">eventId: {flbQuery.data.eventId}</span>
                     )}
+                    {flbQuery.data.coverageLevel != null && (
+                      <span className="ml-1 text-amber-300/90">
+                        · cobertura: {String(flbQuery.data.coverageLevel)}
+                      </span>
+                    )}
                   </p>
-                  {flbQuery.data.error && !flbQuery.data.eventId && (
+                  {flbQuery.data.error && (
                     <p className="text-sm text-amber-300">{flbQuery.data.error}</p>
                   )}
+                  {flbQuery.data.flbStatsError && (
+                    <p className="text-xs text-slate-400">
+                      all-stats: {flbQuery.data.flbStatsError}
+                    </p>
+                  )}
                   <ApiBlock title="Mapeado (canonical)" data={flbQuery.data.mapped} />
+                  <ApiBlock title="Match detail FLB" data={flbQuery.data.matchDetail} />
                   <ApiBlock title="FLB crudo" data={flbQuery.data.flbRaw} />
                 </div>
               )}
