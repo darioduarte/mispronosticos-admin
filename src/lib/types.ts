@@ -954,6 +954,58 @@ export type SuscripcionMutationResponse = {
   error?: string;
 };
 
+export type TrialStatus = 'activa' | 'inactiva' | 'expirada' | 'pendiente';
+
+export type TrialRow = {
+  id: string;
+  userId: string;
+  userEmail: string | null;
+  userName: string | null;
+  deviceId: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  startDateDisplay: string | null;
+  endDateDisplay: string | null;
+  isActive: boolean;
+  isEffectiveActive: boolean;
+  hasSubscriptionHistory: boolean;
+  status: TrialStatus;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type TrialsMeta = {
+  total: number;
+  activas: number;
+  limit: number;
+  offset: number;
+  email: string | null;
+  search: string | null;
+  estado: string;
+};
+
+export type TrialsResponse = {
+  success: boolean;
+  data: TrialRow[];
+  meta: TrialsMeta;
+  error?: string;
+};
+
+export type TrialSavePayload = {
+  email?: string;
+  deviceId?: string;
+  startDate?: string;
+  endDate?: string;
+  days?: number;
+  isActive?: boolean;
+};
+
+export type TrialMutationResponse = {
+  success: boolean;
+  data?: TrialRow;
+  error?: string;
+};
+
 export type RenewalSyncAction =
   | 'unchanged'
   | 'would_update'
