@@ -605,6 +605,67 @@ export function fetchLivePrompt(fixtureId: number) {
   return adminFetch<PromptResponse>(`/api/admin/pronosticos-ia/prompt/live/${fixtureId}`);
 }
 
+export function fetchLivePromptV2(
+  fixtureId: number,
+  opts?: { asOf?: string | null; includeOdds?: boolean },
+) {
+  const qs = new URLSearchParams();
+  if (opts?.asOf) qs.set('asOf', opts.asOf);
+  if (opts?.includeOdds === false) qs.set('includeOdds', '0');
+  const q = qs.toString();
+  return adminFetch<PromptResponse & {
+    variant?: string;
+    asOf?: string | null;
+    usedDbAsOf?: boolean;
+    periodSnapshots?: Array<{
+      periodKey: string;
+      minute?: number | null;
+      statusShort?: string | null;
+      scoreHome?: number | null;
+      scoreAway?: number | null;
+      capturedAt?: string;
+    }>;
+  }>(`/api/admin/pronosticos-ia/prompt/live-v2/${fixtureId}${q ? `?${q}` : ''}`);
+}
+
+export function fetchPeriodSnapshots(fixtureId: number) {
+  return adminFetch<{
+    success: boolean;
+    fixtureId: number;
+    periods: Array<{
+      periodKey: string;
+      label: string;
+      minute?: number | null;
+      statusShort?: string | null;
+      scoreHome?: number | null;
+      scoreAway?: number | null;
+      source?: string | null;
+      capturedAt?: string;
+      hasStatistics?: boolean;
+      hasEvents?: boolean;
+      hasGoals?: boolean;
+      hasPenalties?: boolean;
+    }>;
+  }>(`/api/admin/pronosticos-ia/period-snapshots/${fixtureId}`);
+}
+
+export function capturePeriodSnapshot(fixtureId: number, periodKey?: string) {
+  return adminFetch<{ success: boolean; periodKey?: string; error?: string }>(
+    `/api/admin/pronosticos-ia/period-snapshots/${fixtureId}/capture`,
+    {
+      method: 'POST',
+      body: JSON.stringify(periodKey ? { periodKey } : {}),
+    },
+  );
+}
+
+export function syncPeriodSnapshotTables() {
+  return adminFetch<{ success: boolean; message?: string; error?: string }>(
+    '/api/admin/pronosticos-ia/period-snapshots/sync-tables',
+    { method: 'POST', body: '{}' },
+  );
+}
+
 export function fetchLiveOdds(fixtureId: number) {
   return adminFetch<LiveOddsResponse>(`/api/admin/pronosticos-ia/live-odds/${fixtureId}`);
 }
@@ -823,6 +884,7 @@ export function fetchRefereeFromApi(fixtureId: number) {
     flbCountry?: string | null;
     preferredReferee?: string | null;
     preferredSource?: 'api-football' | 'flb' | null;
+    identity?: RefereeIdentityMatch | null;
     fixturerefereeInDb?: string | null;
     apiFootballError?: string | null;
     flbError?: string | null;
@@ -830,7 +892,32 @@ export function fetchRefereeFromApi(fixtureId: number) {
   }>(`/api/admin/partidos/fixtures/${fixtureId}/referee-from-api`);
 }
 
-export function fetchRefereeFromFlb(fixtureId: number, apply = false) {
+export type RefereeIdentitySuggestion = {
+  refereeId?: string | null;
+  canonicalName?: string;
+  name?: string;
+  country?: string | null;
+  confidence?: 'alta' | 'media' | 'baja' | null;
+  score?: number;
+  reason?: string;
+  matchedAlias?: string | null;
+  kind?: string;
+};
+
+export type RefereeIdentityMatch = {
+  linked?: boolean;
+  autoLinked?: boolean;
+  alreadyLinked?: boolean;
+  refereeId?: string | null;
+  canonicalName?: string | null;
+  incomingName?: string | null;
+  nameToSave?: string | null;
+  confidence?: 'alta' | 'media' | 'baja' | null;
+  matchedReason?: string | null;
+  suggestions?: RefereeIdentitySuggestion[];
+};
+
+export function fetchRefereeFromFlb(fixtureId: number, apply = false, forceRefereeId?: string) {
   return adminFetch<{
     success: boolean;
     fixtureId?: number;
@@ -841,21 +928,32 @@ export function fetchRefereeFromFlb(fixtureId: number, apply = false) {
     applied?: boolean;
     fixturereferee?: string | null;
     fixturerefereeInDb?: string | null;
+    identity?: RefereeIdentityMatch | null;
     error?: string;
   }>(`/api/admin/partidos/fixtures/${fixtureId}/referee-from-flb`, {
     method: 'POST',
-    body: JSON.stringify({ apply }),
+    body: JSON.stringify({ apply, forceRefereeId: forceRefereeId || undefined }),
   });
 }
 
-export function saveFixtureReferee(fixtureId: number, fixturereferee: string) {
-  return adminFetch<{ success: boolean; fixturereferee?: string; error?: string }>(
-    `/api/admin/partidos/fixtures/${fixtureId}/referee`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ fixturereferee }),
-    },
-  );
+export function saveFixtureReferee(
+  fixtureId: number,
+  fixturereferee: string,
+  opts?: { forceRefereeId?: string; country?: string | null },
+) {
+  return adminFetch<{
+    success: boolean;
+    fixturereferee?: string;
+    identity?: RefereeIdentityMatch | null;
+    error?: string;
+  }>(`/api/admin/partidos/fixtures/${fixtureId}/referee`, {
+    method: 'POST',
+    body: JSON.stringify({
+      fixturereferee,
+      forceRefereeId: opts?.forceRefereeId,
+      country: opts?.country ?? undefined,
+    }),
+  });
 }
 
 export function fetchSuscripcionProductos() {

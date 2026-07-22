@@ -127,6 +127,9 @@ export type PromptResponse = {
   includesOdds?: boolean;
   hasOdds?: boolean;
   promptLength?: number;
+  variant?: string;
+  asOf?: string | null;
+  usedDbAsOf?: boolean;
   liveSnapshot?: {
     status?: { minute?: number | null; short?: string };
     score?: { home?: number; away?: number };

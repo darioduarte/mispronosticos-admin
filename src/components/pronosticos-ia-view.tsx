@@ -611,6 +611,7 @@ function PronosticoRowActions({
       <ActionBtn label="Stats" onClick={onStats} />
       <ActionBtn label="Prompt" onClick={() => onPrompt('pre-match')} />
       <ActionBtn label="Live" onClick={() => onPrompt('live')} />
+      <ActionBtn label="Live V2" onClick={() => onPrompt('live-v2')} />
       <ActionBtn label="IA vivo" onClick={onLiveAnalysis} />
       <ActionBtn label="Cuotas live" onClick={onLiveOdds} />
       <ActionBtn label="Melbet" onClick={onMelbet} />

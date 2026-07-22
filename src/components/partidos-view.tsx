@@ -16,6 +16,7 @@ import {
 } from '@/components/partidos/sync-range-progress';
 import { PreMatchAnalysisModal } from '@/components/partidos/pre-match-analysis-modal';
 import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
+import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
 import {
   appendToBreakdown,
   classifySyncResult,
@@ -28,6 +29,7 @@ import {
   recalculatePartidoPromedios,
   repairPartidosReferees,
   syncPartidoStats,
+  syncPeriodSnapshotTables,
 } from '@/lib/api';
 import {
   DEFAULT_PARTIDOS_FILTERS,
@@ -137,6 +139,10 @@ export function PartidosView() {
   const [refereeModal, setRefereeModal] = useState<RowModal | null>(null);
   const [liveOddsModal, setLiveOddsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [preMatchModal, setPreMatchModal] = useState<Omit<RowModal, 'referee'> | null>(null);
+  const [promptModal, setPromptModal] = useState<
+    (Omit<RowModal, 'referee'> & { kind: PromptKind }) | null
+  >(null);
+  const [syncPeriodMsg, setSyncPeriodMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setSyncPauseMs(readStoredSyncPauseMs());
@@ -601,6 +607,16 @@ export function PartidosView() {
     }
   }
 
+  async function handleSyncPeriodTables() {
+    setSyncPeriodMsg(null);
+    try {
+      const result = await syncPeriodSnapshotTables();
+      setSyncPeriodMsg(result.message || (result.success ? 'Tabla sincronizada' : result.error || 'Error'));
+    } catch (e) {
+      setSyncPeriodMsg((e as Error).message);
+    }
+  }
+
   function toggleQuickFilter(patch: Partial<PartidosClientFilters>) {
     setFilters((prev) => {
       const next = { ...prev, ...patch };
@@ -707,8 +723,16 @@ export function PartidosView() {
             >
               {repairBusy ? 'Reparando…' : 'Reparar árbitros'}
             </button>
+            <button
+              type="button"
+              onClick={handleSyncPeriodTables}
+              className="w-full rounded-lg bg-violet-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 sm:w-auto"
+            >
+              Sync tabla periodos (lab)
+            </button>
             {syncMsg && <span className="text-xs text-slate-400">{syncMsg}</span>}
             {repairMsg && <span className="text-xs text-amber-300">{repairMsg}</span>}
+            {syncPeriodMsg && <span className="text-xs text-violet-300">{syncPeriodMsg}</span>}
           </div>
         </div>
 
@@ -953,6 +977,13 @@ export function PartidosView() {
                     label: matchLabel(row),
                   })
                 }
+                onLivePromptV2={() =>
+                  setPromptModal({
+                    fixtureId: row.fixtureid,
+                    label: matchLabel(row),
+                    kind: 'live-v2',
+                  })
+                }
                 showLiveOdds={row.estadoBadgeClass === 'live'}
                 onSyncFlb={() => handleSyncOne(row.fixtureid)}
                 syncBusy={syncRowId === row.fixtureid}
@@ -1018,6 +1049,13 @@ export function PartidosView() {
                         label: matchLabel(row),
                       })
                     }
+                    onLivePromptV2={() =>
+                      setPromptModal({
+                        fixtureId: row.fixtureid,
+                        label: matchLabel(row),
+                        kind: 'live-v2',
+                      })
+                    }
                     showLiveOdds={row.estadoBadgeClass === 'live'}
                     onSyncFlb={() => handleSyncOne(row.fixtureid)}
                     syncBusy={syncRowId === row.fixtureid}
@@ -1074,6 +1112,14 @@ export function PartidosView() {
           onClose={() => setPreMatchModal(null)}
         />
       )}
+      {promptModal && (
+        <PromptModal
+          fixtureId={promptModal.fixtureId}
+          matchLabel={promptModal.label}
+          kind={promptModal.kind}
+          onClose={() => setPromptModal(null)}
+        />
+      )}
       {syncProgress && (
         <SyncRangeProgressModal
           progress={syncProgress}
@@ -1110,6 +1156,7 @@ function PartidoMobileCard({
   onReferee,
   onLiveOdds,
   onPreMatch,
+  onLivePromptV2,
   onSyncFlb,
   syncBusy,
   showLiveOdds,
@@ -1121,6 +1168,7 @@ function PartidoMobileCard({
   onReferee: () => void;
   onLiveOdds: () => void;
   onPreMatch: () => void;
+  onLivePromptV2: () => void;
   onSyncFlb: () => void;
   syncBusy?: boolean;
   showLiveOdds?: boolean;
@@ -1168,6 +1216,7 @@ function PartidoMobileCard({
         <ActionBtn label="Promedios" onClick={onPromedios} />
         <ActionBtn label="Árbitro" onClick={onReferee} />
         <ActionBtn label="IA pre" onClick={onPreMatch} />
+        <ActionBtn label="Prompt V2" onClick={onLivePromptV2} />
         {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
         <Link
           href={iaHref}
@@ -1207,6 +1256,7 @@ function PartidoTableRow({
   onReferee,
   onLiveOdds,
   onPreMatch,
+  onLivePromptV2,
   onSyncFlb,
   syncBusy,
   showLiveOdds,
@@ -1218,6 +1268,7 @@ function PartidoTableRow({
   onReferee: () => void;
   onLiveOdds: () => void;
   onPreMatch: () => void;
+  onLivePromptV2: () => void;
   onSyncFlb: () => void;
   syncBusy?: boolean;
   showLiveOdds?: boolean;
@@ -1268,6 +1319,7 @@ function PartidoTableRow({
           <ActionBtn label="Promedios" onClick={onPromedios} />
           <ActionBtn label="Árbitro" onClick={onReferee} />
           <ActionBtn label="IA pre" onClick={onPreMatch} />
+          <ActionBtn label="Prompt V2" onClick={onLivePromptV2} />
           {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
           <Link
             href={iaHref}

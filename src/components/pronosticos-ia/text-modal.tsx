@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 type Props = {
   title: string;
@@ -8,10 +8,19 @@ type Props = {
   text: string;
   loading?: boolean;
   loadingLabel?: string;
+  headerExtra?: ReactNode;
   onClose: () => void;
 };
 
-export function TextModal({ title, subtitle, text, loading, loadingLabel, onClose }: Props) {
+export function TextModal({
+  title,
+  subtitle,
+  text,
+  loading,
+  loadingLabel,
+  headerExtra,
+  onClose,
+}: Props) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -70,6 +79,7 @@ export function TextModal({ title, subtitle, text, loading, loadingLabel, onClos
             </button>
           </div>
         </div>
+        {headerExtra ? <div className="border-b border-white/5 px-5 py-3">{headerExtra}</div> : null}
         <div className="min-h-0 flex-1 p-4">
           {loading ? (
             <p className="text-sm text-slate-400">{loadingLabel || 'Cargando…'}</p>
