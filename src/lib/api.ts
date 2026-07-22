@@ -815,9 +815,34 @@ export function fetchRefereeFromApi(fixtureId: number) {
   return adminFetch<{
     success: boolean;
     refereeFromApi?: string | null;
+    refereeFromFlb?: string | null;
+    flbEventId?: string | null;
+    flbCountry?: string | null;
+    preferredReferee?: string | null;
+    preferredSource?: 'api-football' | 'flb' | null;
     fixturerefereeInDb?: string | null;
+    apiFootballError?: string | null;
+    flbError?: string | null;
     error?: string;
   }>(`/api/admin/partidos/fixtures/${fixtureId}/referee-from-api`);
+}
+
+export function fetchRefereeFromFlb(fixtureId: number, apply = false) {
+  return adminFetch<{
+    success: boolean;
+    fixtureId?: number;
+    eventId?: string | null;
+    refereeFromFlb?: string | null;
+    country?: string | null;
+    countryCode?: string | null;
+    applied?: boolean;
+    fixturereferee?: string | null;
+    fixturerefereeInDb?: string | null;
+    error?: string;
+  }>(`/api/admin/partidos/fixtures/${fixtureId}/referee-from-flb`, {
+    method: 'POST',
+    body: JSON.stringify({ apply }),
+  });
 }
 
 export function saveFixtureReferee(fixtureId: number, fixturereferee: string) {

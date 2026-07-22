@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 import {
   fetchRefereeFromApi,
+  fetchRefereeFromFlb,
   fetchRefereeHistory,
   saveFixtureReferee,
   searchReferees,
@@ -67,12 +68,55 @@ export function RefereeModal({
     setBusy(true);
     try {
       const data = await fetchRefereeFromApi(fixtureId);
-      if (data.refereeFromApi) {
-        setCustomName(data.refereeFromApi);
+      if (data.preferredReferee) {
+        setCustomName(data.preferredReferee);
         setSelectedName('');
-        showMsg(`API: ${data.refereeFromApi}`, 'ok');
+        const src =
+          data.preferredSource === 'flb'
+            ? 'FLB'
+            : data.preferredSource === 'api-football'
+              ? 'API-Football'
+              : 'API';
+        const extra =
+          data.preferredSource === 'flb' && data.flbCountry
+            ? ` (${data.flbCountry})`
+            : '';
+        showMsg(`${src}: ${data.preferredReferee}${extra}`, 'ok');
       } else {
-        showMsg('API-Football no devolvió árbitro para este partido', 'err');
+        const bits = [
+          data.apiFootballError ? `API-Football: ${data.apiFootballError}` : null,
+          data.flbError ? `FLB: ${data.flbError}` : null,
+        ].filter(Boolean);
+        showMsg(
+          bits.length
+            ? `Sin árbitro. ${bits.join(' · ')}`
+            : 'Ni API-Football ni FLB devolvieron árbitro',
+          'err',
+        );
+      }
+    } catch (e) {
+      showMsg((e as Error).message, 'err');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleFromFlb(apply = false) {
+    setBusy(true);
+    try {
+      const data = await fetchRefereeFromFlb(fixtureId, apply);
+      if (!data.success || !data.refereeFromFlb) {
+        showMsg(data.error || 'FLB no devolvió árbitro', 'err');
+        return;
+      }
+      setCustomName(data.refereeFromFlb);
+      setSelectedName('');
+      const country = data.country ? ` (${data.country})` : '';
+      if (apply) {
+        showMsg(`FLB guardado: ${data.refereeFromFlb}${country}`, 'ok');
+        onSaved();
+      } else {
+        showMsg(`FLB: ${data.refereeFromFlb}${country}`, 'ok');
       }
     } catch (e) {
       showMsg((e as Error).message, 'err');
@@ -163,8 +207,27 @@ export function RefereeModal({
                   onClick={handleFromApi}
                   disabled={busy}
                   className="rounded-lg border border-teal-500/40 px-3 py-2 text-sm text-teal-300 hover:bg-teal-500/10 disabled:opacity-50"
+                  title="API-Football y, si falta, FLB"
                 >
-                  Traer desde API
+                  Traer APIs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFromFlb(false)}
+                  disabled={busy}
+                  className="rounded-lg border border-amber-500/40 px-3 py-2 text-sm text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"
+                  title="Solo FLB /football-get-match-referee"
+                >
+                  Solo FLB
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFromFlb(true)}
+                  disabled={busy}
+                  className="rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-sm text-amber-200 hover:bg-amber-500/20 disabled:opacity-50"
+                  title="Consultar FLB y guardar en el fixture"
+                >
+                  FLB + guardar
                 </button>
               </div>
 
@@ -234,8 +297,9 @@ export function RefereeModal({
               )}
 
               <p className="text-xs text-slate-600">
-                Cada resultado muestra promedios disciplinarios y fecha del último partido usado.
-                En «Revisar muestra» ves el detalle partido a partido.
+                «Traer APIs» prueba API-Football y luego FLB. «Solo FLB» / «FLB + guardar» usan
+                /football-get-match-referee. Cada resultado muestra promedios disciplinarios y fecha
+                del último partido; en «Revisar muestra» ves el detalle partido a partido.
               </p>
             </div>
           )}

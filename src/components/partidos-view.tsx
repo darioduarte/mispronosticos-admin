@@ -572,7 +572,7 @@ export function PartidosView() {
   async function handleRepairReferees() {
     if (
       !confirm(
-        `¿Reparar árbitros faltantes del ${applied.desde} al ${applied.hasta}? (consulta API-Football por día)`,
+        `¿Reparar árbitros faltantes del ${applied.desde} al ${applied.hasta}? (API-Football y, si falta, FLB)`,
       )
     ) {
       return;
@@ -587,8 +587,10 @@ export function PartidosView() {
       if (!result.success) {
         setRepairMsg(result.error || 'Error al reparar árbitros');
       } else {
+        const apif = result.totalUpdatedFromApiFootball ?? 0;
+        const flb = result.totalUpdatedFromFlb ?? 0;
         setRepairMsg(
-          `Actualizados: ${result.totalUpdated ?? 0} / ${result.totalCandidates ?? 0} candidatos (${result.daysProcessed ?? 0} días)`,
+          `Actualizados: ${result.totalUpdated ?? 0} / ${result.totalCandidates ?? 0} (API-Football: ${apif} · FLB: ${flb}) · ${result.daysProcessed ?? 0} días`,
         );
         await queryClient.invalidateQueries({ queryKey: ['partidos'] });
       }

@@ -531,6 +531,8 @@ export type RepairRefereesResponse = {
   daysProcessed?: number;
   totalCandidates?: number;
   totalUpdated?: number;
+  totalUpdatedFromApiFootball?: number;
+  totalUpdatedFromFlb?: number;
   stillMissingCount?: number;
   failedCount?: number;
   error?: string;
