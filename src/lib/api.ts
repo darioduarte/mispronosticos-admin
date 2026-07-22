@@ -42,6 +42,9 @@ import type {
   SuscripcionSavePayload,
   SuscripcionMutationResponse,
   SuscripcionRow,
+  TrialsResponse,
+  TrialSavePayload,
+  TrialMutationResponse,
   RenewalSyncPayload,
   RenewalSyncResponse,
   DashboardSummary,
@@ -991,6 +994,36 @@ export function createSuscripcion(payload: SuscripcionSavePayload) {
 
 export function updateSuscripcion(id: string, payload: Partial<SuscripcionSavePayload>) {
   return adminFetch<SuscripcionMutationResponse>(`/api/admin/suscripciones/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchTrials(params: {
+  email?: string;
+  search?: string;
+  estado?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params.email) qs.set('email', params.email);
+  if (params.search) qs.set('search', params.search);
+  if (params.estado && params.estado !== 'todas') qs.set('estado', params.estado);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  return adminFetch<TrialsResponse>(`/api/admin/trials?${qs}`);
+}
+
+export function createTrial(payload: TrialSavePayload) {
+  return adminFetch<TrialMutationResponse>('/api/admin/trials', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateTrial(id: string, payload: Partial<TrialSavePayload>) {
+  return adminFetch<TrialMutationResponse>(`/api/admin/trials/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
   });
