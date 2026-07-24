@@ -1009,6 +1009,39 @@ export type TrialMutationResponse = {
   error?: string;
 };
 
+export type SuggestionRow = {
+  id: string;
+  userId: string;
+  userEmail: string | null;
+  userName: string | null;
+  categoria: string;
+  categoriaLabel: string;
+  mensaje: string;
+  platform: string | null;
+  appVersion: string | null;
+  createdAt: string | null;
+  createdAtDisplay: string | null;
+};
+
+export type SuggestionsMeta = {
+  total: number;
+  limit: number;
+  offset: number;
+  email: string | null;
+  search: string | null;
+  categoria: string;
+  platform: string;
+  byCategory: Record<string, number>;
+  categories: Array<{ id: string; label: string }>;
+};
+
+export type SuggestionsResponse = {
+  success: boolean;
+  data: SuggestionRow[];
+  meta: SuggestionsMeta;
+  error?: string;
+};
+
 export type RenewalSyncAction =
   | 'unchanged'
   | 'would_update'

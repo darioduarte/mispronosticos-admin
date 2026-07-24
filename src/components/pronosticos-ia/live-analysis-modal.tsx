@@ -153,7 +153,7 @@ export function LiveAnalysisModal({ fixtureId, matchLabel, onClose }: Props) {
   function handleGenerate() {
     if (
       !window.confirm(
-        `¿Generar análisis IA en vivo AHORA para fixture ${fixtureId}?\n\nIgnora ventanas min30/HT/min60/min80. Puede tardar 30–90 s (GPT).`,
+        `¿Generar análisis IA en vivo AHORA para fixture ${fixtureId}?\n\nIgnora ventanas min30/HT/min60. Puede tardar 30–90 s (GPT).`,
       )
     ) {
       return;

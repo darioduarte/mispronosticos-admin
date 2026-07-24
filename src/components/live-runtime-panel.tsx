@@ -234,7 +234,7 @@ export function LiveRuntimePanel() {
             onClick={() => {
               if (
                 window.confirm(
-                  '¿Activar pronósticos IA en vivo?\n\nEnciende: interruptor maestro, hot path (marcadores) y GPT en fases min30/HT/min60/min80.\nDeja apagado: stats hot, sockets y polling en app.',
+                  '¿Activar pronósticos IA en vivo?\n\nEnciende: interruptor maestro, hot path (marcadores) y GPT en fases min30/HT/min60.\nDeja apagado: stats hot, sockets y polling en app.',
                 )
               ) {
                 resumePredictionsMutation.mutate();

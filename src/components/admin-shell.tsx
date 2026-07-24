@@ -15,6 +15,7 @@ const NAV = [
   { href: '/pronosticos-ia', label: 'Pronósticos IA' },
   { href: '/suscripciones', label: 'Suscripciones' },
   { href: '/trials', label: 'Trials' },
+  { href: '/sugerencias', label: 'Sugerencias' },
 ];
 
 function NavLinks({

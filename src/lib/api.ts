@@ -45,6 +45,7 @@ import type {
   TrialsResponse,
   TrialSavePayload,
   TrialMutationResponse,
+  SuggestionsResponse,
   RenewalSyncPayload,
   RenewalSyncResponse,
   DashboardSummary,
@@ -1125,6 +1126,24 @@ export function updateTrial(id: string, payload: Partial<TrialSavePayload>) {
     method: 'PATCH',
     body: JSON.stringify(payload),
   });
+}
+
+export function fetchSuggestions(params: {
+  email?: string;
+  search?: string;
+  categoria?: string;
+  platform?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params.email) qs.set('email', params.email);
+  if (params.search) qs.set('search', params.search);
+  if (params.categoria && params.categoria !== 'todas') qs.set('categoria', params.categoria);
+  if (params.platform && params.platform !== 'todas') qs.set('platform', params.platform);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  return adminFetch<SuggestionsResponse>(`/api/admin/suggestions?${qs}`);
 }
 
 export function syncSuscripcionRenewals(payload: RenewalSyncPayload = {}) {

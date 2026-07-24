@@ -303,10 +303,10 @@ export function DashboardView() {
                     <p className="text-xs text-slate-500">Errores pago total</p>
                     <p className="text-lg font-semibold text-slate-300">{fmt(d.soporte.erroresPagoTotal)}</p>
                   </div>
-                  <div>
+                  <Link href="/sugerencias" className="block rounded-lg transition hover:bg-white/[0.03]">
                     <p className="text-xs text-slate-500">Sugerencias (30d)</p>
-                    <p className="text-lg font-semibold text-slate-300">{fmt(d.soporte.sugerencias30d)}</p>
-                  </div>
+                    <p className="text-lg font-semibold text-indigo-300">{fmt(d.soporte.sugerencias30d)}</p>
+                  </Link>
                   <div>
                     <p className="text-xs text-slate-500">Waitlist iOS</p>
                     <p className="text-lg font-semibold text-slate-300">{fmt(d.soporte.waitlistIos)}</p>

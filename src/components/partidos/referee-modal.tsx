@@ -8,6 +8,8 @@ import {
   fetchRefereeHistory,
   saveFixtureReferee,
   searchReferees,
+  type RefereeIdentityMatch,
+  type RefereeIdentitySuggestion,
 } from '@/lib/api';
 import type { RefereeSearchItem } from '@/lib/types';
 import { RefereeHistorySamplePanel } from '@/components/referee-history-sample-panel';
@@ -25,6 +27,22 @@ type Tab = 'assign' | 'review';
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 400;
 
+function identityLabel(identity?: RefereeIdentityMatch | null) {
+  if (!identity) return '';
+  if (identity.autoLinked && identity.canonicalName) {
+    return `Vinculado auto → ${identity.canonicalName}`;
+  }
+  if (identity.alreadyLinked && identity.canonicalName) {
+    return `Ya vinculado → ${identity.canonicalName}`;
+  }
+  if (identity.linked && identity.canonicalName) {
+    return `Vinculado → ${identity.canonicalName}`;
+  }
+  const n = identity.suggestions?.length ?? 0;
+  if (n > 0) return `${n} candidato(s) canónico(s)`;
+  return 'Sin match canónico';
+}
+
 export function RefereeModal({
   fixtureId,
   matchLabel,
@@ -37,6 +55,8 @@ export function RefereeModal({
   const [debouncedQ, setDebouncedQ] = useState('');
   const [selectedName, setSelectedName] = useState('');
   const [customName, setCustomName] = useState('');
+  const [flbCountry, setFlbCountry] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<RefereeIdentityMatch | null>(null);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'ok' | 'err' | ''>('');
   const [busy, setBusy] = useState(false);
@@ -64,13 +84,22 @@ export function RefereeModal({
     setMsgType(type);
   }, []);
 
+  function applyIdentity(next: RefereeIdentityMatch | null | undefined, incomingName: string) {
+    setIdentity(next || null);
+    const toShow = next?.nameToSave || next?.canonicalName || incomingName;
+    if (toShow) {
+      setCustomName(toShow);
+      setSelectedName('');
+    }
+  }
+
   async function handleFromApi() {
     setBusy(true);
     try {
       const data = await fetchRefereeFromApi(fixtureId);
       if (data.preferredReferee) {
-        setCustomName(data.preferredReferee);
-        setSelectedName('');
+        setFlbCountry(data.preferredSource === 'flb' ? data.flbCountry || null : null);
+        applyIdentity(data.identity, data.preferredReferee);
         const src =
           data.preferredSource === 'flb'
             ? 'FLB'
@@ -81,8 +110,10 @@ export function RefereeModal({
           data.preferredSource === 'flb' && data.flbCountry
             ? ` (${data.flbCountry})`
             : '';
-        showMsg(`${src}: ${data.preferredReferee}${extra}`, 'ok');
+        const idTxt = identityLabel(data.identity);
+        showMsg(`${src}: ${data.preferredReferee}${extra}${idTxt ? ` · ${idTxt}` : ''}`, 'ok');
       } else {
+        setIdentity(null);
         const bits = [
           data.apiFootballError ? `API-Football: ${data.apiFootballError}` : null,
           data.flbError ? `FLB: ${data.flbError}` : null,
@@ -101,23 +132,56 @@ export function RefereeModal({
     }
   }
 
-  async function handleFromFlb(apply = false) {
+  async function handleFromFlb(apply = false, forceRefereeId?: string) {
     setBusy(true);
     try {
-      const data = await fetchRefereeFromFlb(fixtureId, apply);
+      const data = await fetchRefereeFromFlb(fixtureId, apply, forceRefereeId);
       if (!data.success || !data.refereeFromFlb) {
         showMsg(data.error || 'FLB no devolvió árbitro', 'err');
         return;
       }
-      setCustomName(data.refereeFromFlb);
-      setSelectedName('');
+      setFlbCountry(data.country || null);
+      applyIdentity(data.identity, data.fixturereferee || data.refereeFromFlb);
       const country = data.country ? ` (${data.country})` : '';
+      const idTxt = identityLabel(data.identity);
       if (apply) {
-        showMsg(`FLB guardado: ${data.refereeFromFlb}${country}`, 'ok');
+        const saved = data.fixturereferee || data.refereeFromFlb;
+        showMsg(`FLB guardado: ${saved}${country}${idTxt ? ` · ${idTxt}` : ''}`, 'ok');
         onSaved();
       } else {
-        showMsg(`FLB: ${data.refereeFromFlb}${country}`, 'ok');
+        showMsg(`FLB: ${data.refereeFromFlb}${country}${idTxt ? ` · ${idTxt}` : ''}`, 'ok');
       }
+    } catch (e) {
+      showMsg((e as Error).message, 'err');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleLinkSuggestion(s: RefereeIdentitySuggestion) {
+    const refereeId = s.refereeId;
+    const name = (customName.trim() || identity?.incomingName || '').trim();
+    if (!refereeId || !name) {
+      showMsg('No hay nombre FLB/API para vincular', 'err');
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await saveFixtureReferee(fixtureId, name, {
+        forceRefereeId: refereeId,
+        country: flbCountry,
+      });
+      if (!result.success) {
+        showMsg(result.error || 'No se pudo vincular', 'err');
+        return;
+      }
+      setIdentity(result.identity || null);
+      if (result.fixturereferee) setCustomName(result.fixturereferee);
+      showMsg(
+        `Vinculado a ${(result.identity?.canonicalName || s.canonicalName || s.name) ?? 'canónico'}`,
+        'ok',
+      );
+      onSaved();
     } catch (e) {
       showMsg((e as Error).message, 'err');
     } finally {
@@ -133,8 +197,11 @@ export function RefereeModal({
     }
     setBusy(true);
     try {
-      await saveFixtureReferee(fixtureId, name);
-      showMsg('Árbitro guardado en BD', 'ok');
+      const result = await saveFixtureReferee(fixtureId, name, { country: flbCountry });
+      setIdentity(result.identity || null);
+      if (result.fixturereferee) setCustomName(result.fixturereferee);
+      const idTxt = identityLabel(result.identity);
+      showMsg(`Árbitro guardado${idTxt ? ` · ${idTxt}` : ''}`, 'ok');
       onSaved();
     } catch (e) {
       showMsg((e as Error).message, 'err');
@@ -146,8 +213,11 @@ export function RefereeModal({
   function pickReferee(item: RefereeSearchItem) {
     setSelectedName(item.name);
     setCustomName('');
+    setIdentity(null);
     showMsg(`Seleccionado: ${item.name}`, 'ok');
   }
+
+  const suggestions = identity?.suggestions?.filter((s) => s.refereeId || s.canonicalName) ?? [];
 
   return (
     <div
@@ -225,11 +295,69 @@ export function RefereeModal({
                   onClick={() => handleFromFlb(true)}
                   disabled={busy}
                   className="rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-sm text-amber-200 hover:bg-amber-500/20 disabled:opacity-50"
-                  title="Consultar FLB y guardar en el fixture"
+                  title="Consultar FLB, vincular canónico si hay match y guardar"
                 >
                   FLB + guardar
                 </button>
               </div>
+
+              {identity && (
+                <div className="rounded-lg border border-white/10 bg-[#0b0f14] p-3 text-sm">
+                  <p className="text-slate-300">
+                    Identidad:{' '}
+                    <strong className="text-white">
+                      {identity.canonicalName || identity.incomingName || '—'}
+                    </strong>
+                    {identity.confidence ? (
+                      <span className="ml-2 text-xs text-slate-500">({identity.confidence})</span>
+                    ) : null}
+                  </p>
+                  {identity.matchedReason ? (
+                    <p className="mt-1 text-xs text-slate-500">{identity.matchedReason}</p>
+                  ) : null}
+                  {identity.linked ? (
+                    <p className="mt-1 text-xs text-emerald-400">
+                      Alias unificado: historial/promedios usan todos los nombres vinculados.
+                    </p>
+                  ) : suggestions.length > 0 ? (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-amber-300">
+                        Posibles canónicos — vincula para traer historial disciplinario:
+                      </p>
+                      {suggestions.map((s) => {
+                        const label = s.canonicalName || s.name || '—';
+                        const key = `${s.refereeId || label}-${s.score ?? 0}`;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            disabled={busy || !s.refereeId}
+                            onClick={() => handleLinkSuggestion(s)}
+                            className="flex w-full items-center justify-between rounded-lg border border-white/10 px-3 py-2 text-left hover:bg-indigo-500/10 disabled:opacity-50"
+                          >
+                            <span>
+                              <span className="font-medium text-slate-200">{label}</span>
+                              {s.country ? (
+                                <span className="ml-2 text-xs text-slate-500">{s.country}</span>
+                              ) : null}
+                              {s.reason ? (
+                                <span className="mt-0.5 block text-xs text-slate-500">{s.reason}</span>
+                              ) : null}
+                            </span>
+                            <span className="text-xs text-indigo-300">
+                              Vincular{s.confidence ? ` (${s.confidence})` : ''}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Sin canónico claro. Créalo o vincúlalo en Árbitros del admin.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {debouncedQ.length > 0 && debouncedQ.length < MIN_CHARS && (
                 <p className="text-xs text-slate-500">Escribe al menos {MIN_CHARS} caracteres.</p>
@@ -265,9 +393,11 @@ export function RefereeModal({
                 </ul>
               )}
 
-              {searchQuery.data?.referees?.length === 0 && debouncedQ.length >= MIN_CHARS && !searchQuery.isLoading && (
-                <p className="text-xs text-slate-500">Sin coincidencias en BD.</p>
-              )}
+              {searchQuery.data?.referees?.length === 0 &&
+                debouncedQ.length >= MIN_CHARS &&
+                !searchQuery.isLoading && (
+                  <p className="text-xs text-slate-500">Sin coincidencias en BD.</p>
+                )}
 
               <div className="flex flex-wrap gap-2">
                 <input
@@ -297,9 +427,8 @@ export function RefereeModal({
               )}
 
               <p className="text-xs text-slate-600">
-                «Traer APIs» prueba API-Football y luego FLB. «Solo FLB» / «FLB + guardar» usan
-                /football-get-match-referee. Cada resultado muestra promedios disciplinarios y fecha
-                del último partido; en «Revisar muestra» ves el detalle partido a partido.
+                Al guardar, si hay match fuerte con un canónico se agrega el nombre FLB/API como
+                alias y se usa el canónico en el fixture (así salen promedios e historial).
               </p>
             </div>
           )}
