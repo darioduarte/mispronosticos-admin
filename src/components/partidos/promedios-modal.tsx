@@ -6,8 +6,9 @@ import {
   fetchPartidoPromedios,
   fetchPartidoPromediosMuestra,
   recalculatePartidoPromedios,
+  syncPartidoStats,
 } from '@/lib/api';
-import type { PromedioMetricRow } from '@/lib/types';
+import type { PromedioMetricRow, PromediosMuestraResponse } from '@/lib/types';
 
 type Props = {
   fixtureId: number;
@@ -159,6 +160,7 @@ export function PromediosModal({ fixtureId, matchLabel, onClose }: Props) {
 
           {tab === 'muestra' && (
             <MuestraTab
+              fixtureId={fixtureId}
               metrics={metrics}
               selectedMetric={selectedMetric}
               onSelectMetric={setSelectedMetric}
@@ -272,17 +274,68 @@ function MetricTable({
 }
 
 function MuestraTab({
+  fixtureId,
   metrics,
   selectedMetric,
   onSelectMetric,
   query,
 }: {
+  fixtureId: number;
   metrics: PromedioMetricRow[];
   selectedMetric: string | null;
   onSelectMetric: (key: string | null) => void;
   query: ReturnType<typeof useQuery>;
 }) {
-  const data = query.data as import('@/lib/types').PromediosMuestraResponse | undefined;
+  const queryClient = useQueryClient();
+  const [statsSyncBusy, setStatsSyncBusy] = useState<number | 'bulk' | null>(null);
+  const [statsSyncMsg, setStatsSyncMsg] = useState('');
+  const data = query.data as PromediosMuestraResponse | undefined;
+  const muestra = data?.muestra ?? [];
+  const withoutStats = muestra.filter(
+    (r) => r.fixtureHasStatistics === false || r.hasStat === false,
+  ).length;
+  const withStats = muestra.length - withoutStats;
+
+  async function handleSampleStatsSync(targetIds?: number[]) {
+    const fixtureIds = targetIds?.length
+      ? targetIds
+      : withoutStats > 0
+        ? muestra
+            .filter((r) => r.fixtureHasStatistics === false || r.hasStat === false)
+            .map((r) => r.fixtureid)
+        : muestra.map((r) => r.fixtureid);
+
+    if (!fixtureIds.length) return;
+
+    setStatsSyncBusy(fixtureIds.length === 1 ? fixtureIds[0] : 'bulk');
+    setStatsSyncMsg('');
+
+    let ok = 0;
+    let failed = 0;
+    try {
+      for (const fid of fixtureIds) {
+        try {
+          const result = await syncPartidoStats(fid);
+          if (result.success && result.statisticsPersisted !== false) {
+            ok += 1;
+          } else {
+            failed += 1;
+          }
+        } catch {
+          failed += 1;
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: ['partido-promedios-muestra', fixtureId] });
+      await queryClient.invalidateQueries({ queryKey: ['partido-promedios', fixtureId] });
+      setStatsSyncMsg(
+        `FLB: ${ok}/${fixtureIds.length} sincronizado(s)${failed ? ` · ${failed} fallo(s)` : ''} · revisa y usa «Recalcular y guardar» si cambió la muestra`,
+      );
+    } catch (e) {
+      setStatsSyncMsg((e as Error).message);
+    } finally {
+      setStatsSyncBusy(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -362,8 +415,46 @@ function MuestraTab({
             )}
           </div>
 
+          {muestra.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#0b0f14] p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-slate-300">
+                <span className="font-medium text-slate-100">
+                  {withStats}/{muestra.length}
+                </span>{' '}
+                partidos con valor usable en el promedio
+                {withoutStats > 0 ? (
+                  <span className="mt-0.5 block text-xs text-amber-300 sm:ml-2 sm:mt-0 sm:inline">
+                    · {withoutStats} sin estadísticas / métrica
+                  </span>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                disabled={statsSyncBusy !== null}
+                onClick={() => handleSampleStatsSync()}
+                className="w-full rounded-lg bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:w-auto sm:text-sm"
+              >
+                {statsSyncBusy === 'bulk'
+                  ? 'Sincronizando muestra…'
+                  : withoutStats > 0
+                    ? `Sincronizar ${withoutStats} sin stats (FLB)`
+                    : 'Sincronizar muestra (FLB)'}
+              </button>
+            </div>
+          )}
+
+          {statsSyncMsg ? (
+            <p
+              className={`text-xs ${
+                statsSyncMsg.includes('fallo') ? 'text-amber-300' : 'text-emerald-400'
+              }`}
+            >
+              {statsSyncMsg}
+            </p>
+          ) : null}
+
           <div className="overflow-x-auto rounded-lg border border-white/10">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full min-w-[620px] text-sm">
               <thead className="bg-[#0c1017] text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-3 py-2 text-left">Fixture</th>
@@ -373,43 +464,58 @@ function MuestraTab({
                   <th className="px-3 py-2 text-right">Valor</th>
                   <th className="px-3 py-2 text-center">En promedio</th>
                   <th className="px-3 py-2 text-left">Nota</th>
+                  <th className="px-3 py-2 text-right">Sync</th>
                 </tr>
               </thead>
               <tbody>
-                {(data.muestra ?? []).map((r) => (
-                  <tr
-                    key={r.fixtureid}
-                    className={`border-t border-white/5 ${
-                      r.duplicateStatRows
-                        ? 'bg-amber-500/5'
-                        : !r.hasStat
-                          ? 'bg-red-500/5 opacity-80'
-                          : ''
-                    }`}
-                  >
-                    <td className="px-3 py-2 font-mono text-xs text-slate-500">{r.fixtureid}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-slate-400">{r.fecha ?? '—'}</td>
-                    <td className="px-3 py-2 text-slate-300">{r.partido}</td>
-                    <td className="px-3 py-2 text-slate-400">{r.rival}</td>
-                    <td className="px-3 py-2 text-right font-mono text-emerald-300">
-                      {r.hasStat && r.valor != null ? r.valor : '—'}
-                    </td>
-                    <td className="px-3 py-2 text-center text-xs">
-                      {r.hasStat ? (
-                        <span className="text-emerald-400">Sí</span>
-                      ) : (
-                        <span className="text-red-300">No</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-500">
-                      {r.excludedReason ||
-                        (r.duplicateStatRows ? `${r.statRowsMatched} filas dup` : '')}
-                    </td>
-                  </tr>
-                ))}
-                {(data.muestra ?? []).length === 0 && (
+                {muestra.map((r) => {
+                  const rowSyncing =
+                    statsSyncBusy === 'bulk' || statsSyncBusy === r.fixtureid;
+                  return (
+                    <tr
+                      key={r.fixtureid}
+                      className={`border-t border-white/5 ${
+                        r.duplicateStatRows
+                          ? 'bg-amber-500/5'
+                          : !r.hasStat
+                            ? 'bg-red-500/5 opacity-80'
+                            : ''
+                      }`}
+                    >
+                      <td className="px-3 py-2 font-mono text-xs text-slate-500">{r.fixtureid}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-slate-400">{r.fecha ?? '—'}</td>
+                      <td className="px-3 py-2 text-slate-300">{r.partido}</td>
+                      <td className="px-3 py-2 text-slate-400">{r.rival}</td>
+                      <td className="px-3 py-2 text-right font-mono text-emerald-300">
+                        {r.hasStat && r.valor != null ? r.valor : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-center text-xs">
+                        {r.hasStat ? (
+                          <span className="text-emerald-400">Sí</span>
+                        ) : (
+                          <span className="text-red-300">No</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-500">
+                        {r.excludedReason ||
+                          (r.duplicateStatRows ? `${r.statRowsMatched} filas dup` : '')}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          type="button"
+                          disabled={rowSyncing}
+                          onClick={() => handleSampleStatsSync([r.fixtureid])}
+                          className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
+                        >
+                          {rowSyncing ? '…' : 'FLB'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {muestra.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                       Sin partidos previos en la muestra.
                     </td>
                   </tr>
