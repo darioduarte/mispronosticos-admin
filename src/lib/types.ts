@@ -342,11 +342,25 @@ export type PartidosResponse = {
 export type RefereeSearchItem = {
   name: string;
   count?: number | null;
+  sourceKind?: 'fixture' | 'canonical' | 'alias' | string;
+  refereeId?: string | null;
+  canonicalName?: string | null;
+  linked?: boolean;
+  aliasCount?: number | null;
+  matchedAlias?: string | null;
+  nameToSave?: string | null;
+  identityLabel?: string | null;
   disciplineLabel?: string;
   disciplineStatus?: string;
   recencyLabel?: string;
   lastMatchDateDisplay?: string | null;
   daysSinceLastMatch?: number | null;
+  discipline?: {
+    prevCount?: number;
+    avgYellow?: number | null;
+    avgFouls?: number | null;
+    label?: string | null;
+  } | null;
 };
 
 export type RefereeSearchResponse = {
@@ -371,6 +385,7 @@ export type RefereeHistoryMatch = {
   redTotal?: number | string | null;
   foulsTotal?: number | string | null;
   hasStats?: boolean;
+  statusShort?: string | null;
 };
 
 export type RefereeHistoryResponse = {

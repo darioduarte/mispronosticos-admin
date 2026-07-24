@@ -149,6 +149,7 @@ export function RefereeHistorySamplePanel({
                   <th className="px-2 py-2 text-left">Fecha</th>
                   <th className="px-2 py-2 text-left">Partido</th>
                   {showAliasColumn ? <th className="px-2 py-2 text-left">Alias</th> : null}
+                  <th className="px-2 py-2 text-center">Estado</th>
                   <th className="px-2 py-2 text-center">🟨</th>
                   <th className="px-2 py-2 text-center">🟥</th>
                   <th className="px-2 py-2 text-center">Faltas</th>
@@ -182,6 +183,11 @@ export function RefereeHistorySamplePanel({
                       {showAliasColumn ? (
                         <td className="px-2 py-2 text-violet-300">{m.aliasUsed || '—'}</td>
                       ) : null}
+                      <td className="px-2 py-2 text-center">
+                        <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+                          {m.statusShort || '—'}
+                        </span>
+                      </td>
                       <td className="px-2 py-2 text-center text-slate-400">
                         {formatStatCell(m.yellowTotal)}
                       </td>

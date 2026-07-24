@@ -211,10 +211,27 @@ export function RefereeModal({
   }
 
   function pickReferee(item: RefereeSearchItem) {
-    setSelectedName(item.name);
-    setCustomName('');
-    setIdentity(null);
-    showMsg(`Seleccionado: ${item.name}`, 'ok');
+    const saveAs = (item.nameToSave || item.canonicalName || item.name).trim();
+    setSelectedName(saveAs);
+    setCustomName(saveAs);
+    setIdentity(
+      item.linked && item.refereeId
+        ? {
+            linked: true,
+            refereeId: item.refereeId,
+            canonicalName: item.canonicalName || saveAs,
+            nameToSave: saveAs,
+            incomingName: item.name,
+            suggestions: [],
+          }
+        : null,
+    );
+    const bits = [`Seleccionado: ${saveAs}`];
+    if (item.linked && item.canonicalName && item.canonicalName !== item.name) {
+      bits.push(`canónico de «${item.name}»`);
+    }
+    if (item.disciplineLabel) bits.push(item.disciplineLabel);
+    showMsg(bits.join(' · '), 'ok');
   }
 
   const suggestions = identity?.suggestions?.filter((s) => s.refereeId || s.canonicalName) ?? [];
@@ -368,28 +385,57 @@ export function RefereeModal({
               )}
 
               {searchQuery.data?.referees && searchQuery.data.referees.length > 0 && (
-                <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-white/10 bg-[#0b0f14] p-2">
-                  {searchQuery.data.referees.map((r) => (
-                    <li key={r.name}>
-                      <button
-                        type="button"
-                        onClick={() => pickReferee(r)}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-sm transition hover:bg-indigo-500/10 ${
-                          selectedName === r.name
-                            ? 'bg-indigo-600/20 text-indigo-200'
-                            : 'text-slate-300'
-                        }`}
-                      >
-                        <span className="font-medium">{r.name}</span>
-                        {r.disciplineLabel && (
-                          <span className="mt-0.5 block text-xs text-slate-500">
-                            {r.disciplineLabel}
-                            {r.lastMatchDateDisplay && ` · último: ${r.lastMatchDateDisplay}`}
+                <ul className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-white/10 bg-[#0b0f14] p-2">
+                  {searchQuery.data.referees.map((r) => {
+                    const selected =
+                      selectedName === r.name ||
+                      selectedName === r.nameToSave ||
+                      selectedName === r.canonicalName;
+                    return (
+                      <li key={`${r.refereeId || 'x'}:${r.name}`}>
+                        <button
+                          type="button"
+                          onClick={() => pickReferee(r)}
+                          className={`w-full rounded-lg px-3 py-2 text-left text-sm transition hover:bg-indigo-500/10 ${
+                            selected
+                              ? 'bg-indigo-600/20 text-indigo-200'
+                              : 'text-slate-300'
+                          }`}
+                        >
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">{r.name}</span>
+                            {r.linked ? (
+                              <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-200">
+                                vinculado
+                              </span>
+                            ) : (
+                              <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                                sin canónico
+                              </span>
+                            )}
                           </span>
-                        )}
-                      </button>
-                    </li>
-                  ))}
+                          {r.identityLabel && (
+                            <span className="mt-0.5 block text-xs text-violet-300/90">
+                              {r.identityLabel}
+                            </span>
+                          )}
+                          {r.disciplineLabel && (
+                            <span
+                              className={`mt-0.5 block text-xs ${
+                                r.disciplineStatus === 'no_history' ||
+                                r.disciplineStatus === 'calc_failed'
+                                  ? 'text-amber-300/90'
+                                  : 'text-slate-500'
+                              }`}
+                            >
+                              {r.disciplineLabel}
+                              {r.lastMatchDateDisplay ? ` · últ. ${r.lastMatchDateDisplay}` : ''}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
 
@@ -428,7 +474,8 @@ export function RefereeModal({
 
               <p className="text-xs text-slate-600">
                 Al guardar, si hay match fuerte con un canónico se agrega el nombre FLB/API como
-                alias y se usa el canónico en el fixture (así salen promedios e historial).
+                alias y se usa el canónico en el fixture (así salen promedios e historial). En la
+                lista verás si está vinculado, su canónico y las stats del grupo de alias.
               </p>
             </div>
           )}
@@ -448,6 +495,7 @@ export function RefereeModal({
                     matches={historyQuery.data?.matches ?? []}
                     summaryLabel={historyQuery.data?.summaryLabel}
                     isLoading={historyQuery.isLoading}
+                    showAliasColumn
                     invalidateQueryKeys={[['referee-history', fixtureId, reviewName]]}
                   />
                 </>

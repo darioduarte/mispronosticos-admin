@@ -63,6 +63,7 @@ export function RefereeSampleModal({ refereeName, fixtureCount, onClose }: Props
               matches={matches}
               summaryLabel={historyQuery.data?.summaryLabel}
               isLoading={historyQuery.isLoading}
+              showAliasColumn
               invalidateQueryKeys={[['referee-sample', refereeName]]}
               emptyMessage="Sin partidos finalizados previos con este nombre exacto en BD."
             />
