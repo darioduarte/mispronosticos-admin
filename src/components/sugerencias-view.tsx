@@ -7,7 +7,7 @@ import type { SuggestionRow } from '@/lib/types';
 
 const CATEGORIAS = [
   { value: 'todas', label: 'Todas' },
-  { value: 'nueva_funcion', label: 'Nueva función' },
+  { value: 'nueva_funcion', label: 'Nueva funciÃ³n' },
   { value: 'mejora', label: 'Mejora' },
   { value: 'bug', label: 'Reportar bug' },
   { value: 'otro', label: 'Otro' },
@@ -41,7 +41,7 @@ function CategoryBadge({ row }: { row: SuggestionRow }) {
 function truncate(text: string, max = 120) {
   const t = String(text || '').trim();
   if (t.length <= max) return t;
-  return `${t.slice(0, max - 1)}…`;
+  return `${t.slice(0, max - 1)}â€¦`;
 }
 
 function DetailModal({
@@ -66,8 +66,8 @@ function DetailModal({
           <div>
             <h2 className="text-lg font-semibold text-white">Sugerencia</h2>
             <p className="mt-1 text-sm text-slate-400">
-              {row.createdAtDisplay || '—'} · {row.platform || 'plataforma ?'}
-              {row.appVersion ? ` · v${row.appVersion}` : ''}
+              {row.createdAtDisplay || 'â€”'} Â· {row.platform || 'plataforma ?'}
+              {row.appVersion ? ` Â· v${row.appVersion}` : ''}
             </p>
           </div>
           <button
@@ -84,7 +84,7 @@ function DetailModal({
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Usuario</p>
-            <p className="mt-1 text-slate-200">{row.userName || '—'}</p>
+            <p className="mt-1 text-slate-200">{row.userName || 'â€”'}</p>
             <p className="text-slate-400">{row.userEmail || row.userId}</p>
           </div>
           <div>
@@ -142,7 +142,7 @@ export function SugerenciasView() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-slate-100">Sugerencias</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Opiniones y reportes enviados desde el buzón de sugerencias de la app.
+          Opiniones y reportes enviados desde el buzÃ³n de sugerencias de la app.
         </p>
       </header>
 
@@ -164,12 +164,12 @@ export function SugerenciasView() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="email, nombre, mensaje…"
+              placeholder="email, nombre, mensajeâ€¦"
               className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-sm text-slate-200"
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-400">Categoría</span>
+            <span className="mb-1 block text-xs font-medium text-slate-400">CategorÃ­a</span>
             <select
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
@@ -210,7 +210,7 @@ export function SugerenciasView() {
 
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
         <span className="rounded-full border border-white/10 bg-[#111827] px-3 py-1 text-slate-400">
-          Total: <strong className="text-slate-200">{meta?.total ?? '—'}</strong>
+          Total: <strong className="text-slate-200">{meta?.total ?? 'â€”'}</strong>
         </span>
         {CATEGORIAS.filter((c) => c.value !== 'todas').map((c) => (
           <span
@@ -222,10 +222,10 @@ export function SugerenciasView() {
         ))}
       </div>
 
-      {query.isLoading && <p className="text-slate-400">Cargando sugerencias…</p>}
+      {query.isLoading && <p className="text-slate-400">Cargando sugerenciasâ€¦</p>}
       {query.isError && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-          Error al cargar. ¿Desplegaste el backend con `/api/admin/suggestions`?
+          Error al cargar. Â¿Desplegaste el backend con `/api/admin/suggestions`?
         </p>
       )}
 
@@ -236,7 +236,7 @@ export function SugerenciasView() {
               <tr>
                 <th className="px-4 py-3">Fecha</th>
                 <th className="px-4 py-3">Usuario</th>
-                <th className="px-4 py-3">Categoría</th>
+                <th className="px-4 py-3">CategorÃ­a</th>
                 <th className="px-4 py-3">Mensaje</th>
                 <th className="px-4 py-3">App</th>
                 <th className="px-4 py-3"></th>
@@ -253,11 +253,11 @@ export function SugerenciasView() {
                 rows.map((row) => (
                   <tr key={row.id} className="hover:bg-white/[0.02]">
                     <td className="whitespace-nowrap px-4 py-3 text-slate-400">
-                      {row.createdAtDisplay || '—'}
+                      {row.createdAtDisplay || 'â€”'}
                     </td>
                     <td className="px-4 py-3">
                       <div className="max-w-[200px]">
-                        <p className="truncate text-slate-200">{row.userName || '—'}</p>
+                        <p className="truncate text-slate-200">{row.userName || 'â€”'}</p>
                         <p className="truncate text-xs text-slate-500">
                           {row.userEmail || row.userId}
                         </p>
@@ -270,8 +270,8 @@ export function SugerenciasView() {
                       {truncate(row.mensaje)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
-                      {row.platform || '—'}
-                      {row.appVersion ? ` · v${row.appVersion}` : ''}
+                      {row.platform || 'â€”'}
+                      {row.appVersion ? ` Â· v${row.appVersion}` : ''}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
