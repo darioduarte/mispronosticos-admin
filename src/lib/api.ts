@@ -21,6 +21,7 @@ import type {
   PreMatchAnalysisResponse,
   PronosticoIaRow,
   PronosticosIaResponse,
+  PronosticosIaVivoResponse,
   RefereeHistoryResponse,
   RefereeSearchResponse,
   RepairRefereesResponse,
@@ -536,6 +537,13 @@ export function fetchPronosticosIa(desde: string, hasta: string) {
   const qs = new URLSearchParams({ desde, hasta });
   return adminFetch<PronosticosIaResponse>(
     `/api/admin/pronosticos-ia/rango?${qs}`,
+  );
+}
+
+export function fetchPronosticosIaVivo(desde: string, hasta: string) {
+  const qs = new URLSearchParams({ desde, hasta });
+  return adminFetch<PronosticosIaVivoResponse>(
+    `/api/admin/pronosticos-ia/live-analysis/rango?${qs}`,
   );
 }
 

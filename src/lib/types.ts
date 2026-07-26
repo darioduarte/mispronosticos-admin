@@ -110,11 +110,33 @@ export type PronosticosIaMeta = {
   pendientes: number;
   categorias: string[];
   torneos: { key: string; pais: string; liga: string }[];
+  fases?: string[];
 };
 
 export type PronosticosIaResponse = {
   success: boolean;
   data: PronosticoIaRow[];
+  meta: PronosticosIaMeta;
+  message?: string;
+};
+
+/** Una fila = un pick de análisis en vivo (PredictionAILivePrognostic). */
+export type PronosticoIaVivoRow = PronosticoIaRow & {
+  liveRunId: string;
+  windowKey: string;
+  windowLabel?: string | null;
+  run_minute: number | null;
+  pick_minute?: number | null;
+  run_score_home: number | null;
+  run_score_away: number | null;
+  run_status?: string | null;
+  analysisSummary?: string | null;
+  explicacion?: string | null;
+};
+
+export type PronosticosIaVivoResponse = {
+  success: boolean;
+  data: PronosticoIaVivoRow[];
   meta: PronosticosIaMeta;
   message?: string;
 };
