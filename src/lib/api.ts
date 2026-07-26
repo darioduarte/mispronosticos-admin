@@ -323,11 +323,17 @@ export async function adminFetch<T>(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    const hint =
+      typeof (err as { hint?: string }).hint === 'string'
+        ? (err as { hint?: string }).hint
+        : undefined;
     throw new ApiError(
       (err as { error?: string; message?: string }).error ||
         (err as { message?: string }).message ||
-        res.statusText,
+        res.statusText ||
+        `HTTP ${res.status}`,
       res.status,
+      { hint },
     );
   }
 

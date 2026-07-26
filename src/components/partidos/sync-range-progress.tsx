@@ -10,7 +10,7 @@ import {
 } from '@/lib/sync-stats-source';
 
 export type SyncRangeProgressState = {
-  phase: 'planning' | 'syncing' | 'done' | 'cancelled';
+  phase: 'planning' | 'syncing' | 'done' | 'cancelled' | 'error';
   total: number;
   current: number;
   ok: number;
@@ -20,6 +20,9 @@ export type SyncRangeProgressState = {
   isPausing?: boolean;
   pauseMs?: number;
   sourceBreakdown: SyncRangeSourceBreakdown;
+  errorMessage?: string | null;
+  errorDetail?: string | null;
+  errorCopyText?: string | null;
 };
 
 type Props = {
@@ -42,6 +45,7 @@ export function SyncRangeProgressModal({
   const [showFlbList, setShowFlbList] = useState(false);
   const [showApifList, setShowApifList] = useState(true);
   const [copyState, setCopyState] = useState<'idle' | 'ok' | 'err'>('idle');
+  const [errorCopied, setErrorCopied] = useState(false);
   const bd = progress.sourceBreakdown;
   const flbCount = bd.flb.length;
   const apifCount = bd.apiFootball.length;
@@ -191,6 +195,33 @@ export function SyncRangeProgressModal({
             <p className="text-sm text-amber-300">
               Cancelado: {flbCount} FLB · {apifCount} API-Football · {failedCount} fallo(s).
             </p>
+          )}
+          {progress.phase === 'error' && (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-3">
+              <p className="text-sm font-semibold text-red-200">Error al sincronizar</p>
+              <p className="mt-1 break-words text-sm text-red-100/90">
+                {progress.errorMessage || 'Error desconocido'}
+              </p>
+              {progress.errorDetail ? (
+                <p className="mt-2 break-all font-mono text-[11px] text-red-200/70">
+                  {progress.errorDetail}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={async () => {
+                  const text =
+                    progress.errorCopyText ||
+                    [progress.errorMessage, progress.errorDetail].filter(Boolean).join('\n');
+                  const ok = await copyTextToClipboard(text);
+                  setErrorCopied(ok);
+                  window.setTimeout(() => setErrorCopied(false), 2500);
+                }}
+                className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-100 hover:bg-red-500/20"
+              >
+                {errorCopied ? 'Copiado' : 'Copiar error'}
+              </button>
+            </div>
           )}
         </div>
 

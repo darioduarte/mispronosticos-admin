@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import type { PromediosRecalcPlanFixture } from '@/lib/types';
+import { copyTextToClipboard } from '@/lib/sync-stats-source';
 
 export type PromediosRangeProgressState = {
-  phase: 'planning' | 'recalculating' | 'done' | 'cancelled';
+  phase: 'planning' | 'recalculating' | 'done' | 'cancelled' | 'error';
   total: number;
   current: number;
   ok: number;
@@ -12,6 +14,9 @@ export type PromediosRangeProgressState = {
   recentLog: string[];
   isPausing?: boolean;
   pauseMs?: number;
+  errorMessage?: string | null;
+  errorDetail?: string | null;
+  errorCopyText?: string | null;
 };
 
 type Props = {
@@ -31,6 +36,7 @@ export function PromediosRangeProgressModal({
   pauseMs,
   onCancel,
 }: Props) {
+  const [errorCopied, setErrorCopied] = useState(false);
   const pct =
     progress.total > 0 ? Math.min(100, Math.round((progress.current / progress.total) * 100)) : 0;
   const busy = progress.phase === 'planning' || progress.phase === 'recalculating';
@@ -117,6 +123,34 @@ export function PromediosRangeProgressModal({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {progress.phase === 'error' && (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-3">
+              <p className="text-sm font-semibold text-red-200">Error al recalcular</p>
+              <p className="mt-1 break-words text-sm text-red-100/90">
+                {progress.errorMessage || 'Error desconocido'}
+              </p>
+              {progress.errorDetail ? (
+                <p className="mt-2 break-all font-mono text-[11px] text-red-200/70">
+                  {progress.errorDetail}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={async () => {
+                  const text =
+                    progress.errorCopyText ||
+                    [progress.errorMessage, progress.errorDetail].filter(Boolean).join('\n');
+                  const ok = await copyTextToClipboard(text);
+                  setErrorCopied(ok);
+                  window.setTimeout(() => setErrorCopied(false), 2500);
+                }}
+                className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-100 hover:bg-red-500/20"
+              >
+                {errorCopied ? 'Copiado' : 'Copiar error'}
+              </button>
             </div>
           )}
         </div>

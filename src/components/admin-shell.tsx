@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { clearSession, getStoredUser } from '@/lib/auth';
+import { AdminToastHost } from '@/components/admin-toast-host';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -174,6 +175,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
         <main className="min-w-0 flex-1">{children}</main>
       </div>
+      <AdminToastHost />
     </div>
   );
 }

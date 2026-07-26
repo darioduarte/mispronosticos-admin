@@ -142,7 +142,7 @@ export type SyncRangeReportInput = {
   hasta: string;
   onlyMissing: boolean;
   pauseMs: number;
-  phase: 'planning' | 'syncing' | 'done' | 'cancelled';
+  phase: 'planning' | 'syncing' | 'done' | 'cancelled' | 'error';
   total: number;
   current: number;
   sourceBreakdown: SyncRangeSourceBreakdown;
@@ -161,6 +161,7 @@ export function formatSyncRangeReport(input: SyncRangeReportInput): string {
     syncing: 'En curso',
     done: 'Completado',
     cancelled: 'Cancelado',
+    error: 'Error',
   }[input.phase];
 
   const lines: string[] = [

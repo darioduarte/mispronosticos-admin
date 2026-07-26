@@ -22,6 +22,7 @@ import {
   classifySyncResult,
   emptySourceBreakdown,
 } from '@/lib/sync-stats-source';
+import { formatCaughtError, toastError, toastSuccess, toastWarning } from '@/lib/admin-toast';
 import {
   fetchPartidos,
   fetchPromediosRecalcPlan,
@@ -238,15 +239,42 @@ export function PartidosView() {
         onlyMissing: syncOnlyMissing,
       });
       if (!plan.success) {
-        setSyncMsg(plan.error || 'No se pudo planificar la sincronización');
-        setSyncProgress(null);
+        const msg = plan.error || 'No se pudo planificar la sincronización';
+        setSyncMsg(msg);
+        toastError('Sincronizar rango (FLB)', msg);
+        setSyncProgress({
+          phase: 'error',
+          total: 0,
+          current: 0,
+          ok: 0,
+          failed: 0,
+          currentFixture: null,
+          recentLog: [`Error de plan: ${msg}`],
+          pauseMs: syncPauseMs,
+          sourceBreakdown: emptySourceBreakdown(),
+          errorMessage: msg,
+          errorDetail: null,
+          errorCopyText: `Sincronizar rango FLB\nRango: ${applied.desde} → ${applied.hasta}\nError: ${msg}\nFecha: ${new Date().toISOString()}`,
+        });
         return;
       }
 
       const fixtures = plan.fixtures ?? [];
       if (!fixtures.length) {
-        setSyncMsg('No hay partidos pendientes de sincronizar en ese rango.');
-        setSyncProgress(null);
+        const msg = 'No hay partidos pendientes de sincronizar en ese rango.';
+        setSyncMsg(msg);
+        toastWarning('Sincronizar rango (FLB)', msg);
+        setSyncProgress({
+          phase: 'done',
+          total: 0,
+          current: 0,
+          ok: 0,
+          failed: 0,
+          currentFixture: null,
+          recentLog: [msg],
+          pauseMs: syncPauseMs,
+          sourceBreakdown: emptySourceBreakdown(),
+        });
         return;
       }
 
@@ -367,8 +395,23 @@ export function PartidosView() {
 
       await queryClient.invalidateQueries({ queryKey: ['partidos'] });
     } catch (e) {
-      setSyncMsg((e as Error).message);
-      setSyncProgress(null);
+      const formatted = formatCaughtError(e);
+      setSyncMsg(formatted.message);
+      toastError('Sincronizar rango (FLB)', e);
+      setSyncProgress({
+        phase: 'error',
+        total: 0,
+        current: 0,
+        ok: 0,
+        failed: 0,
+        currentFixture: null,
+        recentLog: [`✗ ${formatted.message}`],
+        pauseMs: syncPauseMs,
+        sourceBreakdown: emptySourceBreakdown(),
+        errorMessage: formatted.message,
+        errorDetail: formatted.detail,
+        errorCopyText: `Sincronizar rango FLB\nRango: ${applied.desde} → ${applied.hasta}\n${formatted.copyText}`,
+      });
     } finally {
       setSyncBusy(false);
     }
@@ -411,19 +454,42 @@ export function PartidosView() {
         onlyStale: promediosOnlyStale,
       });
       if (!plan.success) {
-        setPromediosMsg(plan.error || 'No se pudo planificar el recálculo');
-        setPromediosProgress(null);
+        const msg = plan.error || 'No se pudo planificar el recálculo';
+        setPromediosMsg(msg);
+        toastError('Recalcular promedios', msg);
+        setPromediosProgress({
+          phase: 'error',
+          total: 0,
+          current: 0,
+          ok: 0,
+          failed: 0,
+          currentFixture: null,
+          recentLog: [`Error de plan: ${msg}`],
+          pauseMs: promediosPauseMs,
+          errorMessage: msg,
+          errorDetail: null,
+          errorCopyText: `Recalcular promedios\nRango: ${applied.desde} → ${applied.hasta}\nError: ${msg}\nFecha: ${new Date().toISOString()}`,
+        });
         return;
       }
 
       const fixtures = plan.fixtures ?? [];
       if (!fixtures.length) {
-        setPromediosMsg(
-          promediosOnlyStale
-            ? 'No hay partidos con promedios desactualizados en ese rango.'
-            : 'No hay partidos destacados en ese rango.',
-        );
-        setPromediosProgress(null);
+        const msg = promediosOnlyStale
+          ? 'No hay partidos con promedios desactualizados en ese rango.'
+          : 'No hay partidos destacados en ese rango.';
+        setPromediosMsg(msg);
+        toastWarning('Recalcular promedios', msg);
+        setPromediosProgress({
+          phase: 'done',
+          total: 0,
+          current: 0,
+          ok: 0,
+          failed: 0,
+          currentFixture: null,
+          recentLog: [msg],
+          pauseMs: promediosPauseMs,
+        });
         return;
       }
 
@@ -534,8 +600,22 @@ export function PartidosView() {
         setPromediosMsg(`${ok} recalculados${failed ? ` · ${failed} fallo(s)` : ''}.`);
       }
     } catch (e) {
-      setPromediosMsg((e as Error).message);
-      setPromediosProgress(null);
+      const formatted = formatCaughtError(e);
+      setPromediosMsg(formatted.message);
+      toastError('Recalcular promedios', e);
+      setPromediosProgress({
+        phase: 'error',
+        total: 0,
+        current: 0,
+        ok: 0,
+        failed: 0,
+        currentFixture: null,
+        recentLog: [`✗ ${formatted.message}`],
+        pauseMs: promediosPauseMs,
+        errorMessage: formatted.message,
+        errorDetail: formatted.detail,
+        errorCopyText: `Recalcular promedios\nRango: ${applied.desde} → ${applied.hasta}\n${formatted.copyText}`,
+      });
     } finally {
       setPromediosBusy(false);
     }
@@ -557,19 +637,23 @@ export function PartidosView() {
     try {
       const result = await syncPartidoStats(fixtureId);
       if (!result.success) {
-        window.alert(result.error || result.message || 'Error al sincronizar');
+        toastError(
+          `Sync stats #${fixtureId}`,
+          result.error || result.message || 'Error al sincronizar',
+          {
+            detail: result.statisticsSourceDetail || result.statisticsSourceReason || null,
+          },
+        );
         return;
       }
       await queryClient.invalidateQueries({ queryKey: ['partidos'] });
       const src = result.statisticsSource || result.statsSource || 'flb';
-      window.alert(
-        result.message ||
-          (src === 'flb'
-            ? 'Estadísticas sincronizadas desde Live-Football-Data'
-            : `Sincronizado (fuente: ${src})`),
+      toastSuccess(
+        `Sync #${fixtureId}`,
+        result.message || `Estadísticas OK (${src})`,
       );
     } catch (e) {
-      window.alert((e as Error).message);
+      toastError(`Sync stats #${fixtureId}`, e);
     } finally {
       setSyncRowId(null);
     }
@@ -591,17 +675,20 @@ export function PartidosView() {
         hasta: applied.hasta,
       });
       if (!result.success) {
-        setRepairMsg(result.error || 'Error al reparar árbitros');
+        const msg = result.error || 'Error al reparar árbitros';
+        setRepairMsg(msg);
+        toastError('Reparar árbitros', msg);
       } else {
         const apif = result.totalUpdatedFromApiFootball ?? 0;
         const flb = result.totalUpdatedFromFlb ?? 0;
-        setRepairMsg(
-          `Actualizados: ${result.totalUpdated ?? 0} / ${result.totalCandidates ?? 0} (API-Football: ${apif} · FLB: ${flb}) · ${result.daysProcessed ?? 0} días`,
-        );
+        const msg = `Actualizados: ${result.totalUpdated ?? 0} / ${result.totalCandidates ?? 0} (API-Football: ${apif} · FLB: ${flb}) · ${result.daysProcessed ?? 0} días`;
+        setRepairMsg(msg);
+        toastSuccess('Reparar árbitros', msg);
         await queryClient.invalidateQueries({ queryKey: ['partidos'] });
       }
     } catch (e) {
       setRepairMsg((e as Error).message);
+      toastError('Reparar árbitros', e);
     } finally {
       setRepairBusy(false);
     }
@@ -611,9 +698,18 @@ export function PartidosView() {
     setSyncPeriodMsg(null);
     try {
       const result = await syncPeriodSnapshotTables();
-      setSyncPeriodMsg(result.message || (result.success ? 'Tabla sincronizada' : result.error || 'Error'));
+      if (!result.success) {
+        const msg = result.error || result.message || 'Error';
+        setSyncPeriodMsg(msg);
+        toastError('Sincronizar tablas de periodos', msg);
+        return;
+      }
+      const msg = result.message || 'Tabla sincronizada';
+      setSyncPeriodMsg(msg);
+      toastSuccess('Periodos', msg);
     } catch (e) {
       setSyncPeriodMsg((e as Error).message);
+      toastError('Sincronizar tablas de periodos', e);
     }
   }
 
