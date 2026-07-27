@@ -76,6 +76,13 @@ import type {
   OpsIncidentsResponse,
   OpsIncidentsReportResponse,
   RuntimeSettingsSnapshot,
+  StoriesListResponse,
+  StoryDetailResponse,
+  StoryPatchPayload,
+  StoryPatchResponse,
+  StoryGenerateResponse,
+  StoryDeleteResponse,
+  StoryGenerateType,
 } from './types';
 import type { ConnectionProbe, LoginDiagnostic } from './login-diagnostics';
 
@@ -1421,5 +1428,46 @@ export function clearPredictionCacheForFecha(date: string) {
       method: 'POST',
       body: JSON.stringify({ date }),
     },
+  );
+}
+
+export function fetchStories(params: { date: string; type?: string }) {
+  const qs = new URLSearchParams();
+  qs.set('date', params.date);
+  if (params.type && params.type !== 'todas') qs.set('type', params.type);
+  return adminFetch<StoriesListResponse>(`/api/admin/stories?${qs}`);
+}
+
+export function fetchStory(id: string) {
+  return adminFetch<StoryDetailResponse>(`/api/admin/stories/${encodeURIComponent(id)}`);
+}
+
+export function patchStory(id: string, payload: StoryPatchPayload) {
+  return adminFetch<StoryPatchResponse>(`/api/admin/stories/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteStory(id: string) {
+  return adminFetch<StoryDeleteResponse>(`/api/admin/stories/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+export function generateStories(date: string, types: StoryGenerateType[]) {
+  return adminFetch<StoryGenerateResponse>('/api/admin/stories/generate', {
+    method: 'POST',
+    body: JSON.stringify({ date, types }),
+  });
+}
+
+export function deleteStoriesByDate(date: string, type?: string) {
+  const qs = new URLSearchParams();
+  if (type && type !== 'todas') qs.set('type', type);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return adminFetch<StoryDeleteResponse>(
+    `/api/admin/stories/by-date/${encodeURIComponent(date)}${suffix}`,
+    { method: 'DELETE' },
   );
 }

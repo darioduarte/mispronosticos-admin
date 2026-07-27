@@ -1465,3 +1465,114 @@ export type RuntimeSettingsSnapshot = {
   };
   redisAvailable: boolean;
 };
+
+export type StoryTypeId =
+  | 'PREDICTION_MAX_AVERAGE'
+  | 'PREDICTION_MIN_AVERAGE'
+  | 'TOP_INJURIES'
+  | string;
+
+export type StoryGenerateType = 'max' | 'min' | 'injuries';
+
+export type StoryRow = {
+  id: string;
+  type: StoryTypeId;
+  typeLabel: string;
+  idElement: string;
+  active: boolean;
+  attribute: string | null;
+  orden: number;
+  miniTitle: string | null;
+  description: string | null;
+  model: string | null;
+  color: string | null;
+  date: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type StoryFixtureBrief = {
+  fixtureid: string | number;
+  teamshomename: string | null;
+  teamsawayname: string | null;
+  teamshomelogo: string | null;
+  teamsawaylogo: string | null;
+  leaguename: string | null;
+  leaguecountry: string | null;
+  fixturedate: string | null;
+};
+
+export type StoryRankingRow = {
+  id: string;
+  attribute: string | null;
+  value: number | null;
+  type: string | null;
+  fixtureid: string | number | null;
+  date: string | null;
+  fixture: StoryFixtureBrief | null;
+};
+
+export type StoryPredictionBrief = {
+  id: string;
+  title: string;
+  detail: string;
+  type: string;
+  date: string;
+};
+
+export type StoriesListResponse = {
+  success: boolean;
+  data: StoryRow[];
+  meta: {
+    date: string;
+    type: string;
+    total: number;
+    byType: Record<string, number>;
+    averagesCount: number;
+    types: Array<{ id: string; label: string }>;
+  };
+  error?: string;
+};
+
+export type StoryDetailResponse = {
+  success: boolean;
+  story?: StoryRow;
+  prediction?: StoryPredictionBrief | null;
+  ranking?: StoryRankingRow[];
+  error?: string;
+};
+
+export type StoryPatchPayload = {
+  miniTitle?: string | null;
+  description?: string | null;
+  active?: boolean;
+  orden?: number;
+  color?: string | null;
+};
+
+export type StoryPatchResponse = {
+  success: boolean;
+  story?: StoryRow;
+  error?: string;
+};
+
+export type StoryGenerateResponse = {
+  success: boolean;
+  message?: string;
+  date?: string;
+  types?: StoryGenerateType[];
+  data?: StoryRow[];
+  meta?: { total: number };
+  averagesCount?: number;
+  error?: string;
+};
+
+export type StoryDeleteResponse = {
+  success: boolean;
+  message?: string;
+  id?: string;
+  deleted?: number;
+  date?: string;
+  error?: string;
+};
+

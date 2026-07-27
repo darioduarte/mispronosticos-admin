@@ -11,6 +11,7 @@ const NAV = [
   { href: '/monitoreo', label: 'Monitoreo' },
   { href: '/parametros-en-vivo', label: 'Parámetros en vivo' },
   { href: '/partidos', label: 'Partidos' },
+  { href: '/historias', label: 'Historias' },
   { href: '/ligas', label: 'Ligas' },
   { href: '/arbitros', label: 'Árbitros' },
   { href: '/pronosticos-ia', label: 'Pronósticos IA' },
