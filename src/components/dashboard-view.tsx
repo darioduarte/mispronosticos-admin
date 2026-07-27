@@ -295,14 +295,14 @@ export function DashboardView() {
                     <p className="text-xs text-slate-500">Trials totales</p>
                     <p className="text-lg font-semibold text-slate-300">{fmt(d.trials.total)}</p>
                   </div>
-                  <div>
+                  <Link href="/errores-pago" className="block rounded-lg transition hover:bg-white/[0.03]">
                     <p className="text-xs text-slate-500">Errores pago pendientes</p>
                     <p className="text-lg font-semibold text-amber-300">{fmt(d.soporte.erroresPagoPendientes)}</p>
-                  </div>
-                  <div>
+                  </Link>
+                  <Link href="/errores-pago" className="block rounded-lg transition hover:bg-white/[0.03]">
                     <p className="text-xs text-slate-500">Errores pago total</p>
                     <p className="text-lg font-semibold text-slate-300">{fmt(d.soporte.erroresPagoTotal)}</p>
-                  </div>
+                  </Link>
                   <Link href="/sugerencias" className="block rounded-lg transition hover:bg-white/[0.03]">
                     <p className="text-xs text-slate-500">Sugerencias (30d)</p>
                     <p className="text-lg font-semibold text-indigo-300">{fmt(d.soporte.sugerencias30d)}</p>

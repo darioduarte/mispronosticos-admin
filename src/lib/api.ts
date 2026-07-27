@@ -48,6 +48,8 @@ import type {
   TrialMutationResponse,
   SuggestionsResponse,
   ErrorsResponse,
+  PaymentErrorsResponse,
+  PaymentErrorMutationResponse,
   RenewalSyncPayload,
   RenewalSyncResponse,
   DashboardSummary,
@@ -1177,6 +1179,43 @@ export function fetchErrors(params: {
   if (params.limit) qs.set('limit', String(params.limit));
   if (params.offset) qs.set('offset', String(params.offset));
   return adminFetch<ErrorsResponse>(`/api/admin/errors?${qs}`);
+}
+
+export function fetchPaymentErrors(params: {
+  search?: string;
+  email?: string;
+  errorType?: string;
+  appType?: string;
+  environment?: string;
+  resolved?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params.search) qs.set('search', params.search);
+  if (params.email) qs.set('email', params.email);
+  if (params.errorType && params.errorType !== 'todas') qs.set('errorType', params.errorType);
+  if (params.appType && params.appType !== 'todas') qs.set('appType', params.appType);
+  if (params.environment && params.environment !== 'todas') {
+    qs.set('environment', params.environment);
+  }
+  if (params.resolved && params.resolved !== 'todas') qs.set('resolved', params.resolved);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  return adminFetch<PaymentErrorsResponse>(`/api/admin/payment-errors?${qs}`);
+}
+
+export function resolvePaymentError(
+  id: string,
+  payload: { notes?: string; resolved?: boolean } = {},
+) {
+  return adminFetch<PaymentErrorMutationResponse>(
+    `/api/admin/payment-errors/${encodeURIComponent(id)}/resolve`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export function syncSuscripcionRenewals(payload: RenewalSyncPayload = {}) {

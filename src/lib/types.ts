@@ -1109,6 +1109,60 @@ export type ErrorsResponse = {
   error?: string;
 };
 
+export type PaymentErrorRow = {
+  id: string;
+  userId: string | null;
+  userEmail: string | null;
+  userName: string | null;
+  appType: string | null;
+  appTypeLabel: string;
+  errorType: string;
+  errorTypeLabel: string;
+  errorMessage: string;
+  errorStack: string | null;
+  productId: string | null;
+  purchaseToken: string | null;
+  transactionId: string | null;
+  requestData: unknown;
+  responseData: unknown;
+  deviceInfo: unknown;
+  environment: string | null;
+  resolved: boolean;
+  notes: string | null;
+  timestamp: string | null;
+  timestampDisplay: string | null;
+};
+
+export type PaymentErrorsMeta = {
+  total: number;
+  limit: number;
+  offset: number;
+  search: string | null;
+  email: string | null;
+  errorType: string;
+  appType: string;
+  environment: string;
+  resolved: string;
+  byErrorType: Record<string, number>;
+  pendingCount: number;
+  resolvedCount: number;
+  errorTypes: Array<{ id: string; label: string }>;
+};
+
+export type PaymentErrorsResponse = {
+  success: boolean;
+  data: PaymentErrorRow[];
+  meta: PaymentErrorsMeta;
+  error?: string;
+};
+
+export type PaymentErrorMutationResponse = {
+  success: boolean;
+  data?: PaymentErrorRow;
+  message?: string;
+  error?: string;
+};
+
 export type RenewalSyncAction =
   | 'unchanged'
   | 'would_update'
