@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fetchLiveAnalysisRuns, triggerLiveAnalysisManual } from '@/lib/api';
-import type { LiveAnalysisRun } from '@/lib/types';
+import type { LiveAnalysisRun, LivePromptMeta } from '@/lib/types';
 
 type Props = {
   fixtureId: number;
@@ -34,12 +34,73 @@ function formatDate(iso: string) {
   }
 }
 
+function oddsBadge(run: LiveAnalysisRun) {
+  const status = run.promptMeta?.oddsStatus;
+  if (run.hasOdds === true || status === 'ok') {
+    return {
+      label: 'Con cuotas',
+      className: 'bg-emerald-500/20 text-emerald-200',
+    };
+  }
+  if (status === 'error') {
+    return {
+      label: 'Error cuotas',
+      className: 'bg-red-500/20 text-red-200',
+    };
+  }
+  if (status === 'skipped') {
+    return {
+      label: 'Cuotas omitidas',
+      className: 'bg-slate-500/20 text-slate-300',
+    };
+  }
+  if (run.hasOdds === false || status === 'empty') {
+    return {
+      label: 'Sin cuotas',
+      className: 'bg-amber-500/20 text-amber-200',
+    };
+  }
+  return null;
+}
+
+function PromptMetaHints({ meta }: { meta: LivePromptMeta | null | undefined }) {
+  if (!meta) return null;
+  const warnings = Array.isArray(meta.warnings) ? meta.warnings : [];
+  if (!warnings.length && !meta.oddsError) return null;
+  return (
+    <div className="mb-3 space-y-1 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+      {meta.oddsError && (
+        <p className="text-xs text-red-300">Cuotas: {meta.oddsError}</p>
+      )}
+      {warnings.map((w) => (
+        <p key={w} className="text-xs text-amber-200/90">
+          {w}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 function RunCard({ run, defaultOpen }: { run: LiveAnalysisRun; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [copied, setCopied] = useState(false);
   const score =
     run.scoreHome != null && run.scoreAway != null
       ? `${run.scoreHome}–${run.scoreAway}`
       : '—';
+  const badge = oddsBadge(run);
+
+  async function copyPrompt() {
+    if (!run.prompt) return;
+    try {
+      await navigator.clipboard.writeText(run.prompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return (
     <article className="rounded-lg border border-white/10 bg-[#0b0f14]">
@@ -60,9 +121,17 @@ function RunCard({ run, defaultOpen }: { run: LiveAnalysisRun; defaultOpen?: boo
             {run.status && (
               <span className="text-xs text-slate-600">{run.status}</span>
             )}
+            {badge && (
+              <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${badge.className}`}>
+                {badge.label}
+              </span>
+            )}
           </div>
           <p className="mt-1 text-xs text-slate-500">
             {formatDate(run.createdAt)} · {run.publishedCount} pick(s)
+            {run.promptLength != null && run.promptLength > 0
+              ? ` · prompt ${run.promptLength.toLocaleString('es-CO')} chars`
+              : ''}
           </p>
           {run.analysisSummary && !open && (
             <p className="mt-1 line-clamp-2 text-xs text-slate-400">{run.analysisSummary}</p>
@@ -75,6 +144,32 @@ function RunCard({ run, defaultOpen }: { run: LiveAnalysisRun; defaultOpen?: boo
         <div className="border-t border-white/5 px-4 pb-4 pt-2">
           {run.analysisSummary && (
             <p className="mb-3 text-sm leading-relaxed text-slate-300">{run.analysisSummary}</p>
+          )}
+          <PromptMetaHints meta={run.promptMeta} />
+          <div className="mb-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={!run.prompt}
+              onClick={() => setShowPrompt((v) => !v)}
+              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5 disabled:opacity-40"
+            >
+              {showPrompt ? 'Ocultar prompt guardado' : 'Ver prompt guardado'}
+            </button>
+            <button
+              type="button"
+              disabled={!run.prompt}
+              onClick={() => void copyPrompt()}
+              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5 disabled:opacity-40"
+            >
+              {copied ? 'Copiado' : 'Copiar prompt'}
+            </button>
+          </div>
+          {showPrompt && (
+            <textarea
+              readOnly
+              value={run.prompt || '(sin prompt guardado)'}
+              className="mb-3 h-64 w-full resize-y rounded-lg border border-white/10 bg-[#06080c] p-3 font-mono text-[11px] leading-relaxed text-slate-300"
+            />
           )}
           {run.picks.length === 0 ? (
             <p className="text-sm text-slate-500">Sin picks publicados en esta ejecución.</p>

@@ -194,6 +194,17 @@ export type LiveAnalysisPick = {
   createdAt: string;
 };
 
+export type LivePromptMeta = {
+  includesOddsBlock?: boolean;
+  hasOdds?: boolean;
+  oddsStatus?: 'ok' | 'empty' | 'error' | 'skipped' | string;
+  oddsError?: string | null;
+  statsSource?: string | null;
+  usedDbAsOf?: boolean;
+  asOf?: string | null;
+  warnings?: string[];
+};
+
 export type LiveAnalysisRun = {
   id: string;
   windowKey: string;
@@ -204,6 +215,10 @@ export type LiveAnalysisRun = {
   analysisSummary: string | null;
   publishedCount: number;
   createdAt: string;
+  hasOdds?: boolean | null;
+  promptMeta?: LivePromptMeta | null;
+  prompt?: string | null;
+  promptLength?: number;
   picks: LiveAnalysisPick[];
 };
 
