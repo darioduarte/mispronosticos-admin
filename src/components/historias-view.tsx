@@ -39,6 +39,134 @@ const TYPE_COLORS: Record<string, string> = {
   TOP_INJURIES: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
 };
 
+const GENERATE_LABELS: Record<StoryGenerateType, string> = {
+  max: 'Máximos',
+  min: 'Mínimos',
+  injuries: 'Bajas',
+};
+
+type ProgressPhase = 'running' | 'done' | 'error';
+
+type ProgressState = {
+  title: string;
+  phase: ProgressPhase;
+  current: number;
+  total: number;
+  currentLabel: string;
+  log: string[];
+  errorMessage?: string | null;
+};
+
+function StoriesProgressModal({
+  progress,
+  onClose,
+}: {
+  progress: ProgressState;
+  onClose: () => void;
+}) {
+  const pct =
+    progress.total > 0
+      ? Math.min(100, Math.round((progress.current / progress.total) * 100))
+      : progress.phase === 'running'
+        ? 15
+        : 100;
+  const busy = progress.phase === 'running';
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4"
+      role="presentation"
+    >
+      <div
+        className="w-full max-w-md rounded-xl border border-white/10 bg-[#151b24] shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stories-progress-title"
+      >
+        <div className="border-b border-white/10 px-5 py-4">
+          <h2 id="stories-progress-title" className="text-lg font-semibold text-white">
+            {progress.title}
+          </h2>
+          <p className="mt-1 text-sm text-slate-400">
+            {busy
+              ? progress.currentLabel || 'Procesando…'
+              : progress.phase === 'done'
+                ? 'Proceso completado'
+                : 'Hubo un error'}
+          </p>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          <div>
+            <div className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
+              <span>
+                {busy ? 'En curso' : progress.phase === 'done' ? 'Listo' : 'Error'}
+              </span>
+              <span>
+                {progress.total > 0
+                  ? `${progress.current}/${progress.total} · ${pct}%`
+                  : busy
+                    ? '…'
+                    : '100%'}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  progress.phase === 'error'
+                    ? 'bg-red-500'
+                    : progress.phase === 'done'
+                      ? 'bg-emerald-500'
+                      : 'bg-indigo-500'
+                } ${busy && progress.total <= 1 ? 'animate-pulse' : ''}`}
+                style={{ width: `${Math.max(pct, busy ? 8 : 0)}%` }}
+              />
+            </div>
+          </div>
+
+          {busy && (
+            <div className="flex items-center gap-3 text-sm text-slate-300">
+              <span
+                className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent"
+                aria-hidden
+              />
+              <span>{progress.currentLabel || 'Espera un momento…'}</span>
+            </div>
+          )}
+
+          {progress.log.length > 0 && (
+            <ul className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-xs text-slate-400">
+              {progress.log.map((line, i) => (
+                <li key={`${i}-${line}`} className="leading-relaxed">
+                  {line}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {progress.errorMessage && (
+            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              {progress.errorMessage}
+            </p>
+          )}
+
+          {!busy && (
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+              >
+                Cerrar
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TypeBadge({ type, label }: { type: string; label: string }) {
   return (
     <span
@@ -289,6 +417,7 @@ export function HistoriasView() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [progress, setProgress] = useState<ProgressState | null>(null);
 
   const listQuery = useQuery({
     queryKey: ['stories', applied.date, applied.type],
@@ -305,17 +434,90 @@ export function HistoriasView() {
   async function handleGenerate(types: StoryGenerateType[]) {
     setBusy(true);
     setMsg('');
+    const labels = types.map((t) => GENERATE_LABELS[t]).join(', ');
+    setProgress({
+      title: `Generar historias · ${applied.date}`,
+      phase: 'running',
+      current: 0,
+      total: types.length,
+      currentLabel: `Iniciando ${labels}…`,
+      log: [],
+      errorMessage: null,
+    });
+
     try {
-      const result = await generateStories(applied.date, types);
-      if (!result.success) {
-        setMsg(result.error || 'No se pudo generar');
-        return;
+      for (let i = 0; i < types.length; i++) {
+        const t = types[i];
+        const label = GENERATE_LABELS[t];
+        setProgress((prev) =>
+          prev
+            ? {
+                ...prev,
+                current: i,
+                currentLabel: `Generando ${label}…`,
+                log: [...prev.log, `▶ ${label}`],
+              }
+            : prev,
+        );
+
+        const result = await generateStories(applied.date, [t]);
+        if (!result.success) {
+          const err = result.error || `No se pudo generar ${label}`;
+          setProgress((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: 'error',
+                  currentLabel: `Error en ${label}`,
+                  errorMessage: err,
+                  log: [...prev.log, `✗ ${label}: ${err}`],
+                }
+              : prev,
+          );
+          setMsg(err);
+          return;
+        }
+
+        setProgress((prev) =>
+          prev
+            ? {
+                ...prev,
+                current: i + 1,
+                currentLabel: `${label} listo`,
+                log: [...prev.log.slice(0, -1), `✓ ${label}`],
+              }
+            : prev,
+        );
       }
-      setMsg(result.message || 'Historias generadas');
+
       await invalidateList();
+      setProgress((prev) =>
+        prev
+          ? {
+              ...prev,
+              phase: 'done',
+              current: prev.total,
+              currentLabel: 'Todas las historias generadas',
+              log: [...prev.log, 'Listo'],
+            }
+          : prev,
+      );
+      setMsg(`Historias generadas para ${applied.date}`);
     } catch (e) {
       const err = e as ApiError;
-      setMsg(err.message || 'Error al generar');
+      const message = err.message || 'Error al generar';
+      setProgress((prev) =>
+        prev
+          ? {
+              ...prev,
+              phase: 'error',
+              currentLabel: 'Error',
+              errorMessage: message,
+              log: [...prev.log, `✗ ${message}`],
+            }
+          : prev,
+      );
+      setMsg(message);
     } finally {
       setBusy(false);
     }
@@ -342,15 +544,47 @@ export function HistoriasView() {
     if (!window.confirm(`¿Eliminar "${row.miniTitle || row.id}"?`)) return;
     setBusy(true);
     setMsg('');
+    setProgress({
+      title: 'Eliminar historia',
+      phase: 'running',
+      current: 0,
+      total: 1,
+      currentLabel: `Borrando "${row.miniTitle || row.id}"…`,
+      log: [],
+      errorMessage: null,
+    });
     try {
       const result = await deleteStory(row.id);
       if (!result.success) {
-        setMsg(result.error || 'No se pudo eliminar');
+        const err = result.error || 'No se pudo eliminar';
+        setProgress((prev) =>
+          prev
+            ? { ...prev, phase: 'error', currentLabel: 'Error', errorMessage: err }
+            : prev,
+        );
+        setMsg(err);
         return;
       }
       await invalidateList();
+      setProgress((prev) =>
+        prev
+          ? {
+              ...prev,
+              phase: 'done',
+              current: 1,
+              currentLabel: 'Historia eliminada',
+              log: ['✓ Eliminada'],
+            }
+          : prev,
+      );
     } catch (e) {
-      setMsg((e as Error).message);
+      const message = (e as Error).message;
+      setProgress((prev) =>
+        prev
+          ? { ...prev, phase: 'error', currentLabel: 'Error', errorMessage: message }
+          : prev,
+      );
+      setMsg(message);
     } finally {
       setBusy(false);
     }
@@ -363,16 +597,48 @@ export function HistoriasView() {
     }
     setBusy(true);
     setMsg('');
+    setProgress({
+      title: `Borrar historias · ${applied.date}`,
+      phase: 'running',
+      current: 0,
+      total: 1,
+      currentLabel: `Eliminando ${label}…`,
+      log: [`▶ ${label} (${rows.length} en listado)`],
+      errorMessage: null,
+    });
     try {
       const result = await deleteStoriesByDate(applied.date, applied.type);
       if (!result.success) {
-        setMsg(result.error || 'No se pudo eliminar');
+        const err = result.error || 'No se pudo eliminar';
+        setProgress((prev) =>
+          prev
+            ? { ...prev, phase: 'error', currentLabel: 'Error', errorMessage: err }
+            : prev,
+        );
+        setMsg(err);
         return;
       }
       setMsg(result.message || 'Eliminadas');
       await invalidateList();
+      setProgress((prev) =>
+        prev
+          ? {
+              ...prev,
+              phase: 'done',
+              current: 1,
+              currentLabel: result.message || 'Historias eliminadas',
+              log: [...(prev.log || []), `✓ ${result.deleted ?? rows.length} eliminadas`],
+            }
+          : prev,
+      );
     } catch (e) {
-      setMsg((e as Error).message);
+      const message = (e as Error).message;
+      setProgress((prev) =>
+        prev
+          ? { ...prev, phase: 'error', currentLabel: 'Error', errorMessage: message }
+          : prev,
+      );
+      setMsg(message);
     } finally {
       setBusy(false);
     }
@@ -580,6 +846,10 @@ export function HistoriasView() {
           onClose={() => setDetailId(null)}
           onChanged={invalidateList}
         />
+      )}
+
+      {progress && (
+        <StoriesProgressModal progress={progress} onClose={() => setProgress(null)} />
       )}
     </div>
   );
