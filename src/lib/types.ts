@@ -1079,6 +1079,36 @@ export type SuggestionsResponse = {
   error?: string;
 };
 
+export type ErrorLogRow = {
+  id: string;
+  vista: string | null;
+  componente: string | null;
+  source: string | null;
+  sourceLabel: string;
+  error: string;
+  createdAt: string | null;
+  createdAtDisplay: string | null;
+};
+
+export type ErrorsMeta = {
+  total: number;
+  limit: number;
+  offset: number;
+  search: string | null;
+  source: string;
+  vista: string | null;
+  componente: string | null;
+  bySource: Record<string, number>;
+  sources: Array<{ id: string; label: string }>;
+};
+
+export type ErrorsResponse = {
+  success: boolean;
+  data: ErrorLogRow[];
+  meta: ErrorsMeta;
+  error?: string;
+};
+
 export type RenewalSyncAction =
   | 'unchanged'
   | 'would_update'

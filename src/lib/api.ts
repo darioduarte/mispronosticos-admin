@@ -47,6 +47,7 @@ import type {
   TrialSavePayload,
   TrialMutationResponse,
   SuggestionsResponse,
+  ErrorsResponse,
   RenewalSyncPayload,
   RenewalSyncResponse,
   DashboardSummary,
@@ -1158,6 +1159,24 @@ export function fetchSuggestions(params: {
   if (params.limit) qs.set('limit', String(params.limit));
   if (params.offset) qs.set('offset', String(params.offset));
   return adminFetch<SuggestionsResponse>(`/api/admin/suggestions?${qs}`);
+}
+
+export function fetchErrors(params: {
+  search?: string;
+  source?: string;
+  vista?: string;
+  componente?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params.search) qs.set('search', params.search);
+  if (params.source && params.source !== 'todas') qs.set('source', params.source);
+  if (params.vista) qs.set('vista', params.vista);
+  if (params.componente) qs.set('componente', params.componente);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  return adminFetch<ErrorsResponse>(`/api/admin/errors?${qs}`);
 }
 
 export function syncSuscripcionRenewals(payload: RenewalSyncPayload = {}) {

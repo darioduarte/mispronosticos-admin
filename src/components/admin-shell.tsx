@@ -18,6 +18,7 @@ const NAV = [
   { href: '/suscripciones', label: 'Suscripciones' },
   { href: '/trials', label: 'Trials' },
   { href: '/sugerencias', label: 'Sugerencias' },
+  { href: '/errores', label: 'Errores' },
 ];
 
 function NavLinks({
