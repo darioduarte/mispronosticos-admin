@@ -4,7 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fetchLiveOdds } from '@/lib/api';
 
-type Tab = 'prompt' | 'oddsLive' | 'oddsLiveBets';
+type Tab =
+  | 'prompt'
+  | 'melbetPrompt'
+  | 'melbetObject'
+  | 'oddsLive'
+  | 'oddsLiveBets';
 
 type Props = {
   fixtureId: number;
@@ -13,7 +18,9 @@ type Props = {
 };
 
 const TAB_LABELS: Record<Tab, string> = {
-  prompt: 'Bloque prompt',
+  prompt: 'Prompt API-F',
+  melbetPrompt: 'Prompt Melbet',
+  melbetObject: 'Objeto Melbet',
   oddsLive: 'JSON /odds/live',
   oddsLiveBets: 'JSON /odds/live/bets',
 };
@@ -33,7 +40,29 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
   function getTabText(target: Tab): string {
     if (!data?.success) return '';
     if (target === 'prompt') {
-      return data.oddsBlock || 'Sin bloque de cuotas para este partido.';
+      return data.oddsBlock || 'Sin bloque de cuotas API-Football para este partido.';
+    }
+    if (target === 'melbetPrompt') {
+      return data.melbetOddsBlock || data.melbet?.oddsBlock || 'Sin bloque Melbet.';
+    }
+    if (target === 'melbetObject') {
+      return JSON.stringify(
+        {
+          matched: data.melbet?.matched ?? false,
+          hasOdds: data.melbet?.hasOdds ?? false,
+          melbetSportEventId: data.melbet?.melbetSportEventId ?? null,
+          opponent1: data.melbet?.opponent1 ?? null,
+          opponent2: data.melbet?.opponent2 ?? null,
+          oddsStructured: data.melbet?.oddsStructured ?? null,
+          odds: data.melbet?.odds ?? null,
+          reason: data.melbet?.reason ?? null,
+          conclusion: data.melbet?.conclusion ?? null,
+          debugMarketSummary: data.melbet?.debugMarketSummary ?? null,
+          error: data.melbet?.error ?? null,
+        },
+        null,
+        2,
+      );
     }
     if (target === 'oddsLive') {
       return JSON.stringify(data.apiFootball?.oddsLive ?? {}, null, 2);
@@ -52,6 +81,16 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
       /* ignore */
     }
   }
+
+  const tabs = (
+    [
+      ['prompt', TAB_LABELS.prompt],
+      ['melbetPrompt', TAB_LABELS.melbetPrompt],
+      ['melbetObject', TAB_LABELS.melbetObject],
+      ['oddsLive', TAB_LABELS.oddsLive],
+      ['oddsLiveBets', TAB_LABELS.oddsLiveBets],
+    ] as const
+  );
 
   return (
     <div
@@ -72,9 +111,14 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
               <p className="mt-1 text-xs text-slate-500">
                 Fixture {data.fixtureId} · minuto {minuteLabel}
                 {data.hasOdds ? (
-                  <span className="ml-2 text-emerald-400">con cuotas</span>
+                  <span className="ml-2 text-emerald-400">API-F con cuotas</span>
                 ) : (
-                  <span className="ml-2 text-amber-400">sin cuotas en API</span>
+                  <span className="ml-2 text-amber-400">API-F sin cuotas</span>
+                )}
+                {data.hasMelbetOdds ? (
+                  <span className="ml-2 text-emerald-400">Melbet con cuotas</span>
+                ) : (
+                  <span className="ml-2 text-amber-400">Melbet sin cuotas</span>
                 )}
               </p>
             )}
@@ -91,6 +135,14 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
                 </span>
               </p>
             )}
+            {data?.melbet?.matched && (
+              <p className="mt-1 text-[10px] text-slate-500">
+                Melbet: {data.melbet.opponent1 || '?'} vs {data.melbet.opponent2 || '?'}
+                {data.melbet.melbetSportEventId != null
+                  ? ` · id ${data.melbet.melbetSportEventId}`
+                  : ''}
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -102,13 +154,7 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
         </div>
 
         <div className="flex flex-wrap items-center gap-1 border-b border-white/10 px-4 pt-2">
-          {(
-            [
-              ['prompt', TAB_LABELS.prompt],
-              ['oddsLive', TAB_LABELS.oddsLive],
-              ['oddsLiveBets', TAB_LABELS.oddsLiveBets],
-            ] as const
-          ).map(([id, label]) => (
+          {tabs.map(([id, label]) => (
             <button
               key={id}
               type="button"
@@ -126,7 +172,7 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
 
         {data?.success && (
           <div className="flex flex-wrap gap-2 border-b border-white/10 bg-[#0b0f14]/50 px-4 py-2">
-            {(['prompt', 'oddsLive', 'oddsLiveBets'] as const).map((id) => (
+            {tabs.map(([id]) => (
               <button
                 key={id}
                 type="button"
@@ -146,7 +192,9 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
         )}
 
         <div className="min-h-0 flex-1 overflow-auto p-4">
-          {query.isLoading && <p className="text-sm text-slate-400">Consultando API-Football…</p>}
+          {query.isLoading && (
+            <p className="text-sm text-slate-400">Consultando API-Football y Melbet…</p>
+          )}
           {query.isError && (
             <p className="text-sm text-red-300">{(query.error as Error).message}</p>
           )}
@@ -154,25 +202,20 @@ export function LiveOddsModal({ fixtureId, matchLabel, onClose }: Props) {
             <p className="text-sm text-red-300">{data.error || 'Error al cargar cuotas'}</p>
           )}
 
-          {data?.success && tab === 'prompt' && (
+          {data?.success && (tab === 'prompt' || tab === 'melbetPrompt') && (
             <textarea
               readOnly
-              value={data.oddsBlock || 'Sin bloque de cuotas para este partido.'}
+              value={getTabText(tab)}
               className="h-[min(60vh,480px)] w-full resize-none rounded-lg border border-white/10 bg-[#0b0f14] p-3 font-mono text-xs text-slate-200"
             />
           )}
 
-          {data?.success && tab === 'oddsLive' && (
-            <pre className="overflow-auto rounded-lg border border-white/10 bg-[#0b0f14] p-3 text-xs text-slate-300">
-              {JSON.stringify(data.apiFootball?.oddsLive ?? {}, null, 2)}
-            </pre>
-          )}
-
-          {data?.success && tab === 'oddsLiveBets' && (
-            <pre className="overflow-auto rounded-lg border border-white/10 bg-[#0b0f14] p-3 text-xs text-slate-300">
-              {JSON.stringify(data.apiFootball?.oddsLiveBets ?? {}, null, 2)}
-            </pre>
-          )}
+          {data?.success &&
+            (tab === 'melbetObject' || tab === 'oddsLive' || tab === 'oddsLiveBets') && (
+              <pre className="overflow-auto rounded-lg border border-white/10 bg-[#0b0f14] p-3 text-xs text-slate-300">
+                {getTabText(tab)}
+              </pre>
+            )}
         </div>
       </div>
     </div>

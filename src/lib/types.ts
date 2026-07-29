@@ -165,14 +165,31 @@ export type LiveOddsResponse = {
   fixtureId?: number;
   minute?: number | null;
   hasOdds?: boolean;
+  hasMelbetOdds?: boolean;
   oddsBlock?: string;
+  melbetOddsBlock?: string;
   apiFootball?: {
     oddsLive?: unknown;
     oddsLiveBets?: unknown;
   };
+  melbet?: {
+    matched?: boolean;
+    hasOdds?: boolean;
+    oddsBlock?: string;
+    melbetSportEventId?: number | string | null;
+    opponent1?: string | null;
+    opponent2?: string | null;
+    oddsStructured?: Record<string, Array<{ linea?: string; odd?: string; bookmaker?: string; betName?: string }>> | null;
+    odds?: unknown;
+    reason?: string | null;
+    conclusion?: string | null;
+    debugMarketSummary?: unknown;
+    error?: unknown;
+  };
   endpoints?: {
     oddsLive?: string;
     oddsLiveBets?: string;
+    melbetByFixture?: string;
   };
   liveSnapshot?: unknown;
   marketsSummary?: {
