@@ -10,6 +10,10 @@ import {
   type PromediosRangeProgressState,
 } from '@/components/partidos/promedios-range-progress';
 import {
+  PromediosSampleSyncProgressModal,
+  type PromediosSampleSyncProgressState,
+} from '@/components/partidos/promedios-sample-sync-progress';
+import {
   PreMatchRangeProgressModal,
   type PreMatchRangeProgressState,
 } from '@/components/partidos/pre-match-range-progress';
@@ -31,6 +35,7 @@ import {
   fetchPartidos,
   fetchPreMatchPlan,
   fetchPromediosRecalcPlan,
+  fetchPromediosSampleSyncPlan,
   fetchSyncStatsPlan,
   recalculatePartidoPromedios,
   repairPartidosReferees,
@@ -157,6 +162,11 @@ export function PartidosView() {
     null,
   );
   const promediosCancelRef = useRef(false);
+  const [sampleSyncBusy, setSampleSyncBusy] = useState(false);
+  const [sampleSyncMsg, setSampleSyncMsg] = useState('');
+  const [sampleSyncProgress, setSampleSyncProgress] =
+    useState<PromediosSampleSyncProgressState | null>(null);
+  const sampleSyncCancelRef = useRef(false);
   const [preMatchOnlyMissing, setPreMatchOnlyMissing] = useState(true);
   const [preMatchPauseMs, setPreMatchPauseMs] = useState(DEFAULT_PREMATCH_PAUSE_MS);
   const [preMatchBusy, setPreMatchBusy] = useState(false);
@@ -683,6 +693,404 @@ export function PartidosView() {
     setPromediosProgress(null);
   }
 
+  async function handlePromediosSampleSyncRange() {
+    if (
+      !confirm(
+        `¿Sincronizar stats de muestras de promedios y recalcular del ${applied.desde} al ${applied.hasta}? Primero FLB de partidos sin stats en la muestra, luego recalcula y guarda.`,
+      )
+    ) {
+      return;
+    }
+
+    setSampleSyncBusy(true);
+    setSampleSyncMsg('');
+    sampleSyncCancelRef.current = false;
+    const startedAtMs = Date.now();
+    const pauseMs = syncPauseMs;
+
+    setSampleSyncProgress({
+      phase: 'planning',
+      syncTotal: 0,
+      syncCurrent: 0,
+      syncOk: 0,
+      syncFailed: 0,
+      recalcTotal: 0,
+      recalcCurrent: 0,
+      recalcOk: 0,
+      recalcFailed: 0,
+      currentSample: null,
+      currentFixture: null,
+      recentLog: ['Buscando muestras sin estadísticas…'],
+      pauseMs,
+      startedAtMs,
+    });
+
+    try {
+      const plan = await fetchPromediosSampleSyncPlan({
+        desde: applied.desde,
+        hasta: applied.hasta,
+        onlyWithMissingSamples: true,
+      });
+
+      if (!plan.success) {
+        const msg = plan.error || 'No se pudo planificar el proceso';
+        setSampleSyncMsg(msg);
+        toastError('Sync muestras + promedios', msg);
+        setSampleSyncProgress({
+          phase: 'error',
+          syncTotal: 0,
+          syncCurrent: 0,
+          syncOk: 0,
+          syncFailed: 0,
+          recalcTotal: 0,
+          recalcCurrent: 0,
+          recalcOk: 0,
+          recalcFailed: 0,
+          currentSample: null,
+          currentFixture: null,
+          recentLog: [`Error: ${msg}`],
+          pauseMs,
+          startedAtMs,
+          errorMessage: msg,
+          errorDetail: null,
+          errorCopyText: `Sync muestras + promedios\nRango: ${applied.desde} → ${applied.hasta}\nError: ${msg}`,
+        });
+        return;
+      }
+
+      const samples = plan.uniqueMissingSamples ?? [];
+      const fixtures = plan.fixtures ?? [];
+      const sampleIds = plan.uniqueMissingSampleIds ?? samples.map((s) => s.fixtureId);
+
+      if (!samples.length && !fixtures.length) {
+        const msg = 'No hay muestras sin stats ni partidos a recalcular en ese rango.';
+        setSampleSyncMsg(msg);
+        toastWarning('Sync muestras + promedios', msg);
+        setSampleSyncProgress({
+          phase: 'done',
+          syncTotal: 0,
+          syncCurrent: 0,
+          syncOk: 0,
+          syncFailed: 0,
+          recalcTotal: 0,
+          recalcCurrent: 0,
+          recalcOk: 0,
+          recalcFailed: 0,
+          currentSample: null,
+          currentFixture: null,
+          recentLog: [msg],
+          pauseMs,
+          startedAtMs,
+        });
+        return;
+      }
+
+      let syncOk = 0;
+      let syncFailed = 0;
+      let recalcOk = 0;
+      let recalcFailed = 0;
+      const recentLog: string[] = [
+        `Plan: ${sampleIds.length} muestra(s) a sync · ${fixtures.length} partido(s) a recalcular`,
+      ];
+
+      const base = () => ({
+        syncTotal: sampleIds.length,
+        recalcTotal: fixtures.length,
+        pauseMs,
+        startedAtMs,
+      });
+
+      // —— Fase 1: sync FLB de muestras sin stats ——
+      if (sampleIds.length > 0) {
+        setSampleSyncProgress({
+          phase: 'syncing_samples',
+          syncCurrent: 0,
+          syncOk: 0,
+          syncFailed: 0,
+          recalcCurrent: 0,
+          recalcOk: 0,
+          recalcFailed: 0,
+          currentSample: samples[0] ?? null,
+          currentFixture: null,
+          recentLog: recentLog.slice(-14),
+          isPausing: false,
+          ...base(),
+        });
+
+        for (let i = 0; i < sampleIds.length; i += 1) {
+          if (sampleSyncCancelRef.current) {
+            setSampleSyncProgress({
+              phase: 'cancelled',
+              syncCurrent: i,
+              syncOk,
+              syncFailed,
+              recalcCurrent: 0,
+              recalcOk,
+              recalcFailed,
+              currentSample: samples[i] ?? null,
+              currentFixture: null,
+              recentLog: recentLog.slice(-14),
+              isPausing: false,
+              ...base(),
+            });
+            setSampleSyncMsg(
+              `Cancelado en sync: ${syncOk} OK · ${syncFailed} fallo(s).`,
+            );
+            return;
+          }
+
+          const sid = sampleIds[i];
+          const meta = samples[i] ?? samples.find((s) => s.fixtureId === sid) ?? null;
+          setSampleSyncProgress({
+            phase: 'syncing_samples',
+            syncCurrent: i,
+            syncOk,
+            syncFailed,
+            recalcCurrent: 0,
+            recalcOk,
+            recalcFailed,
+            currentSample: meta,
+            currentFixture: null,
+            recentLog: recentLog.slice(-14),
+            isPausing: false,
+            ...base(),
+          });
+
+          try {
+            const result = await syncPartidoStats(sid);
+            if (!result.success) {
+              syncFailed += 1;
+              recentLog.push(
+                `✗ sync ${sid} ${meta ? `${meta.homeTeam} vs ${meta.awayTeam}` : ''} — ${result.error || result.message || 'error'}`,
+              );
+            } else {
+              syncOk += 1;
+              recentLog.push(
+                `✓ sync ${sid} ${meta ? `${meta.homeTeam} vs ${meta.awayTeam}` : ''}`,
+              );
+            }
+          } catch (e) {
+            syncFailed += 1;
+            recentLog.push(
+              `✗ sync ${sid} — ${(e as Error).message}`,
+            );
+          }
+
+          setSampleSyncProgress({
+            phase: 'syncing_samples',
+            syncCurrent: i + 1,
+            syncOk,
+            syncFailed,
+            recalcCurrent: 0,
+            recalcOk,
+            recalcFailed,
+            currentSample: samples[i + 1] ?? null,
+            currentFixture: null,
+            recentLog: recentLog.slice(-14),
+            isPausing: false,
+            ...base(),
+          });
+
+          if (i < sampleIds.length - 1 && pauseMs > 0 && !sampleSyncCancelRef.current) {
+            setSampleSyncProgress({
+              phase: 'syncing_samples',
+              syncCurrent: i + 1,
+              syncOk,
+              syncFailed,
+              recalcCurrent: 0,
+              recalcOk,
+              recalcFailed,
+              currentSample: samples[i + 1] ?? null,
+              currentFixture: null,
+              recentLog: recentLog.slice(-14),
+              isPausing: true,
+              ...base(),
+            });
+            await sleepCancellable(pauseMs, sampleSyncCancelRef);
+          }
+        }
+      }
+
+      if (sampleSyncCancelRef.current) {
+        setSampleSyncProgress({
+          phase: 'cancelled',
+          syncCurrent: sampleIds.length,
+          syncOk,
+          syncFailed,
+          recalcCurrent: 0,
+          recalcOk,
+          recalcFailed,
+          currentSample: null,
+          currentFixture: null,
+          recentLog: recentLog.slice(-14),
+          isPausing: false,
+          ...base(),
+        });
+        setSampleSyncMsg(`Cancelado: sync ${syncOk} OK · ${syncFailed} fallo(s).`);
+        return;
+      }
+
+      recentLog.push(
+        `→ Recalculando ${fixtures.length} promedio(s)…`,
+      );
+
+      // —— Fase 2: recalcular promedios de partidos del rango ——
+      setSampleSyncProgress({
+        phase: 'recalculating',
+        syncCurrent: sampleIds.length,
+        syncOk,
+        syncFailed,
+        recalcCurrent: 0,
+        recalcOk: 0,
+        recalcFailed: 0,
+        currentSample: null,
+        currentFixture: fixtures[0] ?? null,
+        recentLog: recentLog.slice(-14),
+        isPausing: false,
+        ...base(),
+      });
+
+      for (let i = 0; i < fixtures.length; i += 1) {
+        if (sampleSyncCancelRef.current) {
+          setSampleSyncProgress({
+            phase: 'cancelled',
+            syncCurrent: sampleIds.length,
+            syncOk,
+            syncFailed,
+            recalcCurrent: i,
+            recalcOk,
+            recalcFailed,
+            currentSample: null,
+            currentFixture: fixtures[i] ?? null,
+            recentLog: recentLog.slice(-14),
+            isPausing: false,
+            ...base(),
+          });
+          setSampleSyncMsg(
+            `Cancelado en recalc: sync ${syncOk} · recalc ${recalcOk} OK · ${recalcFailed} fallo(s).`,
+          );
+          return;
+        }
+
+        const fx = fixtures[i];
+        setSampleSyncProgress({
+          phase: 'recalculating',
+          syncCurrent: sampleIds.length,
+          syncOk,
+          syncFailed,
+          recalcCurrent: i,
+          recalcOk,
+          recalcFailed,
+          currentSample: null,
+          currentFixture: fx,
+          recentLog: recentLog.slice(-14),
+          isPausing: false,
+          ...base(),
+        });
+
+        try {
+          const result = await recalculatePartidoPromedios(fx.fixtureId);
+          if (!result.success) {
+            recalcFailed += 1;
+            recentLog.push(
+              `✗ recalc ${fx.fixtureId} ${fx.homeTeam} vs ${fx.awayTeam} — ${result.error || 'error'}`,
+            );
+          } else {
+            recalcOk += 1;
+            recentLog.push(
+              `✓ recalc ${fx.fixtureId} ${result.metricsCount ?? 26} métricas · ${fx.homeTeam} vs ${fx.awayTeam}`,
+            );
+          }
+        } catch (e) {
+          recalcFailed += 1;
+          recentLog.push(
+            `✗ recalc ${fx.fixtureId} — ${(e as Error).message}`,
+          );
+        }
+
+        setSampleSyncProgress({
+          phase: 'recalculating',
+          syncCurrent: sampleIds.length,
+          syncOk,
+          syncFailed,
+          recalcCurrent: i + 1,
+          recalcOk,
+          recalcFailed,
+          currentSample: null,
+          currentFixture: fixtures[i + 1] ?? null,
+          recentLog: recentLog.slice(-14),
+          isPausing: false,
+          ...base(),
+        });
+
+        if (
+          i < fixtures.length - 1 &&
+          promediosPauseMs > 0 &&
+          !sampleSyncCancelRef.current
+        ) {
+          await sleepCancellable(promediosPauseMs, sampleSyncCancelRef);
+        }
+      }
+
+      if (!sampleSyncCancelRef.current) {
+        setSampleSyncProgress({
+          phase: 'done',
+          syncCurrent: sampleIds.length,
+          syncOk,
+          syncFailed,
+          recalcCurrent: fixtures.length,
+          recalcOk,
+          recalcFailed,
+          currentSample: null,
+          currentFixture: null,
+          recentLog: recentLog.slice(-14),
+          isPausing: false,
+          ...base(),
+        });
+        setSampleSyncMsg(
+          `Sync ${syncOk}/${sampleIds.length}${syncFailed ? ` (${syncFailed} fallo)` : ''} · Recalc ${recalcOk}/${fixtures.length}${recalcFailed ? ` (${recalcFailed} fallo)` : ''}.`,
+        );
+      }
+    } catch (e) {
+      const formatted = formatCaughtError(e);
+      setSampleSyncMsg(formatted.message);
+      toastError('Sync muestras + promedios', e);
+      setSampleSyncProgress({
+        phase: 'error',
+        syncTotal: 0,
+        syncCurrent: 0,
+        syncOk: 0,
+        syncFailed: 0,
+        recalcTotal: 0,
+        recalcCurrent: 0,
+        recalcOk: 0,
+        recalcFailed: 0,
+        currentSample: null,
+        currentFixture: null,
+        recentLog: [`✗ ${formatted.message}`],
+        pauseMs,
+        startedAtMs,
+        errorMessage: formatted.message,
+        errorDetail: formatted.detail,
+        errorCopyText: `Sync muestras + promedios\nRango: ${applied.desde} → ${applied.hasta}\n${formatted.copyText}`,
+      });
+    } finally {
+      setSampleSyncBusy(false);
+    }
+  }
+
+  function handleSampleSyncProgressCancel() {
+    if (
+      sampleSyncProgress?.phase === 'planning' ||
+      sampleSyncProgress?.phase === 'syncing_samples' ||
+      sampleSyncProgress?.phase === 'recalculating'
+    ) {
+      sampleSyncCancelRef.current = true;
+      return;
+    }
+    setSampleSyncProgress(null);
+  }
+
   function looksLikeRateLimit(msg: string) {
     const m = msg.toLowerCase();
     return (
@@ -1199,12 +1607,35 @@ export function PartidosView() {
             <button
               type="button"
               onClick={handleRecalcPromediosRange}
-              disabled={promediosBusy || syncBusy || preMatchBusy}
+              disabled={promediosBusy || syncBusy || preMatchBusy || sampleSyncBusy}
               className="w-full rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-600 disabled:opacity-50 sm:w-auto"
             >
               {promediosBusy ? 'Recalculando promedios…' : 'Recalcular promedios (rango)'}
             </button>
             {promediosMsg && <span className="text-xs text-violet-300">{promediosMsg}</span>}
+          </div>
+        </div>
+
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <p className="mb-2 text-xs text-slate-500">
+            Proceso combinado: revisa las muestras (últimos 5 local/visitante) de los partidos del
+            rango, sincroniza FLB las que no tienen estadísticas y luego recalcula y guarda los
+            promedios. Usa la misma pausa FLB del sync de rango.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
+            <button
+              type="button"
+              onClick={handlePromediosSampleSyncRange}
+              disabled={
+                sampleSyncBusy || syncBusy || promediosBusy || preMatchBusy
+              }
+              className="w-full rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-50 sm:w-auto"
+            >
+              {sampleSyncBusy
+                ? 'Sync muestras + promedios…'
+                : 'Sync muestras + recalcular promedios'}
+            </button>
+            {sampleSyncMsg && <span className="text-xs text-teal-300">{sampleSyncMsg}</span>}
           </div>
         </div>
 
@@ -1242,7 +1673,7 @@ export function PartidosView() {
             <button
               type="button"
               onClick={handleGeneratePreMatchRange}
-              disabled={preMatchBusy || syncBusy || promediosBusy}
+              disabled={preMatchBusy || syncBusy || promediosBusy || sampleSyncBusy}
               className="w-full rounded-lg bg-indigo-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50 sm:w-auto"
             >
               {preMatchBusy ? 'Generando IA prepartido…' : 'Generar IA prepartido (rango)'}
@@ -1611,6 +2042,15 @@ export function PartidosView() {
           onlyStale={promediosOnlyStale}
           pauseMs={promediosPauseMs}
           onCancel={handlePromediosProgressCancel}
+        />
+      )}
+      {sampleSyncProgress && (
+        <PromediosSampleSyncProgressModal
+          progress={sampleSyncProgress}
+          desde={applied.desde}
+          hasta={applied.hasta}
+          pauseMs={syncPauseMs}
+          onCancel={handleSampleSyncProgressCancel}
         />
       )}
       {preMatchProgress && (

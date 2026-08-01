@@ -791,6 +791,45 @@ export type PromediosRecalcRangeResponse = {
   error?: string;
 };
 
+export type PromediosSampleSyncMissing = {
+  fixtureId: number;
+  date: string | null;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+};
+
+export type PromediosSampleSyncPlanFixture = {
+  fixtureId: number;
+  date: string;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  sampleCount: number;
+  missingCount: number;
+  sampleIds: number[];
+  missingSampleIds: number[];
+};
+
+export type PromediosSampleSyncPlanResponse = {
+  success: boolean;
+  dateFrom?: string;
+  dateTo?: string;
+  onlyWithMissingSamples?: boolean;
+  days?: number;
+  total?: number;
+  fixtures?: PromediosSampleSyncPlanFixture[];
+  uniqueMissingSamples?: PromediosSampleSyncMissing[];
+  uniqueMissingSampleIds?: number[];
+  totals?: {
+    outstandingScanned?: number;
+    withMissingSamples?: number;
+    samplesToSync?: number;
+    toRecalc?: number;
+  };
+  error?: string;
+};
+
 export type LigaRow = {
   id: string;
   name: string;

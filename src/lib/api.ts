@@ -36,6 +36,7 @@ import type {
   PromediosRecalcPlanResponse,
   PromediosRecalcRangeResponse,
   PromediosRecalculateResponse,
+  PromediosSampleSyncPlanResponse,
   PromediosSummaryResponse,
   SyncStatsPlanResponse,
   SyncStatsResponse,
@@ -776,6 +777,18 @@ export function fetchPromediosRecalcPlan(payload: {
   if (payload.onlyStale === false) qs.set('onlyStale', '0');
   return adminFetch<PromediosRecalcPlanResponse>(
     `/api/admin/partidos/promedios/recalcular/plan?${qs}`,
+  );
+}
+
+export function fetchPromediosSampleSyncPlan(payload: {
+  desde: string;
+  hasta: string;
+  onlyWithMissingSamples?: boolean;
+}) {
+  const qs = new URLSearchParams({ desde: payload.desde, hasta: payload.hasta });
+  if (payload.onlyWithMissingSamples === false) qs.set('onlyWithMissingSamples', '0');
+  return adminFetch<PromediosSampleSyncPlanResponse>(
+    `/api/admin/partidos/promedios/sync-muestra/plan?${qs}`,
   );
 }
 
