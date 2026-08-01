@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { PromediosRecalcPlanFixture } from '@/lib/types';
 import { copyTextToClipboard } from '@/lib/sync-stats-source';
 
@@ -14,6 +14,7 @@ export type PromediosRangeProgressState = {
   recentLog: string[];
   isPausing?: boolean;
   pauseMs?: number;
+  startedAtMs?: number;
   errorMessage?: string | null;
   errorDetail?: string | null;
   errorCopyText?: string | null;
@@ -37,16 +38,40 @@ export function PromediosRangeProgressModal({
   onCancel,
 }: Props) {
   const [errorCopied, setErrorCopied] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const busy = progress.phase === 'planning' || progress.phase === 'recalculating';
+
+  useEffect(() => {
+    if (!busy) return;
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [busy]);
+
   const pct =
     progress.total > 0 ? Math.min(100, Math.round((progress.current / progress.total) * 100)) : 0;
-  const busy = progress.phase === 'planning' || progress.phase === 'recalculating';
+  const remaining = Math.max(0, progress.total - progress.current);
+  const elapsedMs =
+    progress.startedAtMs != null ? Math.max(0, nowMs - progress.startedAtMs) : 0;
+  const etaMs = estimateEtaMs({
+    elapsedMs,
+    current: progress.current,
+    total: progress.total,
+    phase: progress.phase,
+  });
+
+  const phaseLabel = phaseTitle(progress.phase, progress.isPausing);
   const label = progress.isPausing
     ? `Pausa ${formatPauseMs(progress.pauseMs ?? 0)} antes del siguiente…`
     : progress.currentFixture
       ? `${progress.currentFixture.homeTeam} vs ${progress.currentFixture.awayTeam}`
       : progress.phase === 'planning'
         ? 'Preparando lista de partidos…'
-        : '—';
+        : progress.phase === 'done'
+          ? 'Recálculo finalizado'
+          : progress.phase === 'cancelled'
+            ? 'Recálculo cancelado'
+            : '—';
 
   return (
     <div
@@ -57,11 +82,15 @@ export function PromediosRangeProgressModal({
         className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#151b24] shadow-2xl"
         role="dialog"
         aria-labelledby="promedios-range-title"
+        aria-busy={busy}
       >
         <div className="border-b border-white/10 px-5 py-4">
-          <h2 id="promedios-range-title" className="text-lg font-semibold text-white">
-            Recalculando promedios especiales
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id="promedios-range-title" className="text-lg font-semibold text-white">
+              Recalculando promedios especiales
+            </h2>
+            <PhaseBadge phase={progress.phase} isPausing={progress.isPausing} />
+          </div>
           <p className="mt-1 text-sm text-slate-400">
             {desde} → {hasta}
             {onlyStale ? ' · solo desactualizados' : ' · todos los destacados'}
@@ -71,34 +100,68 @@ export function PromediosRangeProgressModal({
               </span>
             )}
           </p>
+          <p className="mt-2 text-xs text-slate-500">
+            Excluye amistosos (Friendlies / Women / Clubs · ligas 10, 666, 667) de la muestra de
+            últimos 5.
+          </p>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
           <div>
-            <div className="mb-2 flex items-center justify-between text-sm">
-              <span className="text-slate-300">
-                {progress.phase === 'planning'
-                  ? 'Calculando partidos…'
-                  : `${progress.current} / ${progress.total} partidos`}
+            <div className="mb-2 flex flex-wrap items-end justify-between gap-2 text-sm">
+              <div>
+                <p className="font-medium text-slate-200">{phaseLabel}</p>
+                <p className="mt-0.5 text-slate-400">
+                  {progress.phase === 'planning'
+                    ? 'Obteniendo plan del rango…'
+                    : progress.total > 0
+                      ? `${progress.current} de ${progress.total} partidos · quedan ${remaining}`
+                      : 'Sin partidos en el plan'}
+                </p>
+              </div>
+              <span className="font-mono text-2xl font-semibold text-violet-300">
+                {busy && progress.phase === 'planning' ? '…' : `${busy ? pct : 100}%`}
               </span>
-              <span className="font-mono text-violet-300">{busy ? `${pct}%` : '100%'}</span>
             </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-[#0b0f14]">
+            <div className="h-3 overflow-hidden rounded-full bg-[#0b0f14]">
               <div
                 className="h-full rounded-full bg-violet-600 transition-all duration-300 ease-out"
-                style={{ width: `${busy && progress.phase === 'planning' ? 8 : pct}%` }}
+                style={{
+                  width: `${busy && progress.phase === 'planning' ? 12 : pct}%`,
+                }}
               />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+              <span>Transcurrido: {formatDuration(elapsedMs)}</span>
+              {etaMs != null && busy && (
+                <span>ETA restante: ~{formatDuration(etaMs)}</span>
+              )}
+              {progress.current > 0 && elapsedMs > 0 && (
+                <span>
+                  Ritmo: {formatRate(progress.current, elapsedMs)}
+                </span>
+              )}
             </div>
           </div>
 
           <div className="rounded-lg border border-white/5 bg-[#0b0f14]/80 px-4 py-3">
             <p className="text-xs text-slate-500">Partido actual</p>
             <p className="mt-1 truncate text-sm font-medium text-white">{label}</p>
+            {progress.currentFixture?.fixtureId != null && (
+              <p className="mt-1 text-xs text-slate-600">
+                ID {progress.currentFixture.fixtureId}
+                {progress.currentFixture.league
+                  ? ` · ${progress.currentFixture.league}`
+                  : ''}
+                {progress.currentFixture.date ? ` · ${progress.currentFixture.date}` : ''}
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
             <Stat label="OK" value={progress.ok} className="text-emerald-400" />
             <Stat label="Fallos" value={progress.failed} className="text-red-400" />
+            <Stat label="Hechos" value={progress.current} className="text-violet-300" />
             <Stat label="Total" value={progress.total} className="text-slate-300" />
           </div>
 
@@ -107,7 +170,7 @@ export function PromediosRangeProgressModal({
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
                 Registro reciente
               </p>
-              <ul className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-white/5 bg-[#0b0f14]/60 p-3 font-mono text-xs">
+              <ul className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-white/5 bg-[#0b0f14]/60 p-3 font-mono text-xs">
                 {progress.recentLog.map((line, i) => (
                   <li
                     key={`${i}-${line.slice(0, 24)}`}
@@ -179,6 +242,40 @@ export function PromediosRangeProgressModal({
   );
 }
 
+function PhaseBadge({
+  phase,
+  isPausing,
+}: {
+  phase: PromediosRangeProgressState['phase'];
+  isPausing?: boolean;
+}) {
+  const text = isPausing
+    ? 'Pausa'
+    : phase === 'planning'
+      ? 'Planificando'
+      : phase === 'recalculating'
+        ? 'En curso'
+        : phase === 'done'
+          ? 'Listo'
+          : phase === 'cancelled'
+            ? 'Cancelado'
+            : 'Error';
+  const cls = isPausing
+    ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+    : phase === 'planning' || phase === 'recalculating'
+      ? 'border-violet-500/30 bg-violet-500/10 text-violet-200'
+      : phase === 'done'
+        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+        : phase === 'cancelled'
+          ? 'border-slate-500/30 bg-slate-500/10 text-slate-300'
+          : 'border-red-500/30 bg-red-500/10 text-red-200';
+  return (
+    <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${cls}`}>
+      {text}
+    </span>
+  );
+}
+
 function Stat({
   label,
   value,
@@ -194,6 +291,48 @@ function Stat({
       <p className={`text-lg font-semibold ${className}`}>{value}</p>
     </div>
   );
+}
+
+function phaseTitle(
+  phase: PromediosRangeProgressState['phase'],
+  isPausing?: boolean,
+) {
+  if (isPausing) return 'En pausa entre partidos';
+  if (phase === 'planning') return 'Preparando recálculo';
+  if (phase === 'recalculating') return 'Actualizando promedios';
+  if (phase === 'done') return 'Completado';
+  if (phase === 'cancelled') return 'Cancelado por el usuario';
+  return 'Error';
+}
+
+function estimateEtaMs(input: {
+  elapsedMs: number;
+  current: number;
+  total: number;
+  phase: PromediosRangeProgressState['phase'];
+}) {
+  if (input.phase !== 'recalculating' || input.current <= 0 || input.total <= input.current) {
+    return null;
+  }
+  const avg = input.elapsedMs / input.current;
+  return Math.round(avg * (input.total - input.current));
+}
+
+function formatDuration(ms: number) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function formatRate(done: number, elapsedMs: number) {
+  if (elapsedMs <= 0 || done <= 0) return '—';
+  const perMin = (done / elapsedMs) * 60_000;
+  if (perMin >= 10) return `${Math.round(perMin)}/min`;
+  return `${perMin.toFixed(1)}/min`;
 }
 
 function formatPauseMs(ms: number) {

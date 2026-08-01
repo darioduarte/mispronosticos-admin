@@ -436,6 +436,7 @@ export function PartidosView() {
     setPromediosBusy(true);
     setPromediosMsg('');
     promediosCancelRef.current = false;
+    const startedAtMs = Date.now();
     setPromediosProgress({
       phase: 'planning',
       total: 0,
@@ -443,8 +444,9 @@ export function PartidosView() {
       ok: 0,
       failed: 0,
       currentFixture: null,
-      recentLog: [],
+      recentLog: ['Excluye Friendlies (10, 666, 667) al calcular la muestra…'],
       pauseMs: promediosPauseMs,
+      startedAtMs,
     });
 
     try {
@@ -466,6 +468,7 @@ export function PartidosView() {
           currentFixture: null,
           recentLog: [`Error de plan: ${msg}`],
           pauseMs: promediosPauseMs,
+          startedAtMs,
           errorMessage: msg,
           errorDetail: null,
           errorCopyText: `Recalcular promedios\nRango: ${applied.desde} → ${applied.hasta}\nError: ${msg}\nFecha: ${new Date().toISOString()}`,
@@ -489,17 +492,21 @@ export function PartidosView() {
           currentFixture: null,
           recentLog: [msg],
           pauseMs: promediosPauseMs,
+          startedAtMs,
         });
         return;
       }
 
       let ok = 0;
       let failed = 0;
-      const recentLog: string[] = [`Plan: ${fixtures.length} partido(s)`];
+      const recentLog: string[] = [
+        `Plan: ${fixtures.length} partido(s) · sin amistosos en la muestra`,
+      ];
 
       const progressBase = () => ({
         total: fixtures.length,
         pauseMs: promediosPauseMs,
+        startedAtMs,
       });
 
       setPromediosProgress({
@@ -508,7 +515,9 @@ export function PartidosView() {
         ok: 0,
         failed: 0,
         currentFixture: fixtures[0] ?? null,
-        recentLog: [`Plan: ${fixtures.length} partido(s) en ${plan.days ?? 0} día(s)`],
+        recentLog: [
+          `Plan: ${fixtures.length} partido(s) en ${plan.days ?? 0} día(s) · excluye Friendlies`,
+        ],
         ...progressBase(),
       });
 
@@ -612,6 +621,7 @@ export function PartidosView() {
         currentFixture: null,
         recentLog: [`✗ ${formatted.message}`],
         pauseMs: promediosPauseMs,
+        startedAtMs,
         errorMessage: formatted.message,
         errorDetail: formatted.detail,
         errorCopyText: `Recalcular promedios\nRango: ${applied.desde} → ${applied.hasta}\n${formatted.copyText}`,
@@ -835,7 +845,8 @@ export function PartidosView() {
         <div className="mt-4 border-t border-white/10 pt-4">
           <p className="mb-2 text-xs text-slate-500">
             Recalcular promedios especiales del rango (córners recibidos, pases, posesión, etc.) —
-            solo consulta BD
+            solo consulta BD. No incluye partidos de Friendlies (ligas 10, 666, 667) en la muestra.
+            Muestra un popup con el avance partido a partido.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
             <label className="flex items-center gap-2 text-sm text-slate-400">
