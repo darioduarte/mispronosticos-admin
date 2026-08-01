@@ -454,12 +454,13 @@ function MuestraTab({
           ) : null}
 
           <div className="overflow-x-auto rounded-lg border border-white/10">
-            <table className="w-full min-w-[620px] text-sm">
+            <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-[#0c1017] text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-3 py-2 text-left">Fixture</th>
                   <th className="px-3 py-2 text-left">Fecha</th>
                   <th className="px-3 py-2 text-left">Partido</th>
+                  <th className="px-3 py-2 text-left">Liga</th>
                   <th className="px-3 py-2 text-left">Rival</th>
                   <th className="px-3 py-2 text-right">Valor</th>
                   <th className="px-3 py-2 text-center">En promedio</th>
@@ -485,6 +486,14 @@ function MuestraTab({
                       <td className="px-3 py-2 font-mono text-xs text-slate-500">{r.fixtureid}</td>
                       <td className="px-3 py-2 whitespace-nowrap text-slate-400">{r.fecha ?? '—'}</td>
                       <td className="px-3 py-2 text-slate-300">{r.partido}</td>
+                      <td className="px-3 py-2 text-slate-400">
+                        <span className="block max-w-[160px] truncate" title={r.liga || undefined}>
+                          {r.liga || '—'}
+                        </span>
+                        {r.leagueId ? (
+                          <span className="font-mono text-[10px] text-slate-600">#{r.leagueId}</span>
+                        ) : null}
+                      </td>
                       <td className="px-3 py-2 text-slate-400">{r.rival}</td>
                       <td className="px-3 py-2 text-right font-mono text-emerald-300">
                         {r.hasStat && r.valor != null ? r.valor : '—'}
@@ -515,7 +524,7 @@ function MuestraTab({
                 })}
                 {muestra.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
                       Sin partidos previos en la muestra.
                     </td>
                   </tr>
@@ -538,12 +547,13 @@ function MuestraTab({
                 reciente (p. ej. Mundial jun/2026) no aparece en córners local.
               </p>
               <div className="overflow-x-auto rounded-lg border border-white/10">
-                <table className="w-full min-w-[720px] text-xs">
+                <table className="w-full min-w-[820px] text-xs">
                   <thead className="bg-[#0c1017] uppercase text-slate-500">
                     <tr>
                       <th className="px-2 py-2 text-left">Fixture</th>
                       <th className="px-2 py-2 text-left">Fecha</th>
                       <th className="px-2 py-2 text-left">Partido</th>
+                      <th className="px-2 py-2 text-left">Liga</th>
                       <th className="px-2 py-2 text-left">Rol BD</th>
                       <th className="px-2 py-2 text-left">Estado</th>
                       <th className="px-2 py-2 text-left">En muestra</th>
@@ -565,6 +575,14 @@ function MuestraTab({
                         <td className="px-2 py-2 font-mono text-slate-500">{d.fixtureid}</td>
                         <td className="px-2 py-2 whitespace-nowrap text-slate-400">{d.fecha ?? '—'}</td>
                         <td className="px-2 py-2 text-slate-300">{d.partido}</td>
+                        <td className="px-2 py-2 text-slate-400">
+                          <span className="block max-w-[140px] truncate" title={d.liga || undefined}>
+                            {d.liga || '—'}
+                          </span>
+                          {d.leagueId ? (
+                            <span className="font-mono text-[10px] text-slate-600">#{d.leagueId}</span>
+                          ) : null}
+                        </td>
                         <td className="px-2 py-2 capitalize text-slate-400">{d.rolEnPartido}</td>
                         <td className="px-2 py-2 text-slate-500">{d.estado}</td>
                         <td className="px-2 py-2">

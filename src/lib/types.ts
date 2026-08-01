@@ -302,6 +302,31 @@ export type PreMatchAnalysisResponse = {
   error?: string;
 };
 
+export type PreMatchPlanFixture = {
+  fixtureId: number;
+  date: string;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  reason: 'sin_analisis' | 'incompleto' | 'regenerar';
+  needsForce: boolean;
+};
+
+export type PreMatchPlanResponse = {
+  success: boolean;
+  dateFrom?: string;
+  dateTo?: string;
+  onlyMissing?: boolean;
+  days?: number;
+  total?: number;
+  fixtures?: PreMatchPlanFixture[];
+  byDay?: Record<string, { count: number; fixtureIds: number[] }>;
+  llmProvider?: string;
+  recommendedPauseMs?: number;
+  pauseNote?: string;
+  error?: string;
+};
+
 export type MelbetOddItem = {
   linea?: string;
   betName?: string;
@@ -651,6 +676,8 @@ export type PromedioMuestraRow = {
   fecha: string | null;
   partido: string;
   rival: string;
+  liga?: string;
+  leagueId?: string | null;
   valor: number | null;
   statType: string;
   teamScope: string;
@@ -667,6 +694,7 @@ export type PromedioDiagnosticoRow = {
   fecha: string | null;
   partido: string;
   liga: string;
+  leagueId?: string | null;
   rolEnPartido: string;
   estado: string;
   finalizado: boolean;

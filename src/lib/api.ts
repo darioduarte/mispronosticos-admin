@@ -19,6 +19,7 @@ import type {
   LiveAnalysisRunsResponse,
   PreMatchAnalysis,
   PreMatchAnalysisResponse,
+  PreMatchPlanResponse,
   PronosticoIaRow,
   PronosticosIaResponse,
   PronosticosIaVivoResponse,
@@ -1382,6 +1383,18 @@ export type PreMatchAnalysisTriggerResult = {
 export function fetchPreMatchAnalysis(fixtureId: number) {
   return adminFetch<PreMatchAnalysisResponse>(
     `/api/admin/pronosticos-ia/pre-match/${fixtureId}`,
+  );
+}
+
+export function fetchPreMatchPlan(payload: {
+  desde: string;
+  hasta: string;
+  onlyMissing?: boolean;
+}) {
+  const qs = new URLSearchParams({ desde: payload.desde, hasta: payload.hasta });
+  if (payload.onlyMissing === false) qs.set('onlyMissing', '0');
+  return adminFetch<PreMatchPlanResponse>(
+    `/api/admin/pronosticos-ia/pre-match/plan?${qs}`,
   );
 }
 

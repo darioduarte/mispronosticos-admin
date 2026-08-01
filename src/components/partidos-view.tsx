@@ -9,6 +9,10 @@ import {
   PromediosRangeProgressModal,
   type PromediosRangeProgressState,
 } from '@/components/partidos/promedios-range-progress';
+import {
+  PreMatchRangeProgressModal,
+  type PreMatchRangeProgressState,
+} from '@/components/partidos/pre-match-range-progress';
 import { RefereeModal } from '@/components/partidos/referee-modal';
 import {
   SyncRangeProgressModal,
@@ -25,12 +29,14 @@ import {
 import { formatCaughtError, toastError, toastSuccess, toastWarning } from '@/lib/admin-toast';
 import {
   fetchPartidos,
+  fetchPreMatchPlan,
   fetchPromediosRecalcPlan,
   fetchSyncStatsPlan,
   recalculatePartidoPromedios,
   repairPartidosReferees,
   syncPartidoStats,
   syncPeriodSnapshotTables,
+  triggerPreMatchAnalysisManual,
 } from '@/lib/api';
 import {
   DEFAULT_PARTIDOS_FILTERS,
@@ -78,11 +84,30 @@ const PROMEDIOS_PAUSE_OPTIONS = [
 ] as const;
 const DEFAULT_PROMEDIOS_PAUSE_MS = 0;
 
+/** Pausa entre generaciones GPT — misma regla que el cron (15s OpenAI / 25s Gemini). */
+const PREMATCH_PAUSE_STORAGE_KEY = 'partidos.preMatchPauseMs';
+const PREMATCH_PAUSE_OPTIONS = [
+  { value: 15000, label: '15 s (GPT / cron)' },
+  { value: 25000, label: '25 s (Gemini / cron)' },
+  { value: 30000, label: '30 s' },
+  { value: 45000, label: '45 s' },
+  { value: 60000, label: '60 s' },
+  { value: 90000, label: '90 s (tras 429)' },
+] as const;
+const DEFAULT_PREMATCH_PAUSE_MS = 15000;
+
 function readStoredPromediosPauseMs() {
   if (typeof window === 'undefined') return DEFAULT_PROMEDIOS_PAUSE_MS;
   const raw = localStorage.getItem(PROMEDIOS_PAUSE_STORAGE_KEY);
   const n = parseInt(raw || '', 10);
   return PROMEDIOS_PAUSE_OPTIONS.some((o) => o.value === n) ? n : DEFAULT_PROMEDIOS_PAUSE_MS;
+}
+
+function readStoredPreMatchPauseMs() {
+  if (typeof window === 'undefined') return DEFAULT_PREMATCH_PAUSE_MS;
+  const raw = localStorage.getItem(PREMATCH_PAUSE_STORAGE_KEY);
+  const n = parseInt(raw || '', 10);
+  return PREMATCH_PAUSE_OPTIONS.some((o) => o.value === n) ? n : DEFAULT_PREMATCH_PAUSE_MS;
 }
 
 function readStoredSyncPauseMs() {
@@ -132,6 +157,14 @@ export function PartidosView() {
     null,
   );
   const promediosCancelRef = useRef(false);
+  const [preMatchOnlyMissing, setPreMatchOnlyMissing] = useState(true);
+  const [preMatchPauseMs, setPreMatchPauseMs] = useState(DEFAULT_PREMATCH_PAUSE_MS);
+  const [preMatchBusy, setPreMatchBusy] = useState(false);
+  const [preMatchMsg, setPreMatchMsg] = useState('');
+  const [preMatchProgress, setPreMatchProgress] = useState<PreMatchRangeProgressState | null>(
+    null,
+  );
+  const preMatchCancelRef = useRef(false);
   const [syncRowId, setSyncRowId] = useState<number | null>(null);
   const [repairBusy, setRepairBusy] = useState(false);
   const [repairMsg, setRepairMsg] = useState('');
@@ -148,12 +181,20 @@ export function PartidosView() {
   useEffect(() => {
     setSyncPauseMs(readStoredSyncPauseMs());
     setPromediosPauseMs(readStoredPromediosPauseMs());
+    setPreMatchPauseMs(readStoredPreMatchPauseMs());
   }, []);
 
   function handlePromediosPauseChange(ms: number) {
     setPromediosPauseMs(ms);
     if (typeof window !== 'undefined') {
       localStorage.setItem(PROMEDIOS_PAUSE_STORAGE_KEY, String(ms));
+    }
+  }
+
+  function handlePreMatchPauseChange(ms: number) {
+    setPreMatchPauseMs(ms);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(PREMATCH_PAUSE_STORAGE_KEY, String(ms));
     }
   }
 
@@ -642,6 +683,288 @@ export function PartidosView() {
     setPromediosProgress(null);
   }
 
+  function looksLikeRateLimit(msg: string) {
+    const m = msg.toLowerCase();
+    return (
+      m.includes('429') ||
+      m.includes('rate limit') ||
+      m.includes('rate_limit') ||
+      m.includes('too many requests') ||
+      m.includes('openai_rate_limit')
+    );
+  }
+
+  async function handleGeneratePreMatchRange() {
+    if (
+      !confirm(
+        `¿Generar análisis IA prepartido del ${applied.desde} al ${applied.hasta}? Se respeta la pausa entre partidos (como el cron GPT). Cada análisis puede tardar 30–90s.`,
+      )
+    ) {
+      return;
+    }
+
+    setPreMatchBusy(true);
+    setPreMatchMsg('');
+    preMatchCancelRef.current = false;
+    const startedAtMs = Date.now();
+    let effectivePauseMs = preMatchPauseMs;
+
+    setPreMatchProgress({
+      phase: 'planning',
+      total: 0,
+      current: 0,
+      ok: 0,
+      skipped: 0,
+      failed: 0,
+      currentFixture: null,
+      recentLog: ['Planificando… · pausa tipo cron entre partidos'],
+      pauseMs: effectivePauseMs,
+      startedAtMs,
+    });
+
+    try {
+      const plan = await fetchPreMatchPlan({
+        desde: applied.desde,
+        hasta: applied.hasta,
+        onlyMissing: preMatchOnlyMissing,
+      });
+
+      if (!plan.success) {
+        const msg = plan.error || 'No se pudo planificar la generación';
+        setPreMatchMsg(msg);
+        toastError('IA prepartido (rango)', msg);
+        setPreMatchProgress({
+          phase: 'error',
+          total: 0,
+          current: 0,
+          ok: 0,
+          skipped: 0,
+          failed: 0,
+          currentFixture: null,
+          recentLog: [`Error de plan: ${msg}`],
+          pauseMs: effectivePauseMs,
+          startedAtMs,
+          errorMessage: msg,
+          errorDetail: null,
+          errorCopyText: `IA prepartido\nRango: ${applied.desde} → ${applied.hasta}\nError: ${msg}`,
+        });
+        return;
+      }
+
+      if (plan.recommendedPauseMs && plan.recommendedPauseMs > effectivePauseMs) {
+        effectivePauseMs = plan.recommendedPauseMs;
+        setPreMatchPauseMs(effectivePauseMs);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(PREMATCH_PAUSE_STORAGE_KEY, String(effectivePauseMs));
+        }
+      }
+
+      const fixtures = plan.fixtures ?? [];
+      if (!fixtures.length) {
+        const msg = preMatchOnlyMissing
+          ? 'No hay partidos destacados sin análisis (o incompletos) en ese rango.'
+          : 'No hay partidos destacados en ese rango.';
+        setPreMatchMsg(msg);
+        toastWarning('IA prepartido (rango)', msg);
+        setPreMatchProgress({
+          phase: 'done',
+          total: 0,
+          current: 0,
+          ok: 0,
+          skipped: 0,
+          failed: 0,
+          currentFixture: null,
+          recentLog: [msg],
+          pauseMs: effectivePauseMs,
+          startedAtMs,
+          llmProvider: plan.llmProvider ?? null,
+        });
+        return;
+      }
+
+      let ok = 0;
+      let skipped = 0;
+      let failed = 0;
+      const recentLog: string[] = [
+        `Plan: ${fixtures.length} partido(s)` +
+          (plan.pauseNote ? ` · ${plan.pauseNote}` : ''),
+      ];
+
+      const progressBase = () => ({
+        total: fixtures.length,
+        pauseMs: effectivePauseMs,
+        startedAtMs,
+        llmProvider: plan.llmProvider ?? null,
+      });
+
+      setPreMatchProgress({
+        phase: 'generating',
+        current: 0,
+        ok: 0,
+        skipped: 0,
+        failed: 0,
+        currentFixture: fixtures[0] ?? null,
+        recentLog: recentLog.slice(-12),
+        ...progressBase(),
+      });
+
+      for (let i = 0; i < fixtures.length; i += 1) {
+        if (preMatchCancelRef.current) {
+          setPreMatchProgress({
+            phase: 'cancelled',
+            current: i,
+            ok,
+            skipped,
+            failed,
+            currentFixture: fixtures[i] ?? null,
+            recentLog: recentLog.slice(-12),
+            isPausing: false,
+            ...progressBase(),
+          });
+          setPreMatchMsg(`Cancelado: ${ok} OK · ${skipped} omitido(s) · ${failed} fallo(s).`);
+          break;
+        }
+
+        const fx = fixtures[i];
+        const force = !preMatchOnlyMissing || fx.needsForce;
+        setPreMatchProgress({
+          phase: 'generating',
+          current: i,
+          ok,
+          skipped,
+          failed,
+          currentFixture: fx,
+          recentLog: recentLog.slice(-12),
+          isPausing: false,
+          ...progressBase(),
+        });
+
+        let didSkip = false;
+        try {
+          const result = await triggerPreMatchAnalysisManual(fx.fixtureId, force);
+          if (result.skipped) {
+            didSkip = true;
+            skipped += 1;
+            recentLog.push(
+              `○ ${fx.fixtureId} omitido · ${fx.homeTeam} vs ${fx.awayTeam}`,
+            );
+          } else if (!result.ok) {
+            failed += 1;
+            const err = result.message || result.error || result.reason || 'error';
+            recentLog.push(
+              `✗ ${fx.fixtureId} ${fx.homeTeam} vs ${fx.awayTeam} — ${err}`,
+            );
+            if (looksLikeRateLimit(err)) {
+              effectivePauseMs = Math.min(90000, effectivePauseMs + 15000);
+              recentLog.push(
+                `⏳ Rate limit: pausa aumentada a ${effectivePauseMs / 1000}s`,
+              );
+            }
+          } else {
+            ok += 1;
+            recentLog.push(
+              `✓ ${fx.fixtureId} ${result.published ?? 0} picks · ${fx.homeTeam} vs ${fx.awayTeam}`,
+            );
+          }
+        } catch (e) {
+          failed += 1;
+          const err = (e as Error).message || String(e);
+          recentLog.push(
+            `✗ ${fx.fixtureId} ${fx.homeTeam} vs ${fx.awayTeam} — ${err}`,
+          );
+          if (looksLikeRateLimit(err)) {
+            effectivePauseMs = Math.min(90000, effectivePauseMs + 15000);
+            recentLog.push(
+              `⏳ Rate limit: pausa aumentada a ${effectivePauseMs / 1000}s`,
+            );
+          }
+        }
+
+        setPreMatchProgress({
+          phase: 'generating',
+          current: i + 1,
+          ok,
+          skipped,
+          failed,
+          currentFixture: fixtures[i + 1] ?? null,
+          recentLog: recentLog.slice(-12),
+          isPausing: false,
+          ...progressBase(),
+        });
+
+        // Como el cron: no pausar tras omitidos (already_exists)
+        if (
+          i < fixtures.length - 1 &&
+          effectivePauseMs > 0 &&
+          !didSkip &&
+          !preMatchCancelRef.current
+        ) {
+          setPreMatchProgress({
+            phase: 'generating',
+            current: i + 1,
+            ok,
+            skipped,
+            failed,
+            currentFixture: fixtures[i + 1] ?? null,
+            recentLog: recentLog.slice(-12),
+            isPausing: true,
+            ...progressBase(),
+          });
+          await sleepCancellable(effectivePauseMs, preMatchCancelRef);
+        }
+      }
+
+      if (!preMatchCancelRef.current) {
+        setPreMatchProgress({
+          phase: 'done',
+          current: fixtures.length,
+          ok,
+          skipped,
+          failed,
+          currentFixture: null,
+          recentLog: recentLog.slice(-12),
+          isPausing: false,
+          ...progressBase(),
+        });
+        setPreMatchMsg(
+          `${ok} generados${skipped ? ` · ${skipped} omitido(s)` : ''}${failed ? ` · ${failed} fallo(s)` : ''}.`,
+        );
+      }
+    } catch (e) {
+      const formatted = formatCaughtError(e);
+      setPreMatchMsg(formatted.message);
+      toastError('IA prepartido (rango)', e);
+      setPreMatchProgress({
+        phase: 'error',
+        total: 0,
+        current: 0,
+        ok: 0,
+        skipped: 0,
+        failed: 0,
+        currentFixture: null,
+        recentLog: [`✗ ${formatted.message}`],
+        pauseMs: effectivePauseMs,
+        startedAtMs,
+        errorMessage: formatted.message,
+        errorDetail: formatted.detail,
+        errorCopyText: `IA prepartido\nRango: ${applied.desde} → ${applied.hasta}\n${formatted.copyText}`,
+      });
+    } finally {
+      setPreMatchBusy(false);
+    }
+  }
+
+  function handlePreMatchProgressCancel() {
+    if (
+      preMatchProgress?.phase === 'planning' ||
+      preMatchProgress?.phase === 'generating'
+    ) {
+      preMatchCancelRef.current = true;
+      return;
+    }
+    setPreMatchProgress(null);
+  }
+
   async function handleSyncOne(fixtureId: number) {
     setSyncRowId(fixtureId);
     try {
@@ -816,7 +1139,7 @@ export function PartidosView() {
             <button
               type="button"
               onClick={handleSyncRange}
-              disabled={syncBusy}
+              disabled={syncBusy || preMatchBusy}
               className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:w-auto"
             >
               {syncBusy ? 'Sincronizando rango…' : 'Sincronizar rango (FLB)'}
@@ -824,7 +1147,7 @@ export function PartidosView() {
             <button
               type="button"
               onClick={handleRepairReferees}
-              disabled={repairBusy}
+              disabled={repairBusy || preMatchBusy}
               className="w-full rounded-lg bg-amber-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 sm:w-auto"
             >
               {repairBusy ? 'Reparando…' : 'Reparar árbitros'}
@@ -876,12 +1199,55 @@ export function PartidosView() {
             <button
               type="button"
               onClick={handleRecalcPromediosRange}
-              disabled={promediosBusy || syncBusy}
+              disabled={promediosBusy || syncBusy || preMatchBusy}
               className="w-full rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-600 disabled:opacity-50 sm:w-auto"
             >
               {promediosBusy ? 'Recalculando promedios…' : 'Recalcular promedios (rango)'}
             </button>
             {promediosMsg && <span className="text-xs text-violet-300">{promediosMsg}</span>}
+          </div>
+        </div>
+
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <p className="mb-2 text-xs text-slate-500">
+            Generar análisis IA prepartido del rango (ligas destacadas). Respeta la pausa del cron
+            entre partidos (GPT ~15s / Gemini ~25s) y muestra progreso partido a partido. Cada
+            llamada al LLM puede tardar 30–90s.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              <input
+                type="checkbox"
+                checked={preMatchOnlyMissing}
+                onChange={(e) => setPreMatchOnlyMissing(e.target.checked)}
+                className="rounded border-white/20"
+              />
+              Solo sin análisis o incompletos
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              <span className="whitespace-nowrap">Pausa entre partidos</span>
+              <select
+                value={preMatchPauseMs}
+                disabled={preMatchBusy}
+                onChange={(e) => handlePreMatchPauseChange(parseInt(e.target.value, 10))}
+                className="rounded-lg border border-white/10 bg-[#0b0f14] px-2 py-1.5 text-sm text-slate-200"
+              >
+                {PREMATCH_PAUSE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={handleGeneratePreMatchRange}
+              disabled={preMatchBusy || syncBusy || promediosBusy}
+              className="w-full rounded-lg bg-indigo-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50 sm:w-auto"
+            >
+              {preMatchBusy ? 'Generando IA prepartido…' : 'Generar IA prepartido (rango)'}
+            </button>
+            {preMatchMsg && <span className="text-xs text-indigo-300">{preMatchMsg}</span>}
           </div>
         </div>
       </section>
@@ -1245,6 +1611,16 @@ export function PartidosView() {
           onlyStale={promediosOnlyStale}
           pauseMs={promediosPauseMs}
           onCancel={handlePromediosProgressCancel}
+        />
+      )}
+      {preMatchProgress && (
+        <PreMatchRangeProgressModal
+          progress={preMatchProgress}
+          desde={applied.desde}
+          hasta={applied.hasta}
+          onlyMissing={preMatchOnlyMissing}
+          pauseMs={preMatchPauseMs}
+          onCancel={handlePreMatchProgressCancel}
         />
       )}
     </div>
