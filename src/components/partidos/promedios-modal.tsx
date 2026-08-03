@@ -18,6 +18,58 @@ type Props = {
 
 type Tab = 'resumen' | 'muestra' | 'origen';
 
+/** Catálogo alineado con METRIC_DEFS del backend: garantiza filas aunque el API aún no las envíe. */
+const METRIC_CATALOG: Array<Pick<PromedioMetricRow, 'key' | 'label' | 'side' | 'statType' | 'teamScope'>> = [
+  { key: 'promedioCornersLocal', label: 'Córners', side: 'home', statType: 'Corner Kicks', teamScope: 'self' },
+  { key: 'promedioCornersRecibidosLocal', label: 'Córners recibidos', side: 'home', statType: 'Corner Kicks', teamScope: 'opponent' },
+  { key: 'promedioTirosPuertaLocal', label: 'Tiros a puerta', side: 'home', statType: 'Shots on Goal', teamScope: 'self' },
+  { key: 'promedioTirosFueraPuertaLocal', label: 'Tiros fuera', side: 'home', statType: 'Shots off Goal', teamScope: 'self' },
+  { key: 'promedioTarjetasAmarillasLocal', label: 'Tarjetas amarillas', side: 'home', statType: 'Yellow Cards', teamScope: 'self' },
+  { key: 'promedioTarjetasRojasLocal', label: 'Tarjetas rojas', side: 'home', statType: 'Red Cards', teamScope: 'self' },
+  { key: 'promedioFaltasLocal', label: 'Faltas', side: 'home', statType: 'Fouls', teamScope: 'self' },
+  { key: 'promedioFaltasProvocaLocal', label: 'Faltas provocadas', side: 'home', statType: 'Fouls', teamScope: 'opponent' },
+  { key: 'promedioFuerasDeLugarLocal', label: 'Fuera de juego (cometidos)', side: 'home', statType: 'Offsides', teamScope: 'self' },
+  { key: 'promedioOffsidesProvocaLocal', label: 'Offsides provocados', side: 'home', statType: 'Offsides', teamScope: 'opponent' },
+  { key: 'promedioTirosTotalesLocal', label: 'Tiros totales', side: 'home', statType: 'Total Shots', teamScope: 'self' },
+  { key: 'promedioTirosTotalesRecibidosLocal', label: 'Tiros totales recibidos', side: 'home', statType: 'Total Shots', teamScope: 'opponent' },
+  { key: 'promedioPasesLocal', label: 'Pases', side: 'home', statType: 'Total passes', teamScope: 'self' },
+  { key: 'promedioPosesionLocal', label: 'Posesión %', side: 'home', statType: 'Ball Possession', teamScope: 'self' },
+  { key: 'promedioCornersVisitante', label: 'Córners', side: 'away', statType: 'Corner Kicks', teamScope: 'self' },
+  { key: 'promedioCornersRecibidosVisitante', label: 'Córners recibidos', side: 'away', statType: 'Corner Kicks', teamScope: 'opponent' },
+  { key: 'promedioTirosPuertaVisitante', label: 'Tiros a puerta', side: 'away', statType: 'Shots on Goal', teamScope: 'self' },
+  { key: 'promedioTirosFueraPuertaVisitante', label: 'Tiros fuera', side: 'away', statType: 'Shots off Goal', teamScope: 'self' },
+  { key: 'promedioTarjetasAmarillasVisitante', label: 'Tarjetas amarillas', side: 'away', statType: 'Yellow Cards', teamScope: 'self' },
+  { key: 'promedioTarjetasRojasVisitante', label: 'Tarjetas rojas', side: 'away', statType: 'Red Cards', teamScope: 'self' },
+  { key: 'promedioFaltasVisitante', label: 'Faltas', side: 'away', statType: 'Fouls', teamScope: 'self' },
+  { key: 'promedioFaltasProvocaVisitante', label: 'Faltas provocadas', side: 'away', statType: 'Fouls', teamScope: 'opponent' },
+  { key: 'promedioFuerasDeLugarVisitante', label: 'Fuera de juego (cometidos)', side: 'away', statType: 'Offsides', teamScope: 'self' },
+  { key: 'promedioOffsidesProvocaVisitante', label: 'Offsides provocados', side: 'away', statType: 'Offsides', teamScope: 'opponent' },
+  { key: 'promedioTirosTotalesVisitante', label: 'Tiros totales', side: 'away', statType: 'Total Shots', teamScope: 'self' },
+  { key: 'promedioTirosTotalesRecibidosVisitante', label: 'Tiros totales recibidos', side: 'away', statType: 'Total Shots', teamScope: 'opponent' },
+  { key: 'promedioPasesVisitante', label: 'Pases', side: 'away', statType: 'Total passes', teamScope: 'self' },
+  { key: 'promedioPosesionVisitante', label: 'Posesión %', side: 'away', statType: 'Ball Possession', teamScope: 'self' },
+];
+
+function mergeMetrics(apiMetrics: PromedioMetricRow[] | undefined): PromedioMetricRow[] {
+  const byKey = new Map((apiMetrics || []).map((m) => [m.key, m]));
+  const merged = METRIC_CATALOG.map((def) => {
+    const hit = byKey.get(def.key);
+    if (hit) return hit;
+    return {
+      ...def,
+      live: null,
+      stored: null,
+      delta: null,
+      aligned: true,
+    };
+  });
+  // Conserva métricas extra del API que no estén en el catálogo local
+  for (const m of apiMetrics || []) {
+    if (!METRIC_CATALOG.some((d) => d.key === m.key)) merged.push(m);
+  }
+  return merged;
+}
+
 export function PromediosModal({ fixtureId, matchLabel, onClose }: Props) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('resumen');
@@ -31,7 +83,10 @@ export function PromediosModal({ fixtureId, matchLabel, onClose }: Props) {
     queryFn: () => fetchPartidoPromedios(fixtureId),
   });
 
-  const metrics = summaryQuery.data?.metrics ?? [];
+  const metrics = useMemo(
+    () => mergeMetrics(summaryQuery.data?.metrics),
+    [summaryQuery.data?.metrics],
+  );
   const homeMetrics = useMemo(() => metrics.filter((m) => m.side === 'home'), [metrics]);
   const awayMetrics = useMemo(() => metrics.filter((m) => m.side === 'away'), [metrics]);
 
