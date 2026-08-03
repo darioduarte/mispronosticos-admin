@@ -38,6 +38,7 @@ import type {
   PromediosRecalculateResponse,
   PromediosSampleSyncPlanResponse,
   PromediosSummaryResponse,
+  EstadisticasEstimadasResponse,
   SyncStatsPlanResponse,
   SyncStatsResponse,
   SuscripcionesResponse,
@@ -813,6 +814,12 @@ export function fetchPartidoPromediosMuestra(fixtureId: number, metric: string) 
   const qs = new URLSearchParams({ metric });
   return adminFetch<PromediosMuestraResponse>(
     `/api/admin/partidos/fixtures/${fixtureId}/promedios/muestra?${qs}`,
+  );
+}
+
+export function fetchEstadisticasEstimadas(fixtureId: number) {
+  return adminFetch<EstadisticasEstimadasResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/estadisticas-estimadas`,
   );
 }
 

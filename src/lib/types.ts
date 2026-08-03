@@ -671,6 +671,70 @@ export type PromediosSummaryResponse = {
   error?: string;
 };
 
+export type EstadisticasEstimadasFormulaPart = {
+  key: string;
+  label: string;
+  value: number | null;
+  weight: number;
+};
+
+export type EstadisticasEstimadasFormula = {
+  title: string;
+  expression: string;
+  withValues: string;
+  result: number | null;
+  parts: EstadisticasEstimadasFormulaPart[];
+  note?: string;
+};
+
+export type EstadisticasEstimadasResponse = {
+  success: boolean;
+  found?: boolean;
+  fixture?: {
+    fixtureid: number;
+    fecha: string | null;
+    local: string;
+    visitante: string;
+    liga?: string;
+    referee?: string | null;
+  };
+  hasAverages?: boolean;
+  averagesUpdatedAt?: string | null;
+  weights?: Record<string, number>;
+  inputs?: {
+    rematesLocal: number | null;
+    rematesVisitante: number | null;
+    rematesRecibidosLocal: number | null;
+    rematesRecibidosVisitante: number | null;
+    faltasLocal: number | null;
+    faltasVisitante: number | null;
+    faltasProvocaLocal: number | null;
+    faltasProvocaVisitante: number | null;
+    faltasArbitro: number | null;
+  };
+  referee?: {
+    name: string;
+    avgFouls: number | null;
+    foulDataMatches?: number;
+    prevCount?: number;
+    note?: string;
+  } | null;
+  estimates?: {
+    rematesLocal: number | null;
+    rematesVisitante: number | null;
+    faltasLocal: number | null;
+    faltasVisitante: number | null;
+  };
+  formulas?: {
+    rematesLocal: EstadisticasEstimadasFormula;
+    rematesVisitante: EstadisticasEstimadasFormula;
+    faltasLocal: EstadisticasEstimadasFormula;
+    faltasVisitante: EstadisticasEstimadasFormula;
+  };
+  warnings?: string[];
+  error?: string;
+};
+
 export type PromedioMuestraRow = {
   fixtureid: number;
   fecha: string | null;

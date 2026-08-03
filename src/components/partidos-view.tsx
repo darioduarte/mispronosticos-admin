@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react';
 import { PartidoStatsModal } from '@/components/partidos/stats-modal';
 import { PromediosModal } from '@/components/partidos/promedios-modal';
+import { EstadisticasEstimadasModal } from '@/components/partidos/estadisticas-estimadas-modal';
 import {
   PromediosRangeProgressModal,
   type PromediosRangeProgressState,
@@ -180,6 +181,7 @@ export function PartidosView() {
   const [repairMsg, setRepairMsg] = useState('');
   const [statsModal, setStatsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [promediosModal, setPromediosModal] = useState<Omit<RowModal, 'referee'> | null>(null);
+  const [estimadasModal, setEstimadasModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [refereeModal, setRefereeModal] = useState<RowModal | null>(null);
   const [liveOddsModal, setLiveOddsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [preMatchModal, setPreMatchModal] = useState<Omit<RowModal, 'referee'> | null>(null);
@@ -1862,6 +1864,12 @@ export function PartidosView() {
                     label: matchLabel(row),
                   })
                 }
+                onEstimadas={() =>
+                  setEstimadasModal({
+                    fixtureId: row.fixtureid,
+                    label: matchLabel(row),
+                  })
+                }
                 onReferee={() =>
                   setRefereeModal({
                     fixtureId: row.fixtureid,
@@ -1934,6 +1942,12 @@ export function PartidosView() {
                         label: matchLabel(row),
                       })
                     }
+                    onEstimadas={() =>
+                      setEstimadasModal({
+                        fixtureId: row.fixtureid,
+                        label: matchLabel(row),
+                      })
+                    }
                     onReferee={() =>
                       setRefereeModal({
                         fixtureId: row.fixtureid,
@@ -1991,6 +2005,13 @@ export function PartidosView() {
           fixtureId={promediosModal.fixtureId}
           matchLabel={promediosModal.label}
           onClose={() => setPromediosModal(null)}
+        />
+      )}
+      {estimadasModal && (
+        <EstadisticasEstimadasModal
+          fixtureId={estimadasModal.fixtureId}
+          matchLabel={estimadasModal.label}
+          onClose={() => setEstimadasModal(null)}
         />
       )}
       {refereeModal && (
@@ -2076,6 +2097,7 @@ function PartidoMobileCard({
   dateRange,
   onStats,
   onPromedios,
+  onEstimadas,
   onReferee,
   onLiveOdds,
   onPreMatch,
@@ -2088,6 +2110,7 @@ function PartidoMobileCard({
   dateRange: { desde: string; hasta: string };
   onStats: () => void;
   onPromedios: () => void;
+  onEstimadas: () => void;
   onReferee: () => void;
   onLiveOdds: () => void;
   onPreMatch: () => void;
@@ -2137,6 +2160,7 @@ function PartidoMobileCard({
         <ActionBtn label={syncBusy ? '…' : 'Sync FLB'} onClick={onSyncFlb} disabled={syncBusy} />
         <ActionBtn label="Stats" onClick={onStats} />
         <ActionBtn label="Promedios" onClick={onPromedios} />
+        <ActionBtn label="Est. estimadas" onClick={onEstimadas} />
         <ActionBtn label="Árbitro" onClick={onReferee} />
         <ActionBtn label="IA pre" onClick={onPreMatch} />
         <ActionBtn label="Prompt V2" onClick={onLivePromptV2} />
@@ -2176,6 +2200,7 @@ function PartidoTableRow({
   dateRange,
   onStats,
   onPromedios,
+  onEstimadas,
   onReferee,
   onLiveOdds,
   onPreMatch,
@@ -2188,6 +2213,7 @@ function PartidoTableRow({
   dateRange: { desde: string; hasta: string };
   onStats: () => void;
   onPromedios: () => void;
+  onEstimadas: () => void;
   onReferee: () => void;
   onLiveOdds: () => void;
   onPreMatch: () => void;
@@ -2240,6 +2266,7 @@ function PartidoTableRow({
           <ActionBtn label={syncBusy ? '…' : 'Sync FLB'} onClick={onSyncFlb} disabled={syncBusy} />
           <ActionBtn label="Stats" onClick={onStats} />
           <ActionBtn label="Promedios" onClick={onPromedios} />
+          <ActionBtn label="Est. estimadas" onClick={onEstimadas} />
           <ActionBtn label="Árbitro" onClick={onReferee} />
           <ActionBtn label="IA pre" onClick={onPreMatch} />
           <ActionBtn label="Prompt V2" onClick={onLivePromptV2} />
