@@ -610,7 +610,7 @@ export function PartidosView() {
           } else {
             ok += 1;
             recentLog.push(
-              `✓ ${fx.fixtureId} ${result.metricsCount ?? 26} métricas · ${fx.homeTeam} vs ${fx.awayTeam}`,
+              `✓ ${fx.fixtureId} ${result.metricsCount ?? 28} métricas · ${fx.homeTeam} vs ${fx.awayTeam}`,
             );
           }
         } catch (e) {
@@ -998,7 +998,7 @@ export function PartidosView() {
           } else {
             recalcOk += 1;
             recentLog.push(
-              `✓ recalc ${fx.fixtureId} ${result.metricsCount ?? 26} métricas · ${fx.homeTeam} vs ${fx.awayTeam}`,
+              `✓ recalc ${fx.fixtureId} ${result.metricsCount ?? 28} métricas · ${fx.homeTeam} vs ${fx.awayTeam}`,
             );
           }
         } catch (e) {

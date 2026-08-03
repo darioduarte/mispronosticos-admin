@@ -634,7 +634,7 @@ function OrigenTab({
         <p className="mb-2 font-semibold text-violet-300">Motor de cálculo</p>
         <ul className="list-inside list-disc space-y-1">
           <li>
-            <code>bulk-engine</code> — 3 queries (pools local/visitante + stats) y 26 métricas en memoria
+            <code>bulk-engine</code> — 3 queries (pools local/visitante + stats) y 28 métricas en memoria
           </li>
           <li>
             <code>PredictionAverageLastFixture</code> — valores persistidos (cron y «Recalcular y guardar»)
