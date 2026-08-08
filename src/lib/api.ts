@@ -23,6 +23,8 @@ import type {
   PronosticoIaRow,
   PronosticosIaResponse,
   PronosticosIaVivoResponse,
+  ErrorCuotaIaFuente,
+  ErroresCuotaIaResponse,
   RefereeHistoryResponse,
   RefereeSearchResponse,
   RepairRefereesResponse,
@@ -557,6 +559,17 @@ export function fetchPronosticosIaVivo(desde: string, hasta: string) {
   const qs = new URLSearchParams({ desde, hasta });
   return adminFetch<PronosticosIaVivoResponse>(
     `/api/admin/pronosticos-ia/live-analysis/rango?${qs}`,
+  );
+}
+
+export function fetchErroresCuotaIa(
+  desde: string,
+  hasta: string,
+  fuente: ErrorCuotaIaFuente = 'ambos',
+) {
+  const qs = new URLSearchParams({ desde, hasta, fuente });
+  return adminFetch<ErroresCuotaIaResponse>(
+    `/api/admin/pronosticos-ia/errores-cuota/rango?${qs}`,
   );
 }
 

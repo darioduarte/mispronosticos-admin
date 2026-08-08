@@ -141,6 +141,64 @@ export type PronosticosIaVivoResponse = {
   message?: string;
 };
 
+export type ErrorCuotaIaFuente = 'ambos' | 'prepartido' | 'vivo';
+
+export type ErrorCuotaIaRow = {
+  error_id: string;
+  fixtureid: number;
+  fuente: 'prepartido' | 'vivo';
+  fuente_label?: string;
+  fecha: string;
+  fixturedate?: string | null;
+  pais: string | null;
+  liga: string | null;
+  equipo_local: string | null;
+  equipo_visitante: string | null;
+  tipo: string;
+  categoria_normalizada?: string | null;
+  cuota_casa: number | string | null;
+  cuota_casa_display: string;
+  cuota_bookmaker?: string | null;
+  bookmaker_display: string;
+  probabilidad_implicita: number | string | null;
+  probabilidad_real_estimada: number | string | null;
+  prob_implicita_display: string;
+  prob_real_display: string;
+  diff_pp: number | null;
+  diff_pp_display: string;
+  diff_alta: boolean;
+  cuota_estimada_por_ia: number | string | null;
+  cuota_ia_display: string;
+  explicacion: string | null;
+  estado_partido: string | null;
+  marcador?: string | null;
+  resultado_acertado: boolean | null;
+  resultado_mensaje: string | null;
+  resultado_clase: 'acertado' | 'fallido' | 'pendiente';
+  liveRunId?: string | null;
+  windowKey?: string | null;
+  windowLabel?: string | null;
+  run_minute?: number | null;
+};
+
+export type ErroresCuotaIaMeta = PronosticosIaMeta & {
+  fuente: ErrorCuotaIaFuente;
+  fixturesUnicos: number;
+  prepartido: number;
+  vivo: number;
+  pctAciertoEvaluados: number | null;
+  pctAciertoTotal: number | null;
+  pctFallidosEvaluados: number | null;
+  pctPendientes: number | null;
+};
+
+export type ErroresCuotaIaResponse = {
+  success: boolean;
+  data: ErrorCuotaIaRow[];
+  meta: ErroresCuotaIaMeta;
+  message?: string;
+};
+
 export type PromptResponse = {
   success: boolean;
   fullText?: string;
