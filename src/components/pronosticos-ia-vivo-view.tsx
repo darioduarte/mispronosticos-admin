@@ -18,6 +18,7 @@ import {
 import {
   filterPronosticosRows,
   formatCategoriaLabel,
+  formatFixtureFechaHora,
   sortPronosticosRows,
   type PickScope,
   type PronosticosIaFilters,
@@ -159,11 +160,7 @@ export function PronosticosIaVivoView() {
     const byFase = fase
       ? base.filter((r) => String(r.windowKey || '') === fase)
       : base;
-    return sortPronosticosRows(
-      byFase as PronosticoIaRow[],
-      sortMode,
-      'minute',
-    ) as PronosticoIaVivoRow[];
+    return sortPronosticosRows(byFase as PronosticoIaRow[], sortMode) as PronosticoIaVivoRow[];
   }, [query.data?.data, filters, fase, sortMode]);
 
   const meta = query.data?.meta;
@@ -378,7 +375,7 @@ export function PronosticosIaVivoView() {
                   {row.equipo_visitante || row.teamsawayname}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {row.fecha} · {faseLabel(row)} · min {row.run_minute ?? '-'}
+                  {formatFixtureFechaHora(row)} · {faseLabel(row)} · min {row.run_minute ?? '-'}
                 </p>
               </div>
               <ResultBadge clase={row.resultado_clase} />
@@ -466,7 +463,9 @@ export function PronosticosIaVivoView() {
                 key={row.pronostico_id}
                 className="border-b border-white/5 align-top hover:bg-indigo-500/5"
               >
-                <td className="whitespace-nowrap px-3 py-2 text-slate-400">{row.fecha}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-slate-400">
+                  {formatFixtureFechaHora(row)}
+                </td>
                 <td className="px-3 py-2">
                   <div className="font-medium text-slate-200">
                     {row.equipo_local || row.teamshomename} vs{' '}

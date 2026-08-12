@@ -26,6 +26,7 @@ import {
 import {
   filterPronosticosRows,
   formatCategoriaLabel,
+  formatFixtureFechaHora,
   sortPronosticosRows,
   type PickScope,
   type PronosticosIaFilters,
@@ -153,7 +154,7 @@ export function PronosticosIaView() {
   const filtered = useMemo(() => {
     const rows = query.data?.data ?? [];
     const f = filterPronosticosRows(rows, filters);
-    return sortPronosticosRows(f, sortMode, 'hour');
+    return sortPronosticosRows(f, sortMode);
   }, [query.data?.data, filters, sortMode]);
 
   const meta = query.data?.meta;
@@ -337,8 +338,8 @@ export function PronosticosIaView() {
             onChange={(v) => setSortMode(v as SortMode)}
             options={[
               { value: 'valor_desc', label: 'Valor (prob+cuota)' },
-              { value: 'fecha_asc', label: 'Fecha y hora ↑' },
-              { value: 'fecha_desc', label: 'Fecha y hora ↓' },
+              { value: 'fecha_asc', label: 'Fecha, hora y min ↑' },
+              { value: 'fecha_desc', label: 'Fecha, hora y min ↓' },
               { value: 'prob_desc', label: 'Prob. ↓' },
               { value: 'prob_asc', label: 'Prob. ↑' },
               { value: 'cuota_desc', label: 'Cuota ↓' },
@@ -441,7 +442,9 @@ export function PronosticosIaView() {
                 key={row.pronostico_id}
                 className="border-b border-white/5 align-top hover:bg-indigo-500/5"
               >
-                <td className="whitespace-nowrap px-3 py-2 text-slate-400">{row.fecha}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-slate-400">
+                  {formatFixtureFechaHora(row)}
+                </td>
                 <td className="px-3 py-2">
                   <div className="font-medium text-slate-200">
                     {row.equipo_local || row.teamshomename} vs{' '}
@@ -692,7 +695,7 @@ function PronosticoMobileCard({
             {row.equipo_visitante || row.teamsawayname}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            {row.fecha} · {row.liga}
+            {formatFixtureFechaHora(row)} · {row.liga}
           </p>
         </div>
         <ResultBadge clase={row.resultado_clase} />
