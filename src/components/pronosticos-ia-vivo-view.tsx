@@ -159,7 +159,11 @@ export function PronosticosIaVivoView() {
     const byFase = fase
       ? base.filter((r) => String(r.windowKey || '') === fase)
       : base;
-    return sortPronosticosRows(byFase as PronosticoIaRow[], sortMode) as PronosticoIaVivoRow[];
+    return sortPronosticosRows(
+      byFase as PronosticoIaRow[],
+      sortMode,
+      'minute',
+    ) as PronosticoIaVivoRow[];
   }, [query.data?.data, filters, fase, sortMode]);
 
   const meta = query.data?.meta;
@@ -305,10 +309,12 @@ export function PronosticosIaVivoView() {
             onChange={(v) => setSortMode(v as SortMode)}
             options={[
               { value: 'valor_desc', label: 'Valor (prob+cuota)' },
-              { value: 'prob_desc', label: 'Prob. ?' },
-              { value: 'prob_asc', label: 'Prob. ?' },
-              { value: 'cuota_desc', label: 'Cuota ?' },
-              { value: 'cuota_asc', label: 'Cuota ?' },
+              { value: 'fecha_asc', label: 'Fecha, hora y min ↑' },
+              { value: 'fecha_desc', label: 'Fecha, hora y min ↓' },
+              { value: 'prob_desc', label: 'Prob. ↓' },
+              { value: 'prob_asc', label: 'Prob. ↑' },
+              { value: 'cuota_desc', label: 'Cuota ↓' },
+              { value: 'cuota_asc', label: 'Cuota ↑' },
               { value: 'none', label: 'Por partido' },
             ]}
           />

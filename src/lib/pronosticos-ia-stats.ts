@@ -6,7 +6,24 @@ export type SortMode =
   | 'prob_asc'
   | 'cuota_desc'
   | 'cuota_asc'
-  | 'valor_desc';
+  | 'valor_desc'
+  | 'fecha_desc'
+  | 'fecha_asc';
+
+/** Precisión al ordenar por fecha: prepartido = hora; en vivo = minuto. */
+export type FechaSortPrecision = 'hour' | 'minute';
+
+function fixtureSortKeyMs(
+  fixturedate: string | null | undefined,
+  precision: FechaSortPrecision,
+): number {
+  const ms = fixturedate ? Date.parse(String(fixturedate)) : NaN;
+  if (!Number.isFinite(ms)) return 0;
+  if (precision === 'hour') {
+    return Math.floor(ms / 3_600_000) * 3_600_000;
+  }
+  return Math.floor(ms / 60_000) * 60_000;
+}
 
 export type PickScope = 'all' | 'valor' | 'normal';
 
@@ -245,6 +262,7 @@ export function filterPronosticosRows(
 export function sortPronosticosRows(
   rows: PronosticoIaRow[],
   mode: SortMode,
+  fechaPrecision: FechaSortPrecision = 'minute',
 ): PronosticoIaRow[] {
   if (mode === 'none') return rows;
   const copy = [...rows];
@@ -253,8 +271,8 @@ export function sortPronosticosRows(
     const pb = parseProb(b.probabilidad) ?? -1;
     const ca = parseCuotaDecimal(a) ?? -1;
     const cb = parseCuotaDecimal(b) ?? -1;
-    const da = a.fixturedate ? Date.parse(String(a.fixturedate)) : 0;
-    const db = b.fixturedate ? Date.parse(String(b.fixturedate)) : 0;
+    const da = fixtureSortKeyMs(a.fixturedate, fechaPrecision);
+    const db = fixtureSortKeyMs(b.fixturedate, fechaPrecision);
 
     switch (mode) {
       case 'prob_desc':
@@ -267,6 +285,10 @@ export function sortPronosticosRows(
         return ca - cb || pb - pa;
       case 'valor_desc':
         return pb - pa || cb - ca || db - da;
+      case 'fecha_desc':
+        return db - da || pb - pa;
+      case 'fecha_asc':
+        return da - db || pb - pa;
       default:
         return db - da;
     }

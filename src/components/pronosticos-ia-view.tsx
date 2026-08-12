@@ -153,7 +153,7 @@ export function PronosticosIaView() {
   const filtered = useMemo(() => {
     const rows = query.data?.data ?? [];
     const f = filterPronosticosRows(rows, filters);
-    return sortPronosticosRows(f, sortMode);
+    return sortPronosticosRows(f, sortMode, 'hour');
   }, [query.data?.data, filters, sortMode]);
 
   const meta = query.data?.meta;
@@ -337,6 +337,8 @@ export function PronosticosIaView() {
             onChange={(v) => setSortMode(v as SortMode)}
             options={[
               { value: 'valor_desc', label: 'Valor (prob+cuota)' },
+              { value: 'fecha_asc', label: 'Fecha y hora ↑' },
+              { value: 'fecha_desc', label: 'Fecha y hora ↓' },
               { value: 'prob_desc', label: 'Prob. ↓' },
               { value: 'prob_asc', label: 'Prob. ↑' },
               { value: 'cuota_desc', label: 'Cuota ↓' },
