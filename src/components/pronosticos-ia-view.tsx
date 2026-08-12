@@ -12,12 +12,17 @@ import { OddsReferenciaModal } from '@/components/pronosticos-ia/odds-referencia
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
 import {
+  ExpandableText,
+  buildPronosticoCaseText,
+} from '@/components/pronosticos-ia/expandable-text';
+import {
   clearPredictionCacheForFecha,
   clearPredictionCacheForFixture,
   fetchOddsForPronostico,
   fetchPronosticosIa,
   savePrognosticOdd,
 } from '@/lib/api';
+
 import {
   filterPronosticosRows,
   formatCategoriaLabel,
@@ -76,6 +81,19 @@ function ResultBadge({ clase }: { clase: string }) {
 
 function rowMatchLabel(row: PronosticoIaRow) {
   return `${row.equipo_local || row.teamshomename} vs ${row.equipo_visitante || row.teamsawayname}`;
+}
+
+function rowCaseText(row: PronosticoIaRow) {
+  return buildPronosticoCaseText({
+    fecha: row.fecha,
+    local: row.equipo_local || row.teamshomename,
+    visitante: row.equipo_visitante || row.teamsawayname,
+    liga: row.liga,
+    pais: row.pais,
+    tipo: row.pronostico_tipo,
+    pronostico: row.pronostico,
+    categoria: row.categoria_normalizada || 'otros',
+  });
 }
 
 type RowModal = { fixtureId: number; label: string };
@@ -432,9 +450,19 @@ export function PronosticosIaView() {
                   <div className="truncate">{row.liga}</div>
                   <div className="truncate text-xs text-slate-600">{row.pais}</div>
                 </td>
-                <td className="max-w-[100px] px-3 py-2 text-slate-400">{row.pronostico_tipo}</td>
-                <td className="max-w-[200px] px-3 py-2 text-slate-300">
-                  <div className="line-clamp-3">{row.pronostico}</div>
+                <td className="max-w-[180px] px-3 py-2">
+                  <ExpandableText
+                    text={row.pronostico_tipo}
+                    caseText={rowCaseText(row)}
+                    clampClassName="line-clamp-2"
+                  />
+                </td>
+                <td className="max-w-[260px] px-3 py-2">
+                  <ExpandableText
+                    text={row.pronostico}
+                    caseText={rowCaseText(row)}
+                    clampClassName="line-clamp-3"
+                  />
                 </td>
                 <td className="px-3 py-2">
                   <span className="rounded bg-white/10 px-1.5 py-0.5 text-xs">
@@ -668,15 +696,23 @@ function PronosticoMobileCard({
         <ResultBadge clase={row.resultado_clase} />
       </div>
 
-      <p className="mt-2 text-sm leading-relaxed text-slate-300">{row.pronostico}</p>
+      <div className="mt-2">
+        <ExpandableText
+          text={row.pronostico || row.pronostico_tipo}
+          caseText={rowCaseText(row)}
+          clampClassName="line-clamp-4"
+        />
+      </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         <span className="rounded bg-white/10 px-1.5 py-0.5 text-xs text-slate-300">
           {formatCategoriaLabel(row.categoria_normalizada || 'otros')}
         </span>
-        <span className="rounded bg-white/5 px-1.5 py-0.5 text-xs text-slate-400">
-          {row.pronostico_tipo}
-        </span>
+        {row.pronostico_tipo && row.pronostico && row.pronostico_tipo !== row.pronostico ? (
+          <span className="rounded bg-white/5 px-1.5 py-0.5 text-xs text-slate-400">
+            {row.pronostico_tipo}
+          </span>
+        ) : null}
         {row.probabilidad != null && (
           <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-xs text-indigo-200">
             {row.probabilidad}%

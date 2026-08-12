@@ -8,6 +8,10 @@ import { LiveAnalysisModal } from '@/components/pronosticos-ia/live-analysis-mod
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
 import {
+  ExpandableText,
+  buildPronosticoCaseText,
+} from '@/components/pronosticos-ia/expandable-text';
+import {
   fetchPronosticosIaVivo,
   triggerLiveAnalysisManual,
 } from '@/lib/api';
@@ -73,6 +77,21 @@ function rowMatchLabel(row: PronosticoIaVivoRow) {
 
 function faseLabel(row: PronosticoIaVivoRow) {
   return row.windowLabel || row.windowKey || '-';
+}
+
+function rowCaseText(row: PronosticoIaVivoRow) {
+  return buildPronosticoCaseText({
+    fecha: row.fecha,
+    local: row.equipo_local || row.teamshomename,
+    visitante: row.equipo_visitante || row.teamsawayname,
+    liga: row.liga,
+    pais: row.pais,
+    fase: faseLabel(row),
+    minuto: row.run_minute,
+    tipo: row.pronostico_tipo,
+    pronostico: row.pronostico,
+    categoria: row.categoria_normalizada || 'otros',
+  });
 }
 
 function scoreRun(row: PronosticoIaVivoRow) {
@@ -358,7 +377,13 @@ export function PronosticosIaVivoView() {
               </div>
               <ResultBadge clase={row.resultado_clase} />
             </div>
-            <p className="mt-2 text-sm text-slate-300">{row.pronostico}</p>
+            <div className="mt-2">
+              <ExpandableText
+                text={row.pronostico || row.pronostico_tipo}
+                caseText={rowCaseText(row)}
+                clampClassName="line-clamp-4"
+              />
+            </div>
             <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
               <span className="rounded bg-white/10 px-1.5 py-0.5 text-slate-300">
                 {formatCategoriaLabel(row.categoria_normalizada || 'otros')}
@@ -448,8 +473,12 @@ export function PronosticosIaVivoView() {
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-slate-300">{faseLabel(row)}</td>
                 <td className="px-3 py-2 text-slate-400">{row.run_minute ?? '-'}</td>
-                <td className="max-w-[220px] px-3 py-2 text-slate-300">
-                  <div className="line-clamp-3">{row.pronostico}</div>
+                <td className="max-w-[280px] px-3 py-2">
+                  <ExpandableText
+                    text={row.pronostico || row.pronostico_tipo}
+                    caseText={rowCaseText(row)}
+                    clampClassName="line-clamp-3"
+                  />
                 </td>
                 <td className="px-3 py-2">
                   <span className="rounded bg-white/10 px-1.5 py-0.5 text-xs">
