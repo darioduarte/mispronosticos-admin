@@ -2,7 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { CuotasMomentoModal } from '@/components/pronosticos-ia/cuotas-momento-modal';
 import { fetchErroresCuotaIa } from '@/lib/api';
+import { formatFixtureFechaHora, parseFixtureDateMs } from '@/lib/pronosticos-ia-stats';
 import type { ErrorCuotaIaFuente, ErrorCuotaIaRow } from '@/lib/types';
 
 function defaultDesde() {
@@ -163,11 +165,20 @@ function filterErroresRows(rows: ErrorCuotaIaRow[], f: ErroresCuotaFilters): Err
   });
 }
 
+function runMinuteOf(row: ErrorCuotaIaRow): number {
+  return row.run_minute != null && Number.isFinite(Number(row.run_minute))
+    ? Number(row.run_minute)
+    : -1;
+}
+
 function sortErroresRows(rows: ErrorCuotaIaRow[], mode: SortMode): ErrorCuotaIaRow[] {
   const copy = [...rows];
   copy.sort((a, b) => {
-    const da = a.fixturedate ? Date.parse(String(a.fixturedate)) : 0;
-    const db = b.fixturedate ? Date.parse(String(b.fixturedate)) : 0;
+    const da = parseFixtureDateMs(a.fixturedate);
+    const db = parseFixtureDateMs(b.fixturedate);
+    const ds = String(a.fixturedate || '').localeCompare(String(b.fixturedate || ''));
+    const ra = runMinuteOf(a);
+    const rb = runMinuteOf(b);
     const diffA = a.diff_pp != null ? Number(a.diff_pp) : -1;
     const diffB = b.diff_pp != null ? Number(b.diff_pp) : -1;
     const cuotaA = parseNum(a.cuota_casa) ?? -1;
@@ -185,7 +196,7 @@ function sortErroresRows(rows: ErrorCuotaIaRow[], mode: SortMode): ErrorCuotaIaR
 
     switch (mode) {
       case 'fecha_asc':
-        return da - db || String(a.error_id).localeCompare(String(b.error_id));
+        return da - db || ds || ra - rb || String(a.error_id).localeCompare(String(b.error_id));
       case 'diff_desc':
         return diffB - diffA || db - da;
       case 'diff_asc':
@@ -216,7 +227,7 @@ function sortErroresRows(rows: ErrorCuotaIaRow[], mode: SortMode): ErrorCuotaIaR
         );
       case 'fecha_desc':
       default:
-        return db - da || String(a.error_id).localeCompare(String(b.error_id));
+        return db - da || -ds || rb - ra || String(a.error_id).localeCompare(String(b.error_id));
     }
   });
   return copy;
@@ -365,6 +376,7 @@ export function ErroresCuotaIaView() {
   const [filters, setFilters] = useState<ErroresCuotaFilters>(DEFAULT_FILTERS);
   const [sortMode, setSortMode] = useState<SortMode>('diff_desc');
   const [statsOpen, setStatsOpen] = useState(true);
+  const [cuotasRow, setCuotasRow] = useState<ErrorCuotaIaRow | null>(null);
 
   const query = useQuery({
     queryKey: ['errores-cuota-ia', applied.desde, applied.hasta, applied.fuente],
@@ -596,8 +608,8 @@ export function ErroresCuotaIaView() {
             options={[
               { value: 'diff_desc', label: 'Δ pp ↓' },
               { value: 'diff_asc', label: 'Δ pp ↑' },
-              { value: 'fecha_desc', label: 'Fecha ↓' },
-              { value: 'fecha_asc', label: 'Fecha ↑' },
+              { value: 'fecha_desc', label: 'Fecha y hora ↓' },
+              { value: 'fecha_asc', label: 'Fecha y hora ↑' },
               { value: 'cuota_desc', label: 'Cuota ↓' },
               { value: 'cuota_asc', label: 'Cuota ↑' },
               { value: 'cuota_ia_desc', label: 'Cuota IA ↓' },
@@ -702,7 +714,7 @@ export function ErroresCuotaIaView() {
           <table className="min-w-full text-left text-sm">
             <thead className="bg-[#111827] text-[11px] uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-3 py-3 font-semibold">Fecha</th>
+                <th className="px-3 py-3 font-semibold">Fecha y hora</th>
                 <th className="px-3 py-3 font-semibold">Fuente</th>
                 <th className="px-3 py-3 font-semibold">Partido</th>
                 <th className="px-3 py-3 font-semibold">Torneo</th>
@@ -715,16 +727,24 @@ export function ErroresCuotaIaView() {
                 <th className="px-3 py-3 font-semibold text-right">Cuota IA</th>
                 <th className="px-3 py-3 font-semibold">Resultado</th>
                 <th className="px-3 py-3 font-semibold">Explicación</th>
+                <th className="px-3 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((row) => (
-                <ErrorRow key={`${row.fuente}-${row.error_id}`} row={row} />
+                <ErrorRow
+                  key={`${row.fuente}-${row.error_id}`}
+                  row={row}
+                  onCuotas={() => setCuotasRow(row)}
+                />
               ))}
             </tbody>
           </table>
         </div>
       )}
+      {cuotasRow ? (
+        <CuotasMomentoModal row={cuotasRow} onClose={() => setCuotasRow(null)} />
+      ) : null}
     </div>
   );
 }
@@ -746,11 +766,17 @@ function StatCard({
   );
 }
 
-function ErrorRow({ row }: { row: ErrorCuotaIaRow }) {
+function ErrorRow({
+  row,
+  onCuotas,
+}: {
+  row: ErrorCuotaIaRow;
+  onCuotas: () => void;
+}) {
   return (
     <tr className="border-t border-white/5 align-top hover:bg-white/[0.03]">
       <td className="whitespace-nowrap px-3 py-3">
-        <div className="text-slate-200">{row.fecha}</div>
+        <div className="text-slate-200">{formatFixtureFechaHora(row)}</div>
         <div className="mt-0.5 text-xs text-slate-500">
           {row.estado_partido || '—'}
           {row.marcador ? ` · ${row.marcador}` : ''}
@@ -815,6 +841,15 @@ function ErrorRow({ row }: { row: ErrorCuotaIaRow }) {
       </td>
       <td className="max-w-[18rem] px-3 py-3 text-xs leading-relaxed text-slate-400">
         {row.explicacion || '—'}
+      </td>
+      <td className="whitespace-nowrap px-3 py-3">
+        <button
+          type="button"
+          onClick={onCuotas}
+          className="rounded border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:border-indigo-500/40 hover:text-indigo-300"
+        >
+          {row.fuente === 'vivo' ? 'Cuotas live' : 'Cuotas pre'}
+        </button>
       </td>
     </tr>
   );

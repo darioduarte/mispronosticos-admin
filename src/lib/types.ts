@@ -199,6 +199,24 @@ export type ErroresCuotaIaResponse = {
   message?: string;
 };
 
+export type CuotasMomentoResponse = {
+  success: boolean;
+  fuente: 'prepartido' | 'vivo';
+  source?: 'api' | 'prompt';
+  fixtureId?: number;
+  liveRunId?: string | null;
+  windowKey?: string | null;
+  windowLabel?: string | null;
+  minute?: number | null;
+  hasOdds?: boolean | null;
+  promptMeta?: LivePromptMeta | null;
+  createdAt?: string | null;
+  odds?: Record<string, MelbetOddItem[] | unknown>;
+  oddsText?: string | null;
+  message?: string;
+  error?: string;
+};
+
 export type PromptResponse = {
   success: boolean;
   fullText?: string;

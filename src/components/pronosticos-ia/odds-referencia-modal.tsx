@@ -58,7 +58,7 @@ export function OddsReferenciaModal({ fixtureId, matchLabel, onClose }: Props) {
   );
 }
 
-function OddsSections({ odds }: { odds: Record<string, unknown> }) {
+export function OddsSections({ odds }: { odds: Record<string, unknown> }) {
   const entries = Object.entries(odds).filter(([, v]) => Array.isArray(v) && (v as unknown[]).length);
   if (entries.length === 0) {
     return (

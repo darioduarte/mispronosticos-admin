@@ -25,6 +25,7 @@ import type {
   PronosticosIaVivoResponse,
   ErrorCuotaIaFuente,
   ErroresCuotaIaResponse,
+  CuotasMomentoResponse,
   RefereeHistoryResponse,
   RefereeSearchResponse,
   RepairRefereesResponse,
@@ -570,6 +571,23 @@ export function fetchErroresCuotaIa(
   const qs = new URLSearchParams({ desde, hasta, fuente });
   return adminFetch<ErroresCuotaIaResponse>(
     `/api/admin/pronosticos-ia/errores-cuota/rango?${qs}`,
+  );
+}
+
+export function fetchCuotasMomento(params: {
+  fuente: 'prepartido' | 'vivo';
+  fixtureId: number;
+  liveRunId?: string | null;
+  windowKey?: string | null;
+}) {
+  const qs = new URLSearchParams({
+    fuente: params.fuente,
+    fixtureId: String(params.fixtureId),
+  });
+  if (params.liveRunId) qs.set('liveRunId', params.liveRunId);
+  if (params.windowKey) qs.set('windowKey', params.windowKey);
+  return adminFetch<CuotasMomentoResponse>(
+    `/api/admin/pronosticos-ia/errores-cuota/cuotas-momento?${qs}`,
   );
 }
 
