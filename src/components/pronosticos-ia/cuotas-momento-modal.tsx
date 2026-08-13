@@ -9,6 +9,7 @@ import {
   type OddsHighlightHint,
 } from '@/components/pronosticos-ia/odds-referencia-modal';
 import { fetchCuotasMomento } from '@/lib/api';
+import { findLiveOddForTipo, promptLineSectionMap } from '@/lib/live-odds-match';
 import type { ErrorCuotaIaRow } from '@/lib/types';
 
 type Props = {
@@ -20,18 +21,21 @@ function matchLabel(row: ErrorCuotaIaRow) {
   return `${row.equipo_local || '—'} vs ${row.equipo_visitante || '—'}`;
 }
 
-function highlightHintFromRow(row: ErrorCuotaIaRow): OddsHighlightHint {
+function highlightHintFromRow(
+  row: ErrorCuotaIaRow,
+  preferredCuota?: number | null,
+): OddsHighlightHint {
   const bm = String(row.cuota_bookmaker || row.bookmaker_display || '').trim();
   return {
-    cuota: parseCuotaNum(row.cuota_casa ?? row.cuota_casa_display),
+    cuota: preferredCuota ?? parseCuotaNum(row.cuota_casa ?? row.cuota_casa_display),
     tipo: [row.tipo, row.categoria_normalizada].filter(Boolean).join(' '),
     bookmaker: bm && bm !== '—' ? bm : null,
   };
 }
 
-function scorePromptLine(line: string, hint: OddsHighlightHint): number {
+function scorePromptLine(line: string, section: string, hint: OddsHighlightHint): number {
   const oddMatch = line.match(/(?:cuota\s*)?(\d+[.,]\d{1,3})\b/i);
-  return scoreCuotaHaystack(line, oddMatch?.[1], hint);
+  return scoreCuotaHaystack(`${section} ${line}`, oddMatch?.[1], hint);
 }
 
 export function CuotasMomentoModal({ row, onClose }: Props) {
@@ -56,7 +60,21 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
 
   const data = query.data;
   const isLive = row.fuente === 'vivo';
-  const hint = useMemo(() => highlightHintFromRow(row), [row]);
+  const liveMatch = useMemo(
+    () =>
+      findLiveOddForTipo({
+        tipo: row.tipo,
+        oddsText: data?.oddsText,
+        homeTeam: row.equipo_local,
+        awayTeam: row.equipo_visitante,
+        storedCuota: parseCuotaNum(row.cuota_casa ?? row.cuota_casa_display),
+      }),
+    [data?.oddsText, row],
+  );
+  const hint = useMemo(
+    () => highlightHintFromRow(row, liveMatch?.swapped ? liveMatch.odd : null),
+    [row, liveMatch],
+  );
   const title = isLive ? 'Cuotas live de ese momento' : 'Cuotas prepartido';
   const subtitle = [
     matchLabel(row),
@@ -72,12 +90,12 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
 
   const promptLines = useMemo(() => {
     if (!data?.oddsText) return [];
-    const hintScore = highlightHintFromRow(row);
     const lines = data.oddsText.replace(/\r\n/g, '\n').split('\n');
+    const sections = promptLineSectionMap(data.oddsText);
     const scored = lines.map((line, index) => ({
       index,
       line,
-      score: scorePromptLine(line, hintScore),
+      score: scorePromptLine(line, sections[index] || '', hint),
     }));
     const maxScore = scored.reduce((m, x) => Math.max(m, x.score), 0);
     const hitIndexes = new Set(
@@ -86,7 +104,7 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
         .map((x) => x.index),
     );
     return scored.map((x) => ({ ...x, hit: hitIndexes.has(x.index) }));
-  }, [data?.oddsText, row]);
+  }, [data?.oddsText, hint]);
 
   const firstHitIndex = promptLines.find((l) => l.hit)?.index ?? -1;
 
@@ -144,7 +162,7 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
         </div>
 
         <div className="max-h-[calc(90vh-88px)] overflow-y-auto p-5">
-          <ErrorCuotaHint row={row} />
+          <ErrorCuotaHint row={row} liveMatch={liveMatch} />
           {query.isLoading && <p className="text-sm text-slate-400">Cargando cuotas…</p>}
           {query.isError && (
             <p className="text-sm text-red-300">{(query.error as Error).message}</p>
@@ -163,7 +181,9 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-xs text-slate-500">
                   {firstHitIndex >= 0
-                    ? 'Resaltado: línea que coincide con la cuota del error.'
+                    ? liveMatch?.swapped
+                      ? 'Resaltado: cuota correcta del mercado (la IA copió el Over/Under contrario).'
+                      : 'Resaltado: línea que coincide con la cuota del error.'
                     : 'No se encontró una línea clara para esa cuota; revisa el bloque.'}
                 </p>
                 <button
@@ -207,18 +227,39 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
   );
 }
 
-function ErrorCuotaHint({ row }: { row: ErrorCuotaIaRow }) {
+function ErrorCuotaHint({
+  row,
+  liveMatch,
+}: {
+  row: ErrorCuotaIaRow;
+  liveMatch: ReturnType<typeof findLiveOddForTipo>;
+}) {
   return (
-    <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
-        Cuota tomada en este error
-      </p>
-      <p className="mt-1 font-medium">
-        {row.tipo || 'Mercado'} · @{row.cuota_casa_display}
-        {row.bookmaker_display && row.bookmaker_display !== '—'
-          ? ` · ${row.bookmaker_display}`
-          : ''}
-      </p>
+    <div className="mb-4 space-y-2">
+      <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
+          Cuota tomada en este error
+        </p>
+        <p className="mt-1 font-medium">
+          {row.tipo || 'Mercado'} · @{row.cuota_casa_display}
+          {row.bookmaker_display && row.bookmaker_display !== '—'
+            ? ` · ${row.bookmaker_display}`
+            : ''}
+        </p>
+      </div>
+      {liveMatch?.swapped ? (
+        <div className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-red-300">
+            Cuota invertida Over/Under
+          </p>
+          <p className="mt-1">
+            El tipo es <span className="font-semibold">{liveMatch.side}</span> {liveMatch.linea}{' '}
+            ({liveMatch.section}), pero la IA guardó @{row.cuota_casa_display} (lado contrario
+            {liveMatch.oppositeOdd != null ? ` ${liveMatch.oppositeOdd}` : ''}). La cuota del
+            BLOQUE 5 para ese mercado es <span className="font-semibold">@{liveMatch.odd}</span>.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

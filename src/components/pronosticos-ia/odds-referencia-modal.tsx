@@ -197,6 +197,19 @@ export function scoreCuotaHaystack(
   }
   score += hits * 2;
   if (tokens.length >= 2 && hits >= 2) score += 3;
+
+  const wantsUnder = tokens.includes('under') || tokens.includes('menos');
+  const wantsOver = tokens.includes('over') || tokens.includes('mas');
+  const hasUnder = /\bunder\b|\bmenos\b/.test(text);
+  const hasOver = /\bover\b|\bmas\b/.test(text);
+  if (wantsUnder && !wantsOver) {
+    if (hasUnder) score += 14;
+    if (hasOver && !hasUnder) score -= 18;
+  }
+  if (wantsOver && !wantsUnder) {
+    if (hasOver) score += 14;
+    if (hasUnder && !hasOver) score -= 18;
+  }
   return score;
 }
 
