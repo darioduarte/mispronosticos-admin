@@ -1,8 +1,13 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { OddsSections } from '@/components/pronosticos-ia/odds-referencia-modal';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  OddsSections,
+  parseCuotaNum,
+  scoreCuotaHaystack,
+  type OddsHighlightHint,
+} from '@/components/pronosticos-ia/odds-referencia-modal';
 import { fetchCuotasMomento } from '@/lib/api';
 import type { ErrorCuotaIaRow } from '@/lib/types';
 
@@ -15,22 +20,23 @@ function matchLabel(row: ErrorCuotaIaRow) {
   return `${row.equipo_local || '—'} vs ${row.equipo_visitante || '—'}`;
 }
 
-function highlightTipo(text: string, tipo: string | null | undefined) {
-  const needle = String(tipo || '').trim();
-  if (!needle || needle.length < 3) return text;
-  try {
-    const re = new RegExp(
-      `(${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,
-      'ig',
-    );
-    return text.replace(re, '«$1»');
-  } catch {
-    return text;
-  }
+function highlightHintFromRow(row: ErrorCuotaIaRow): OddsHighlightHint {
+  const bm = String(row.cuota_bookmaker || row.bookmaker_display || '').trim();
+  return {
+    cuota: parseCuotaNum(row.cuota_casa ?? row.cuota_casa_display),
+    tipo: [row.tipo, row.categoria_normalizada].filter(Boolean).join(' '),
+    bookmaker: bm && bm !== '—' ? bm : null,
+  };
+}
+
+function scorePromptLine(line: string, hint: OddsHighlightHint): number {
+  const oddMatch = line.match(/(?:cuota\s*)?(\d+[.,]\d{1,3})\b/i);
+  return scoreCuotaHaystack(line, oddMatch?.[1], hint);
 }
 
 export function CuotasMomentoModal({ row, onClose }: Props) {
   const [copied, setCopied] = useState(false);
+  const highlightRef = useRef<HTMLDivElement | null>(null);
   const query = useQuery({
     queryKey: [
       'cuotas-momento',
@@ -50,6 +56,7 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
 
   const data = query.data;
   const isLive = row.fuente === 'vivo';
+  const hint = useMemo(() => highlightHintFromRow(row), [row]);
   const title = isLive ? 'Cuotas live de ese momento' : 'Cuotas prepartido';
   const subtitle = [
     matchLabel(row),
@@ -62,6 +69,34 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
   ]
     .filter(Boolean)
     .join(' · ');
+
+  const promptLines = useMemo(() => {
+    if (!data?.oddsText) return [];
+    const hintScore = highlightHintFromRow(row);
+    const lines = data.oddsText.replace(/\r\n/g, '\n').split('\n');
+    const scored = lines.map((line, index) => ({
+      index,
+      line,
+      score: scorePromptLine(line, hintScore),
+    }));
+    const maxScore = scored.reduce((m, x) => Math.max(m, x.score), 0);
+    const hitIndexes = new Set(
+      scored
+        .filter((x) => maxScore >= 6 && x.score >= maxScore - 2 && x.score >= 6)
+        .map((x) => x.index),
+    );
+    return scored.map((x) => ({ ...x, hit: hitIndexes.has(x.index) }));
+  }, [data?.oddsText, row]);
+
+  const firstHitIndex = promptLines.find((l) => l.hit)?.index ?? -1;
+
+  useEffect(() => {
+    if (firstHitIndex < 0) return;
+    const id = window.setTimeout(() => {
+      highlightRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, [firstHitIndex, data?.oddsText]);
 
   async function copyText(text: string) {
     try {
@@ -109,6 +144,7 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
         </div>
 
         <div className="max-h-[calc(90vh-88px)] overflow-y-auto p-5">
+          <ErrorCuotaHint row={row} />
           {query.isLoading && <p className="text-sm text-slate-400">Cargando cuotas…</p>}
           {query.isError && (
             <p className="text-sm text-red-300">{(query.error as Error).message}</p>
@@ -121,10 +157,15 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
           {data?.success && data.message && (
             <p className="mb-3 text-xs text-amber-200/90">{data.message}</p>
           )}
-          {data?.success && data.odds && <OddsSections odds={data.odds} />}
+          {data?.success && data.odds && <OddsSections odds={data.odds} highlight={hint} />}
           {data?.success && data.oddsText && (
             <div>
-              <div className="mb-2 flex justify-end">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs text-slate-500">
+                  {firstHitIndex >= 0
+                    ? 'Resaltado: línea que coincide con la cuota del error.'
+                    : 'No se encontró una línea clara para esa cuota; revisa el bloque.'}
+                </p>
                 <button
                   type="button"
                   onClick={() => void copyText(data.oddsText || '')}
@@ -133,9 +174,26 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
                   {copied ? 'Copiado' : 'Copiar bloque'}
                 </button>
               </div>
-              <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-[#0b0f14] p-3 text-xs leading-relaxed text-slate-300">
-                {highlightTipo(data.oddsText, row.tipo)}
-              </pre>
+              <div className="overflow-x-auto rounded-lg border border-white/10 bg-[#0b0f14] p-3 font-mono text-xs leading-relaxed">
+                {promptLines.map((item) => (
+                  <div
+                    key={item.index}
+                    ref={item.index === firstHitIndex ? highlightRef : undefined}
+                    className={
+                      item.hit
+                        ? 'rounded bg-amber-400/25 px-1.5 py-0.5 font-semibold text-amber-100 ring-1 ring-amber-400/40'
+                        : 'px-1.5 text-slate-300'
+                    }
+                  >
+                    {item.line || '\u00a0'}
+                    {item.hit ? (
+                      <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                        cuota del error
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {data?.success && !data.odds && !data.oddsText && (
@@ -145,6 +203,22 @@ export function CuotasMomentoModal({ row, onClose }: Props) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ErrorCuotaHint({ row }: { row: ErrorCuotaIaRow }) {
+  return (
+    <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
+        Cuota tomada en este error
+      </p>
+      <p className="mt-1 font-medium">
+        {row.tipo || 'Mercado'} · @{row.cuota_casa_display}
+        {row.bookmaker_display && row.bookmaker_display !== '—'
+          ? ` · ${row.bookmaker_display}`
+          : ''}
+      </p>
     </div>
   );
 }
