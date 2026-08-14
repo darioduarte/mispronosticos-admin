@@ -495,3 +495,96 @@ export function computePronosticosIaStats(
     edge,
   };
 }
+
+export type ApuestasSimuladas = {
+  stake: number;
+  picks: number;
+  conCuota: number;
+  sinCuota: number;
+  acertados: number;
+  fallidos: number;
+  pendientes: number;
+  apostadoTotal: number;
+  apostadoResuelto: number;
+  apostadoPendiente: number;
+  apostadoAciertos: number;
+  apostadoFallos: number;
+  retorno: number;
+  beneficio: number;
+  roi: number | null;
+  cuotaMedia: number | null;
+  evTeorico: number | null;
+};
+
+/** Simula apostar `stake` en cada pick visible que tenga cuota. */
+export function computeApuestasSimuladas(
+  rows: PronosticoIaRow[],
+  stake: number,
+): ApuestasSimuladas {
+  const s = Number.isFinite(stake) && stake > 0 ? stake : 0;
+  let conCuota = 0;
+  let sinCuota = 0;
+  let acertados = 0;
+  let fallidos = 0;
+  let pendientes = 0;
+  let apostadoAciertos = 0;
+  let apostadoFallos = 0;
+  let apostadoPendiente = 0;
+  let retorno = 0;
+  let cuotaSum = 0;
+  let evSum = 0;
+  let evN = 0;
+
+  for (const row of rows) {
+    const cuota = parseCuotaDecimal(row);
+    if (cuota == null) {
+      sinCuota += 1;
+      continue;
+    }
+    conCuota += 1;
+    cuotaSum += cuota;
+
+    const res = row.resultado_clase;
+    const prob = parseProb(row.probabilidad);
+    if (prob != null) {
+      const p = prob / 100;
+      evSum += p * s * (cuota - 1) - (1 - p) * s;
+      evN += 1;
+    }
+
+    if (res === 'acertado') {
+      acertados += 1;
+      apostadoAciertos += s;
+      retorno += s * cuota;
+    } else if (res === 'fallido') {
+      fallidos += 1;
+      apostadoFallos += s;
+    } else {
+      pendientes += 1;
+      apostadoPendiente += s;
+    }
+  }
+
+  const apostadoResuelto = apostadoAciertos + apostadoFallos;
+  const beneficio = retorno - apostadoResuelto;
+
+  return {
+    stake: s,
+    picks: rows.length,
+    conCuota,
+    sinCuota,
+    acertados,
+    fallidos,
+    pendientes,
+    apostadoTotal: apostadoResuelto + apostadoPendiente,
+    apostadoResuelto,
+    apostadoPendiente,
+    apostadoAciertos,
+    apostadoFallos,
+    retorno,
+    beneficio,
+    roi: apostadoResuelto > 0 ? (100 * beneficio) / apostadoResuelto : null,
+    cuotaMedia: conCuota > 0 ? cuotaSum / conCuota : null,
+    evTeorico: evN > 0 ? evSum : null,
+  };
+}

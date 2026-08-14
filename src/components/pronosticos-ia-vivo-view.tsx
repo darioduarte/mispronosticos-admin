@@ -7,6 +7,7 @@ import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import { LiveAnalysisModal } from '@/components/pronosticos-ia/live-analysis-modal';
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
+import { ApuestasSimuladasPanel } from '@/components/pronosticos-ia/apuestas-simuladas-panel';
 import {
   ExpandableText,
   buildPronosticoCaseText,
@@ -128,6 +129,7 @@ export function PronosticosIaVivoView() {
   const [sortMode, setSortMode] = useState<SortMode>('valor_desc');
   const [statsOpts, setStatsOpts] = useState<StatsOptions>(DEFAULT_STATS_OPTS);
   const [statsOpen, setStatsOpen] = useState(true);
+  const [stakePorPick, setStakePorPick] = useState(10);
   const [promptModal, setPromptModal] = useState<(RowModal & { kind: PromptKind }) | null>(
     null,
   );
@@ -361,6 +363,12 @@ export function PronosticosIaVivoView() {
           onOptionsChange={(patch) => setStatsOpts((o) => ({ ...o, ...patch }))}
         />
       )}
+
+      <ApuestasSimuladasPanel
+        rows={filtered as PronosticoIaRow[]}
+        stake={stakePorPick}
+        onStakeChange={setStakePorPick}
+      />
 
       <div className="space-y-3 md:hidden">
         {filtered.map((row) => (
