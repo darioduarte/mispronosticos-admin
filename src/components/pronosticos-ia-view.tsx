@@ -11,6 +11,7 @@ import { LiveAnalysisModal } from '@/components/pronosticos-ia/live-analysis-mod
 import { OddsReferenciaModal } from '@/components/pronosticos-ia/odds-referencia-modal';
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
+import { CategoriaChecklist } from '@/components/pronosticos-ia/categoria-checklist';
 import {
   ExpandableText,
   buildPronosticoCaseText,
@@ -48,7 +49,7 @@ function defaultHasta() {
 
 const DEFAULT_FILTERS: PronosticosIaFilters = {
   search: '',
-  categoria: '',
+  categorias: null,
   torneo: '',
   resultado: 'all',
   pickScope: 'all',
@@ -158,6 +159,15 @@ export function PronosticosIaView() {
   }, [query.data?.data, filters, sortMode]);
 
   const meta = query.data?.meta;
+
+  const categoriaOptions = useMemo(() => {
+    const fromMeta = meta?.categorias ?? [];
+    if (fromMeta.length > 0) return [...fromMeta].sort((a, b) => a.localeCompare(b, 'es'));
+    const rows = query.data?.data ?? [];
+    return [...new Set(rows.map((r) => r.categoria_normalizada || 'otros'))].sort((a, b) =>
+      a.localeCompare(b, 'es'),
+    );
+  }, [meta?.categorias, query.data?.data]);
 
   async function handleFetchCuota(row: PronosticoIaRow) {
     setCuotaBusy(row.pronostico_id);
@@ -300,12 +310,6 @@ export function PronosticosIaView() {
             className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-sm text-slate-200 sm:min-w-[180px] sm:flex-1"
           />
           <SelectFilter
-            label="Categoría"
-            value={filters.categoria}
-            onChange={(v) => patchFilter({ categoria: v })}
-            options={[{ value: '', label: 'Todas' }, ...(meta?.categorias ?? []).map((c) => ({ value: c, label: formatCategoriaLabel(c) }))]}
-          />
-          <SelectFilter
             label="Torneo"
             value={filters.torneo}
             onChange={(v) => patchFilter({ torneo: v })}
@@ -348,6 +352,11 @@ export function PronosticosIaView() {
             ]}
           />
         </div>
+        <CategoriaChecklist
+          options={categoriaOptions}
+          selected={filters.categorias}
+          onChange={(categorias) => patchFilter({ categorias })}
+        />
         <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
           <SmallNumber label="Prob. mín %" value={filters.probMin} onChange={(v) => patchFilter({ probMin: v })} />
           <SmallNumber label="Prob. máx %" value={filters.probMax} onChange={(v) => patchFilter({ probMax: v })} />

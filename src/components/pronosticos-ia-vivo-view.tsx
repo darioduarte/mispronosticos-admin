@@ -8,6 +8,7 @@ import { LiveAnalysisModal } from '@/components/pronosticos-ia/live-analysis-mod
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
 import { ApuestasSimuladasPanel } from '@/components/pronosticos-ia/apuestas-simuladas-panel';
+import { CategoriaChecklist } from '@/components/pronosticos-ia/categoria-checklist';
 import {
   ExpandableText,
   buildPronosticoCaseText,
@@ -41,7 +42,7 @@ function defaultHasta() {
 
 const DEFAULT_FILTERS: PronosticosIaFilters = {
   search: '',
-  categoria: '',
+  categorias: null,
   torneo: '',
   resultado: 'all',
   pickScope: 'all',
@@ -167,6 +168,15 @@ export function PronosticosIaVivoView() {
 
   const meta = query.data?.meta;
 
+  const categoriaOptions = useMemo(() => {
+    const fromMeta = meta?.categorias ?? [];
+    if (fromMeta.length > 0) return [...fromMeta].sort((a, b) => a.localeCompare(b, 'es'));
+    const rows = query.data?.data ?? [];
+    return [...new Set(rows.map((r) => r.categoria_normalizada || 'otros'))].sort((a, b) =>
+      a.localeCompare(b, 'es'),
+    );
+  }, [meta?.categorias, query.data?.data]);
+
   function patchFilter(patch: Partial<PronosticosIaFilters>) {
     setFilters((prev) => ({ ...prev, ...patch }));
   }
@@ -261,18 +271,6 @@ export function PronosticosIaVivoView() {
             ]}
           />
           <SelectFilter
-            label="Categoría"
-            value={filters.categoria}
-            onChange={(v) => patchFilter({ categoria: v })}
-            options={[
-              { value: '', label: 'Todas' },
-              ...(meta?.categorias ?? []).map((c) => ({
-                value: c,
-                label: formatCategoriaLabel(c),
-              })),
-            ]}
-          />
-          <SelectFilter
             label="Torneo"
             value={filters.torneo}
             onChange={(v) => patchFilter({ torneo: v })}
@@ -318,6 +316,11 @@ export function PronosticosIaVivoView() {
             ]}
           />
         </div>
+        <CategoriaChecklist
+          options={categoriaOptions}
+          selected={filters.categorias}
+          onChange={(categorias) => patchFilter({ categorias })}
+        />
         <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
           <SmallNumber
             label="Prob. mín %"

@@ -40,9 +40,10 @@ export type PickScope = 'all' | 'valor' | 'normal';
 
 export type ResultFilter = 'all' | 'acertado' | 'fallido' | 'pendiente';
 
+/** `null` = todas; `[]` = ninguna; lista = solo esas categorías. */
 export type PronosticosIaFilters = {
   search: string;
-  categoria: string;
+  categorias: string[] | null;
   torneo: string;
   resultado: ResultFilter;
   pickScope: PickScope;
@@ -234,7 +235,10 @@ export function filterPronosticosRows(
   const maxC = f.maxCuota.trim() ? parseFloat(f.maxCuota.replace(',', '.')) : null;
 
   return rows.filter((row) => {
-    if (f.categoria && categoriaKey(row) !== f.categoria) return false;
+    if (f.categorias !== null) {
+      if (f.categorias.length === 0) return false;
+      if (!f.categorias.includes(categoriaKey(row))) return false;
+    }
     if (f.torneo && torneoKey(row) !== f.torneo) return false;
     if (f.resultado !== 'all' && row.resultado_clase !== f.resultado) return false;
 
