@@ -588,3 +588,203 @@ export function computeApuestasSimuladas(
     evTeorico: evN > 0 ? evSum : null,
   };
 }
+
+/** Minuto estimado de cierre (90 + descuento). Conservador: el pick sigue vivo hasta el FT. */
+export const MATCH_SETTLE_MINUTE = 105;
+
+export type PartidoEnPico = {
+  fixtureid: number;
+  label: string;
+  picks: number;
+  apostado: number;
+};
+
+export type CapitalSimultaneo = {
+  pico: number;
+  picoPicks: number;
+  picoPartidos: number;
+  picoAtMs: number | null;
+  picoPartidosDetalle: PartidoEnPico[];
+  peorPartido: PartidoEnPico | null;
+  capitalMedio: number | null;
+  sinHorario: number;
+  conIntervalo: number;
+  capitalAhora: number;
+  picksAhora: number;
+  partidosAhora: number;
+};
+
+function matchLabelOf(row: PronosticoIaRow): string {
+  const local = row.equipo_local || row.teamshomename || '?';
+  const away = row.equipo_visitante || row.teamsawayname || '?';
+  return `${local} vs ${away}`;
+}
+
+function inferOpenMinute(row: PronosticoIaRow): number {
+  const m = runMinuteOf(row);
+  if (m >= 0) return m;
+  const k = String((row as { windowKey?: string | null }).windowKey || '').toLowerCase();
+  if (k.includes('min30') || k === '30') return 30;
+  if (k.includes('ht') || k.includes('half') || k.includes('descanso')) return 45;
+  if (k.includes('min60') || k === '60') return 60;
+  if (k.includes('min75') || k === '75') return 75;
+  if (k.includes('min80') || k === '80') return 80;
+  return 45;
+}
+
+function snapshotPartidos(
+  openByFixture: Map<number, { label: string; n: number }>,
+  stake: number,
+): PartidoEnPico[] {
+  return [...openByFixture.entries()]
+    .map(([fixtureid, v]) => ({
+      fixtureid,
+      label: v.label,
+      picks: v.n,
+      apostado: v.n * stake,
+    }))
+    .sort((a, b) => b.picks - a.picks || a.label.localeCompare(b.label));
+}
+
+/**
+ * Capital bloqueado a la vez: cada pick abre en el minuto del análisis y se liquida al FT.
+ * Varios picks del mismo partido y varios partidos solapados se suman.
+ */
+export function computeCapitalSimultaneo(
+  rows: PronosticoIaRow[],
+  stake: number,
+  nowMs: number = Date.now(),
+): CapitalSimultaneo {
+  const s = Number.isFinite(stake) && stake > 0 ? stake : 0;
+  type Ev = {
+    t: number;
+    delta: number;
+    fixtureid: number;
+    label: string;
+  };
+
+  const events: Ev[] = [];
+  const stackByFixture = new Map<number, PartidoEnPico>();
+  let sinHorario = 0;
+  const nowOpen = new Map<number, { label: string; n: number }>();
+
+  for (const row of rows) {
+    if (parseCuotaDecimal(row) == null) continue;
+    const kickoff = parseFixtureDateMs(row.fixturedate);
+    if (!kickoff) {
+      sinHorario += 1;
+      continue;
+    }
+
+    let openMin = inferOpenMinute(row);
+    if (openMin >= MATCH_SETTLE_MINUTE) openMin = MATCH_SETTLE_MINUTE - 1;
+    const tOpen = kickoff + openMin * 60_000;
+    const tClose = kickoff + MATCH_SETTLE_MINUTE * 60_000;
+    const fixtureid = row.fixtureid;
+    const label = matchLabelOf(row);
+
+    const prev = stackByFixture.get(fixtureid);
+    if (prev) {
+      prev.picks += 1;
+      prev.apostado += s;
+    } else {
+      stackByFixture.set(fixtureid, {
+        fixtureid,
+        label,
+        picks: 1,
+        apostado: s,
+      });
+    }
+
+    events.push({ t: tOpen, delta: 1, fixtureid, label });
+    events.push({ t: tClose, delta: -1, fixtureid, label });
+
+    if (tOpen <= nowMs && nowMs < tClose) {
+      const cur = nowOpen.get(fixtureid);
+      if (cur) cur.n += 1;
+      else nowOpen.set(fixtureid, { label, n: 1 });
+    }
+  }
+
+  const peorPartido =
+    [...stackByFixture.values()].sort((a, b) => b.picks - a.picks || b.apostado - a.apostado)[0] ??
+    null;
+
+  if (events.length === 0) {
+    return {
+      pico: 0,
+      picoPicks: 0,
+      picoPartidos: 0,
+      picoAtMs: null,
+      picoPartidosDetalle: [],
+      peorPartido,
+      capitalMedio: null,
+      sinHorario,
+      conIntervalo: 0,
+      capitalAhora: 0,
+      picksAhora: 0,
+      partidosAhora: 0,
+    };
+  }
+
+  events.sort((a, b) => a.t - b.t || a.delta - b.delta);
+
+  const openByFixture = new Map<number, { label: string; n: number }>();
+  let openPicks = 0;
+  let pico = 0;
+  let picoPicks = 0;
+  let picoAtMs: number | null = null;
+  let picoDetalle: PartidoEnPico[] = [];
+  let weighted = 0;
+  let prevT = events[0].t;
+  const startT = events[0].t;
+  const endT = events[events.length - 1].t;
+
+  let i = 0;
+  while (i < events.length) {
+    const t = events[i].t;
+    if (t > prevT) {
+      weighted += openPicks * s * (t - prevT);
+      prevT = t;
+    }
+    while (i < events.length && events[i].t === t) {
+      const ev = events[i];
+      openPicks += ev.delta;
+      const cur = openByFixture.get(ev.fixtureid);
+      if (ev.delta > 0) {
+        if (cur) cur.n += 1;
+        else openByFixture.set(ev.fixtureid, { label: ev.label, n: 1 });
+      } else if (cur) {
+        cur.n -= 1;
+        if (cur.n <= 0) openByFixture.delete(ev.fixtureid);
+      }
+      i += 1;
+    }
+    const capital = openPicks * s;
+    if (capital > pico) {
+      pico = capital;
+      picoPicks = openPicks;
+      picoAtMs = t;
+      picoDetalle = snapshotPartidos(openByFixture, s);
+    }
+  }
+
+  const span = endT - startT;
+  const nowSnap = snapshotPartidos(nowOpen, s);
+  const picksAhora = nowSnap.reduce((n, p) => n + p.picks, 0);
+
+  return {
+    pico,
+    picoPicks,
+    picoPartidos: picoDetalle.length,
+    picoAtMs,
+    picoPartidosDetalle: picoDetalle,
+    peorPartido,
+    capitalMedio: span > 0 ? weighted / span : null,
+    sinHorario,
+    conIntervalo: events.length / 2,
+    capitalAhora: picksAhora * s,
+    picksAhora,
+    partidosAhora: nowSnap.length,
+  };
+}
