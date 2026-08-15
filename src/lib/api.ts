@@ -21,6 +21,7 @@ import type {
   PreMatchAnalysis,
   PreMatchAnalysisResponse,
   PreMatchPlanResponse,
+  PreMatchRangeJobResponse,
   PronosticoIaRow,
   PronosticosIaResponse,
   PronosticosIaVivoResponse,
@@ -1475,6 +1476,45 @@ export function triggerPreMatchAnalysisManual(fixtureId: number, force = false) 
       method: 'POST',
       body: JSON.stringify({ fixtureId, force }),
     },
+  );
+}
+
+export function fetchPreMatchRangeJob() {
+  return adminFetch<PreMatchRangeJobResponse>('/api/admin/pronosticos-ia/pre-match/range-job');
+}
+
+export async function startPreMatchRangeJob(payload: {
+  desde: string;
+  hasta: string;
+  onlyMissing?: boolean;
+  pauseMs?: number;
+}) {
+  try {
+    return await adminFetch<PreMatchRangeJobResponse>(
+      '/api/admin/pronosticos-ia/pre-match/range-job',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) {
+      const current = await fetchPreMatchRangeJob();
+      return {
+        ok: false,
+        alreadyRunning: true,
+        job: current.job,
+        error: e.message || 'Ya hay una generación masiva de análisis IA en curso',
+      } satisfies PreMatchRangeJobResponse;
+    }
+    throw e;
+  }
+}
+
+export function cancelPreMatchRangeJob() {
+  return adminFetch<PreMatchRangeJobResponse>(
+    '/api/admin/pronosticos-ia/pre-match/range-job/cancel',
+    { method: 'POST' },
   );
 }
 

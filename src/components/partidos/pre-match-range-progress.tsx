@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { PreMatchPlanFixture } from '@/lib/types';
+import type { PreMatchPlanFixture, PreMatchRangeJobFailure } from '@/lib/types';
 import { copyTextToClipboard } from '@/lib/sync-stats-source';
 
 export type PreMatchRangeProgressState = {
@@ -20,6 +20,7 @@ export type PreMatchRangeProgressState = {
   errorMessage?: string | null;
   errorDetail?: string | null;
   errorCopyText?: string | null;
+  failures?: PreMatchRangeJobFailure[];
 };
 
 type Props = {
@@ -29,6 +30,7 @@ type Props = {
   onlyMissing: boolean;
   pauseMs: number;
   onCancel: () => void;
+  onMinimize?: () => void;
 };
 
 export function PreMatchRangeProgressModal({
@@ -38,6 +40,7 @@ export function PreMatchRangeProgressModal({
   onlyMissing,
   pauseMs,
   onCancel,
+  onMinimize,
 }: Props) {
   const [errorCopied, setErrorCopied] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -99,8 +102,10 @@ export function PreMatchRangeProgressModal({
             )}
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Misma espera que el cron (GPT ~15s / Gemini ~25s). Cada partido puede tardar 30–90s en
-            el LLM{progress.llmProvider ? ` · proveedor: ${progress.llmProvider}` : ''}.
+            Corre en el servidor: puedes salir de esta página y el proceso sigue. Al volver verás
+            el resultado o el error. Misma espera que el cron (GPT ~15s / Gemini ~25s). Cada
+            partido puede tardar 30–90s en el LLM
+            {progress.llmProvider ? ` · proveedor: ${progress.llmProvider}` : ''}.
           </p>
         </div>
 
@@ -194,6 +199,21 @@ export function PreMatchRangeProgressModal({
             </div>
           )}
 
+          {progress.failed > 0 && (progress.failures?.length ?? 0) > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                Errores por partido
+              </p>
+              <ul className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-red-500/20 bg-red-500/5 p-3 font-mono text-xs text-red-200/90">
+                {(progress.failures ?? []).map((item) => (
+                  <li key={`${item.fixtureId}-${item.error.slice(0, 24)}`}>
+                    ✗ {item.fixtureId} {item.homeTeam} vs {item.awayTeam} — {item.error}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {progress.phase === 'error' && (
             <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-3">
               <p className="text-sm font-semibold text-red-200">Error al generar</p>
@@ -223,15 +243,26 @@ export function PreMatchRangeProgressModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-white/10 px-5 py-4">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-white/10 px-5 py-4">
           {busy ? (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300 hover:bg-red-500/10"
-            >
-              Cancelar
-            </button>
+            <>
+              {onMinimize && (
+                <button
+                  type="button"
+                  onClick={onMinimize}
+                  className="rounded-lg border border-white/15 px-4 py-2 text-sm text-slate-200 hover:bg-white/5"
+                >
+                  Seguir en segundo plano
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300 hover:bg-red-500/10"
+              >
+                Cancelar
+              </button>
+            </>
           ) : (
             <button
               type="button"

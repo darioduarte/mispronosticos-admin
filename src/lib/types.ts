@@ -430,6 +430,48 @@ export type PreMatchPlanResponse = {
   error?: string;
 };
 
+export type PreMatchRangeJobFailure = {
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  error: string;
+};
+
+export type PreMatchRangeJob = {
+  jobId: string;
+  phase: 'planning' | 'generating' | 'done' | 'cancelled' | 'error';
+  desde: string;
+  hasta: string;
+  onlyMissing: boolean;
+  total: number;
+  current: number;
+  ok: number;
+  skipped: number;
+  failed: number;
+  currentFixture: PreMatchPlanFixture | null;
+  recentLog: string[];
+  isPausing?: boolean;
+  pauseMs?: number;
+  startedAtMs: number;
+  finishedAtMs?: number | null;
+  llmProvider?: string | null;
+  errorMessage?: string | null;
+  errorDetail?: string | null;
+  failures?: PreMatchRangeJobFailure[];
+  heartbeatAtMs?: number;
+  runningInThisProcess?: boolean;
+};
+
+export type PreMatchRangeJobResponse = {
+  ok: boolean;
+  accepted?: boolean;
+  alreadyRunning?: boolean;
+  job: PreMatchRangeJob | null;
+  message?: string;
+  error?: string;
+  cancelling?: boolean;
+};
+
 export type MelbetOddItem = {
   linea?: string;
   betName?: string;

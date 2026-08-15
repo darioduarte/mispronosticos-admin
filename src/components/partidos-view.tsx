@@ -34,16 +34,17 @@ import {
 } from '@/lib/sync-stats-source';
 import { formatCaughtError, toastError, toastSuccess, toastWarning } from '@/lib/admin-toast';
 import {
+  cancelPreMatchRangeJob,
   fetchPartidos,
-  fetchPreMatchPlan,
+  fetchPreMatchRangeJob,
   fetchPromediosRecalcPlan,
   fetchPromediosSampleSyncPlan,
   fetchSyncStatsPlan,
   recalculatePartidoPromedios,
   repairPartidosReferees,
+  startPreMatchRangeJob,
   syncPartidoStats,
   syncPeriodSnapshotTables,
-  triggerPreMatchAnalysisManual,
 } from '@/lib/api';
 import {
   DEFAULT_PARTIDOS_FILTERS,
@@ -52,7 +53,7 @@ import {
   type PartidosClientFilters,
   type PartidosSortMode,
 } from '@/lib/partidos-filters';
-import type { PartidoRow } from '@/lib/types';
+import type { PartidoRow, PreMatchRangeJob } from '@/lib/types';
 
 function defaultDesde() {
   const d = new Date();
@@ -102,6 +103,42 @@ const PREMATCH_PAUSE_OPTIONS = [
   { value: 90000, label: '90 s (tras 429)' },
 ] as const;
 const DEFAULT_PREMATCH_PAUSE_MS = 15000;
+const PREMATCH_JOB_DISMISSED_KEY = 'partidos.preMatchRangeJob.dismissedId';
+
+function isPreMatchJobActive(phase: PreMatchRangeJob['phase'] | undefined) {
+  return phase === 'planning' || phase === 'generating';
+}
+
+function jobToPreMatchProgress(job: PreMatchRangeJob): PreMatchRangeProgressState {
+  return {
+    phase: job.phase,
+    total: job.total,
+    current: job.current,
+    ok: job.ok,
+    skipped: job.skipped,
+    failed: job.failed,
+    currentFixture: job.currentFixture,
+    recentLog: job.recentLog || [],
+    isPausing: job.isPausing,
+    pauseMs: job.pauseMs,
+    startedAtMs: job.startedAtMs,
+    llmProvider: job.llmProvider,
+    errorMessage: job.errorMessage,
+    errorDetail: job.errorDetail,
+    errorCopyText: [
+      'IA prepartido (cola segundo plano)',
+      `Rango: ${job.desde} → ${job.hasta}`,
+      job.errorMessage,
+      job.errorDetail,
+      ...(job.failures || []).map(
+        (f) => `${f.fixtureId} ${f.homeTeam} vs ${f.awayTeam}: ${f.error}`,
+      ),
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    failures: job.failures,
+  };
+}
 
 function readStoredPromediosPauseMs() {
   if (typeof window === 'undefined') return DEFAULT_PROMEDIOS_PAUSE_MS;
@@ -173,10 +210,10 @@ export function PartidosView() {
   const [preMatchPauseMs, setPreMatchPauseMs] = useState(DEFAULT_PREMATCH_PAUSE_MS);
   const [preMatchBusy, setPreMatchBusy] = useState(false);
   const [preMatchMsg, setPreMatchMsg] = useState('');
-  const [preMatchProgress, setPreMatchProgress] = useState<PreMatchRangeProgressState | null>(
-    null,
-  );
-  const preMatchCancelRef = useRef(false);
+  const [preMatchJob, setPreMatchJob] = useState<PreMatchRangeJob | null>(null);
+  const [preMatchModalOpen, setPreMatchModalOpen] = useState(false);
+  const [preMatchDismissedId, setPreMatchDismissedId] = useState<string | null>(null);
+  const preMatchPrevPhaseRef = useRef<PreMatchRangeJob['phase'] | null>(null);
   const [syncRowId, setSyncRowId] = useState<number | null>(null);
   const [repairBusy, setRepairBusy] = useState(false);
   const [repairMsg, setRepairMsg] = useState('');
@@ -220,6 +257,99 @@ export function PartidosView() {
       localStorage.setItem(SYNC_PAUSE_STORAGE_KEY, String(ms));
     }
   }
+
+  function applyPreMatchJob(job: PreMatchRangeJob | null, autoOpen: boolean) {
+    if (!job) {
+      setPreMatchJob(null);
+      setPreMatchBusy(false);
+      return;
+    }
+
+    const active = isPreMatchJobActive(job.phase);
+    const dismissed =
+      typeof window !== 'undefined'
+        ? sessionStorage.getItem(PREMATCH_JOB_DISMISSED_KEY)
+        : null;
+
+    setPreMatchJob(job);
+    setPreMatchBusy(active);
+
+    if (!active) {
+      setPreMatchMsg(
+        `${job.ok} generados${job.skipped ? ` · ${job.skipped} omitido(s)` : ''}${
+          job.failed ? ` · ${job.failed} fallo(s)` : ''
+        }.`,
+      );
+    }
+
+    if (!active && dismissed === job.jobId) {
+      setPreMatchDismissedId(job.jobId);
+      setPreMatchModalOpen(false);
+      return;
+    }
+
+    if (autoOpen) {
+      setPreMatchModalOpen(true);
+    }
+  }
+
+  useEffect(() => {
+    let stopped = false;
+    void (async () => {
+      try {
+        const data = await fetchPreMatchRangeJob();
+        if (stopped) return;
+        applyPreMatchJob(data.job, true);
+      } catch {
+        /* sin job previo */
+      }
+    })();
+    return () => {
+      stopped = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once on mount
+  }, []);
+
+  useEffect(() => {
+    if (!preMatchJob || !isPreMatchJobActive(preMatchJob.phase)) return;
+    const id = window.setInterval(() => {
+      void (async () => {
+        try {
+          const data = await fetchPreMatchRangeJob();
+          applyPreMatchJob(data.job, false);
+        } catch {
+          /* poll silencioso */
+        }
+      })();
+    }, 2000);
+    return () => window.clearInterval(id);
+  }, [preMatchJob?.jobId, preMatchJob?.phase]);
+
+  useEffect(() => {
+    if (!preMatchJob) return;
+    const prev = preMatchPrevPhaseRef.current;
+    preMatchPrevPhaseRef.current = preMatchJob.phase;
+    if (prev == null || (prev !== 'planning' && prev !== 'generating')) return;
+    if (preMatchJob.phase === 'done') {
+      toastSuccess(
+        'IA prepartido (rango)',
+        `${preMatchJob.ok} generados${preMatchJob.skipped ? ` · ${preMatchJob.skipped} omitido(s)` : ''}${
+          preMatchJob.failed ? ` · ${preMatchJob.failed} fallo(s)` : ''
+        }.`,
+      );
+      void queryClient.invalidateQueries({ queryKey: ['partidos'] });
+    } else if (preMatchJob.phase === 'error') {
+      toastError(
+        'IA prepartido (rango)',
+        preMatchJob.errorMessage || 'Error en la generación masiva',
+      );
+    } else if (preMatchJob.phase === 'cancelled') {
+      toastWarning(
+        'IA prepartido (rango)',
+        `Cancelado: ${preMatchJob.ok} OK · ${preMatchJob.skipped} omitido(s) · ${preMatchJob.failed} fallo(s).`,
+      );
+    }
+  }, [preMatchJob, queryClient]);
 
   const query = useQuery({
     queryKey: ['partidos', applied],
@@ -1097,21 +1227,10 @@ export function PartidosView() {
     setSampleSyncProgress(null);
   }
 
-  function looksLikeRateLimit(msg: string) {
-    const m = msg.toLowerCase();
-    return (
-      m.includes('429') ||
-      m.includes('rate limit') ||
-      m.includes('rate_limit') ||
-      m.includes('too many requests') ||
-      m.includes('openai_rate_limit')
-    );
-  }
-
   async function handleGeneratePreMatchRange() {
     if (
       !confirm(
-        `¿Generar análisis IA prepartido del ${applied.desde} al ${applied.hasta}? Se respeta la pausa entre partidos (como el cron GPT). Cada análisis puede tardar 30–90s.`,
+        `¿Generar análisis IA prepartido del ${applied.desde} al ${applied.hasta}? El proceso corre en el servidor: puedes salir de la página y al volver verás el progreso, el resultado o el error.`,
       )
     ) {
       return;
@@ -1119,264 +1238,69 @@ export function PartidosView() {
 
     setPreMatchBusy(true);
     setPreMatchMsg('');
-    preMatchCancelRef.current = false;
-    const startedAtMs = Date.now();
-    let effectivePauseMs = preMatchPauseMs;
-
-    setPreMatchProgress({
-      phase: 'planning',
-      total: 0,
-      current: 0,
-      ok: 0,
-      skipped: 0,
-      failed: 0,
-      currentFixture: null,
-      recentLog: ['Planificando… · pausa tipo cron entre partidos'],
-      pauseMs: effectivePauseMs,
-      startedAtMs,
-    });
+    setPreMatchModalOpen(true);
+    setPreMatchDismissedId(null);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(PREMATCH_JOB_DISMISSED_KEY);
+    }
 
     try {
-      const plan = await fetchPreMatchPlan({
+      const result = await startPreMatchRangeJob({
         desde: applied.desde,
         hasta: applied.hasta,
         onlyMissing: preMatchOnlyMissing,
+        pauseMs: preMatchPauseMs,
       });
 
-      if (!plan.success) {
-        const msg = plan.error || 'No se pudo planificar la generación';
+      if (result.alreadyRunning && result.job) {
+        toastWarning(
+          'IA prepartido (rango)',
+          'Ya hay una generación masiva en curso. Mostrando ese proceso.',
+        );
+        applyPreMatchJob(result.job, true);
+        return;
+      }
+
+      if (!result.job) {
+        const msg = result.error || 'No se pudo encolar la generación';
+        setPreMatchBusy(false);
         setPreMatchMsg(msg);
         toastError('IA prepartido (rango)', msg);
-        setPreMatchProgress({
-          phase: 'error',
-          total: 0,
-          current: 0,
-          ok: 0,
-          skipped: 0,
-          failed: 0,
-          currentFixture: null,
-          recentLog: [`Error de plan: ${msg}`],
-          pauseMs: effectivePauseMs,
-          startedAtMs,
-          errorMessage: msg,
-          errorDetail: null,
-          errorCopyText: `IA prepartido\nRango: ${applied.desde} → ${applied.hasta}\nError: ${msg}`,
-        });
         return;
       }
 
-      if (plan.recommendedPauseMs && plan.recommendedPauseMs > effectivePauseMs) {
-        effectivePauseMs = plan.recommendedPauseMs;
-        setPreMatchPauseMs(effectivePauseMs);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(PREMATCH_PAUSE_STORAGE_KEY, String(effectivePauseMs));
-        }
+      if (result.job.pauseMs && result.job.pauseMs > preMatchPauseMs) {
+        handlePreMatchPauseChange(result.job.pauseMs);
       }
 
-      const fixtures = plan.fixtures ?? [];
-      if (!fixtures.length) {
-        const msg = preMatchOnlyMissing
-          ? 'No hay partidos destacados sin análisis (o incompletos) en ese rango.'
-          : 'No hay partidos destacados en ese rango.';
-        setPreMatchMsg(msg);
-        toastWarning('IA prepartido (rango)', msg);
-        setPreMatchProgress({
-          phase: 'done',
-          total: 0,
-          current: 0,
-          ok: 0,
-          skipped: 0,
-          failed: 0,
-          currentFixture: null,
-          recentLog: [msg],
-          pauseMs: effectivePauseMs,
-          startedAtMs,
-          llmProvider: plan.llmProvider ?? null,
-        });
-        return;
-      }
-
-      let ok = 0;
-      let skipped = 0;
-      let failed = 0;
-      const recentLog: string[] = [
-        `Plan: ${fixtures.length} partido(s)` +
-          (plan.pauseNote ? ` · ${plan.pauseNote}` : ''),
-      ];
-
-      const progressBase = () => ({
-        total: fixtures.length,
-        pauseMs: effectivePauseMs,
-        startedAtMs,
-        llmProvider: plan.llmProvider ?? null,
-      });
-
-      setPreMatchProgress({
-        phase: 'generating',
-        current: 0,
-        ok: 0,
-        skipped: 0,
-        failed: 0,
-        currentFixture: fixtures[0] ?? null,
-        recentLog: recentLog.slice(-12),
-        ...progressBase(),
-      });
-
-      for (let i = 0; i < fixtures.length; i += 1) {
-        if (preMatchCancelRef.current) {
-          setPreMatchProgress({
-            phase: 'cancelled',
-            current: i,
-            ok,
-            skipped,
-            failed,
-            currentFixture: fixtures[i] ?? null,
-            recentLog: recentLog.slice(-12),
-            isPausing: false,
-            ...progressBase(),
-          });
-          setPreMatchMsg(`Cancelado: ${ok} OK · ${skipped} omitido(s) · ${failed} fallo(s).`);
-          break;
-        }
-
-        const fx = fixtures[i];
-        const force = !preMatchOnlyMissing || fx.needsForce;
-        setPreMatchProgress({
-          phase: 'generating',
-          current: i,
-          ok,
-          skipped,
-          failed,
-          currentFixture: fx,
-          recentLog: recentLog.slice(-12),
-          isPausing: false,
-          ...progressBase(),
-        });
-
-        let didSkip = false;
-        try {
-          const result = await triggerPreMatchAnalysisManual(fx.fixtureId, force);
-          if (result.skipped) {
-            didSkip = true;
-            skipped += 1;
-            recentLog.push(
-              `○ ${fx.fixtureId} omitido · ${fx.homeTeam} vs ${fx.awayTeam}`,
-            );
-          } else if (!result.ok) {
-            failed += 1;
-            const err = result.message || result.error || result.reason || 'error';
-            recentLog.push(
-              `✗ ${fx.fixtureId} ${fx.homeTeam} vs ${fx.awayTeam} — ${err}`,
-            );
-            if (looksLikeRateLimit(err)) {
-              effectivePauseMs = Math.min(90000, effectivePauseMs + 15000);
-              recentLog.push(
-                `⏳ Rate limit: pausa aumentada a ${effectivePauseMs / 1000}s`,
-              );
-            }
-          } else {
-            ok += 1;
-            recentLog.push(
-              `✓ ${fx.fixtureId} ${result.published ?? 0} picks · ${fx.homeTeam} vs ${fx.awayTeam}`,
-            );
-          }
-        } catch (e) {
-          failed += 1;
-          const err = (e as Error).message || String(e);
-          recentLog.push(
-            `✗ ${fx.fixtureId} ${fx.homeTeam} vs ${fx.awayTeam} — ${err}`,
-          );
-          if (looksLikeRateLimit(err)) {
-            effectivePauseMs = Math.min(90000, effectivePauseMs + 15000);
-            recentLog.push(
-              `⏳ Rate limit: pausa aumentada a ${effectivePauseMs / 1000}s`,
-            );
-          }
-        }
-
-        setPreMatchProgress({
-          phase: 'generating',
-          current: i + 1,
-          ok,
-          skipped,
-          failed,
-          currentFixture: fixtures[i + 1] ?? null,
-          recentLog: recentLog.slice(-12),
-          isPausing: false,
-          ...progressBase(),
-        });
-
-        // Como el cron: no pausar tras omitidos (already_exists)
-        if (
-          i < fixtures.length - 1 &&
-          effectivePauseMs > 0 &&
-          !didSkip &&
-          !preMatchCancelRef.current
-        ) {
-          setPreMatchProgress({
-            phase: 'generating',
-            current: i + 1,
-            ok,
-            skipped,
-            failed,
-            currentFixture: fixtures[i + 1] ?? null,
-            recentLog: recentLog.slice(-12),
-            isPausing: true,
-            ...progressBase(),
-          });
-          await sleepCancellable(effectivePauseMs, preMatchCancelRef);
-        }
-      }
-
-      if (!preMatchCancelRef.current) {
-        setPreMatchProgress({
-          phase: 'done',
-          current: fixtures.length,
-          ok,
-          skipped,
-          failed,
-          currentFixture: null,
-          recentLog: recentLog.slice(-12),
-          isPausing: false,
-          ...progressBase(),
-        });
-        setPreMatchMsg(
-          `${ok} generados${skipped ? ` · ${skipped} omitido(s)` : ''}${failed ? ` · ${failed} fallo(s)` : ''}.`,
-        );
-      }
+      applyPreMatchJob(result.job, true);
+      toastSuccess(
+        'IA prepartido (rango)',
+        'Generación encolada en segundo plano. Puedes salir de esta página.',
+      );
     } catch (e) {
       const formatted = formatCaughtError(e);
+      setPreMatchBusy(false);
       setPreMatchMsg(formatted.message);
       toastError('IA prepartido (rango)', e);
-      setPreMatchProgress({
-        phase: 'error',
-        total: 0,
-        current: 0,
-        ok: 0,
-        skipped: 0,
-        failed: 0,
-        currentFixture: null,
-        recentLog: [`✗ ${formatted.message}`],
-        pauseMs: effectivePauseMs,
-        startedAtMs,
-        errorMessage: formatted.message,
-        errorDetail: formatted.detail,
-        errorCopyText: `IA prepartido\nRango: ${applied.desde} → ${applied.hasta}\n${formatted.copyText}`,
-      });
-    } finally {
-      setPreMatchBusy(false);
     }
   }
 
-  function handlePreMatchProgressCancel() {
-    if (
-      preMatchProgress?.phase === 'planning' ||
-      preMatchProgress?.phase === 'generating'
-    ) {
-      preMatchCancelRef.current = true;
+  async function handlePreMatchProgressCancel() {
+    if (isPreMatchJobActive(preMatchJob?.phase)) {
+      try {
+        const result = await cancelPreMatchRangeJob();
+        if (result.job) applyPreMatchJob(result.job, true);
+      } catch (e) {
+        toastError('IA prepartido (rango)', e);
+      }
       return;
     }
-    setPreMatchProgress(null);
+    if (preMatchJob?.jobId && typeof window !== 'undefined') {
+      sessionStorage.setItem(PREMATCH_JOB_DISMISSED_KEY, preMatchJob.jobId);
+      setPreMatchDismissedId(preMatchJob.jobId);
+    }
+    setPreMatchModalOpen(false);
   }
 
   async function handleSyncOne(fixtureId: number) {
@@ -1484,6 +1408,40 @@ export function PartidosView() {
           {' '}con nombres canónicos en BD. Marcador y árbitro siguen en API-Football.
         </p>
       </header>
+
+      {preMatchJob && !preMatchModalOpen && preMatchDismissedId !== preMatchJob.jobId && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-indigo-100">
+              {isPreMatchJobActive(preMatchJob.phase)
+                ? 'Análisis IA prepartido en segundo plano'
+                : preMatchJob.phase === 'done'
+                  ? 'Análisis IA prepartido finalizado'
+                  : preMatchJob.phase === 'error'
+                    ? 'Análisis IA prepartido con error'
+                    : 'Análisis IA prepartido cancelado'}
+            </p>
+            <p className="mt-0.5 text-xs text-indigo-200/70">
+              {preMatchJob.desde} → {preMatchJob.hasta}
+              {preMatchJob.total > 0
+                ? ` · ${preMatchJob.current} de ${preMatchJob.total}`
+                : ''}
+              {` · ${preMatchJob.ok} OK`}
+              {preMatchJob.failed ? ` · ${preMatchJob.failed} fallo(s)` : ''}
+              {preMatchJob.phase === 'error' && preMatchJob.errorMessage
+                ? ` · ${preMatchJob.errorMessage}`
+                : ''}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPreMatchModalOpen(true)}
+            className="rounded-lg bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-600"
+          >
+            Ver detalle
+          </button>
+        </div>
+      )}
 
       {/* Filtros servidor */}
       <section className="mb-4 rounded-xl border border-white/10 bg-[#111827]/80 p-3 sm:p-4">
@@ -1647,8 +1605,9 @@ export function PartidosView() {
 
         <div className="mt-4 border-t border-white/10 pt-4">
           <p className="mb-2 text-xs text-slate-500">
-            Generar análisis IA prepartido del rango (ligas destacadas). Respeta la pausa del cron
-            entre partidos (GPT ~15s / Gemini ~25s) y muestra progreso partido a partido. Cada
+            Generar análisis IA prepartido del rango (ligas destacadas) en segundo plano. Puedes
+            salir de esta página: el servidor sigue y al volver verás el progreso, el resultado o
+            el error. Respeta la pausa del cron entre partidos (GPT ~15s / Gemini ~25s). Cada
             llamada al LLM puede tardar 30–90s.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
@@ -1682,8 +1641,17 @@ export function PartidosView() {
               disabled={preMatchBusy || syncBusy || promediosBusy || sampleSyncBusy}
               className="w-full rounded-lg bg-indigo-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50 sm:w-auto"
             >
-              {preMatchBusy ? 'Generando IA prepartido…' : 'Generar IA prepartido (rango)'}
+              {preMatchBusy ? 'Generando IA en segundo plano…' : 'Generar IA prepartido (rango)'}
             </button>
+            {preMatchJob && !preMatchModalOpen && preMatchDismissedId !== preMatchJob.jobId && (
+              <button
+                type="button"
+                onClick={() => setPreMatchModalOpen(true)}
+                className="w-full rounded-lg border border-indigo-500/40 px-4 py-2.5 text-sm text-indigo-200 hover:bg-indigo-500/10 sm:w-auto"
+              >
+                Ver progreso IA
+              </button>
+            )}
             {preMatchMsg && <span className="text-xs text-indigo-300">{preMatchMsg}</span>}
           </div>
         </div>
@@ -2097,14 +2065,15 @@ export function PartidosView() {
           onCancel={handleSampleSyncProgressCancel}
         />
       )}
-      {preMatchProgress && (
+      {preMatchModalOpen && preMatchJob && (
         <PreMatchRangeProgressModal
-          progress={preMatchProgress}
-          desde={applied.desde}
-          hasta={applied.hasta}
-          onlyMissing={preMatchOnlyMissing}
-          pauseMs={preMatchPauseMs}
+          progress={jobToPreMatchProgress(preMatchJob)}
+          desde={preMatchJob.desde}
+          hasta={preMatchJob.hasta}
+          onlyMissing={preMatchJob.onlyMissing}
+          pauseMs={preMatchJob.pauseMs ?? preMatchPauseMs}
           onCancel={handlePreMatchProgressCancel}
+          onMinimize={() => setPreMatchModalOpen(false)}
         />
       )}
     </div>
