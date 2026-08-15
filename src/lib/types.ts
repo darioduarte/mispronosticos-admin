@@ -199,6 +199,33 @@ export type ErroresCuotaIaResponse = {
   message?: string;
 };
 
+export type CorregirCuotaErrorItem = {
+  error_id: string;
+  fuente: 'prepartido' | 'vivo';
+};
+
+export type CorregirCuotaErrorResult = {
+  ok: boolean;
+  changed?: boolean;
+  fuente?: 'prepartido' | 'vivo';
+  error_id?: string;
+  fromCuota?: number | null;
+  toCuota?: number | null;
+  pImp?: number | null;
+  belowThreshold?: boolean;
+  message?: string;
+  error?: string;
+};
+
+export type CorregirCuotaErrorResponse = {
+  success: boolean;
+  changed: number;
+  failed: number;
+  total: number;
+  results: CorregirCuotaErrorResult[];
+  error?: string;
+};
+
 export type CuotasMomentoResponse = {
   success: boolean;
   fuente: 'prepartido' | 'vivo';
@@ -452,6 +479,40 @@ export type ComparadorResponse = {
 export type OddsReferenciaResponse = {
   success: boolean;
   odds?: Record<string, MelbetOddItem[] | unknown>;
+  error?: string;
+};
+
+export type PrematchOddsResponse = {
+  success: boolean;
+  fixtureId?: number;
+  homeTeam?: string | null;
+  awayTeam?: string | null;
+  status?: string | null;
+  hasOdds?: boolean;
+  hasMelbetOdds?: boolean;
+  oddsBlock?: string;
+  melbetOddsBlock?: string;
+  odds?: Record<string, MelbetOddItem[] | unknown>;
+  melbet?: {
+    matched?: boolean;
+    hasOdds?: boolean;
+    oddsBlock?: string;
+    melbetSportEventId?: number | string | null;
+    opponent1?: string | null;
+    opponent2?: string | null;
+    oddsStructured?: MelbetOddsStructured | null;
+    odds?: unknown;
+    reason?: string | null;
+    conclusion?: string | null;
+    debugMarketSummary?: unknown;
+    link?: string | null;
+    debug?: unknown;
+    error?: unknown;
+  };
+  endpoints?: {
+    oddsReferencia?: string;
+    melbetByFixture?: string;
+  };
   error?: string;
 };
 

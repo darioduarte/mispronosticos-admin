@@ -13,6 +13,7 @@ import type {
   H2HSyncStatsResponse,
   MelbetOddsResponse,
   OddsReferenciaResponse,
+  PrematchOddsResponse,
   PartidosResponse,
   PromptResponse,
   LiveOddsResponse,
@@ -26,6 +27,8 @@ import type {
   ErrorCuotaIaFuente,
   ErroresCuotaIaResponse,
   CuotasMomentoResponse,
+  CorregirCuotaErrorItem,
+  CorregirCuotaErrorResponse,
   RefereeHistoryResponse,
   RefereeSearchResponse,
   RepairRefereesResponse,
@@ -574,6 +577,16 @@ export function fetchErroresCuotaIa(
   );
 }
 
+export function corregirErroresCuota(items: CorregirCuotaErrorItem[]) {
+  return adminFetch<CorregirCuotaErrorResponse>(
+    '/api/admin/pronosticos-ia/errores-cuota/corregir',
+    {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    },
+  );
+}
+
 export function fetchCuotasMomento(params: {
   fuente: 'prepartido' | 'vivo';
   fixtureId: number;
@@ -727,6 +740,12 @@ export function syncPeriodSnapshotTables() {
 
 export function fetchLiveOdds(fixtureId: number) {
   return adminFetch<LiveOddsResponse>(`/api/admin/pronosticos-ia/live-odds/${fixtureId}`);
+}
+
+export function fetchPrematchOdds(fixtureId: number) {
+  return adminFetch<PrematchOddsResponse>(
+    `/api/admin/pronosticos-ia/prematch-odds/${fixtureId}`,
+  );
 }
 
 export function fetchOddsReferencia(fixtureId: number) {

@@ -1,9 +1,10 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { CuotasMomentoModal } from '@/components/pronosticos-ia/cuotas-momento-modal';
-import { fetchErroresCuotaIa } from '@/lib/api';
+import { corregirErroresCuota, fetchErroresCuotaIa } from '@/lib/api';
+import { isCuotaSospechosa } from '@/lib/live-odds-match';
 import { formatFixtureFechaHora, parseFixtureDateMs } from '@/lib/pronosticos-ia-stats';
 import type { ErrorCuotaIaFuente, ErrorCuotaIaRow } from '@/lib/types';
 
@@ -365,6 +366,7 @@ function pct(n: number | null | undefined) {
 }
 
 export function ErroresCuotaIaView() {
+  const queryClient = useQueryClient();
   const [desde, setDesde] = useState(defaultDesde());
   const [hasta, setHasta] = useState(defaultHasta());
   const [fuente, setFuente] = useState<ErrorCuotaIaFuente>('ambos');
@@ -405,6 +407,25 @@ export function ErroresCuotaIaView() {
   const filtered = useMemo(() => {
     return sortErroresRows(filterErroresRows(rows, filters), sortMode);
   }, [rows, filters, sortMode]);
+
+  const sospechosas = useMemo(() => filtered.filter(isCuotaSospechosa), [filtered]);
+
+  const correctMutation = useMutation({
+    mutationFn: (items: { error_id: string; fuente: 'prepartido' | 'vivo' }[]) =>
+      corregirErroresCuota(items),
+    onSuccess: async (res) => {
+      await queryClient.invalidateQueries({ queryKey: ['errores-cuota-ia'] });
+      const parts = [
+        res.changed ? `${res.changed} corregida(s)` : null,
+        res.failed ? `${res.failed} sin corregir` : null,
+        !res.changed && !res.failed ? 'Nada que cambiar' : null,
+      ].filter(Boolean);
+      window.alert(parts.join(' · ') || 'Listo');
+    },
+    onError: (err) => {
+      window.alert((err as Error).message || 'No se pudieron corregir las cuotas');
+    },
+  });
 
   const indicators = useMemo(() => {
     const ac = filtered.filter((r) => r.resultado_clase === 'acertado').length;
@@ -453,13 +474,38 @@ export function ErroresCuotaIaView() {
             probabilidad real estimada (prepartido y en vivo).
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setStatsOpen((v) => !v)}
-          className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-slate-300 hover:bg-white/5 sm:w-auto"
-        >
-          {statsOpen ? 'Ocultar indicadores' : 'Mostrar indicadores'}
-        </button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          {sospechosas.length > 0 ? (
+            <button
+              type="button"
+              disabled={correctMutation.isPending}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    `¿Corregir ${sospechosas.length} cuota(s) altas/sospechosas con la del prompt (Over/Under correcto)?`,
+                  )
+                ) {
+                  return;
+                }
+                correctMutation.mutate(
+                  sospechosas.map((r) => ({ error_id: r.error_id, fuente: r.fuente })),
+                );
+              }}
+              className="w-full rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2.5 text-sm font-medium text-amber-100 hover:bg-amber-500/25 disabled:opacity-50 sm:w-auto"
+            >
+              {correctMutation.isPending
+                ? 'Corrigiendo…'
+                : `Corregir ${sospechosas.length} cuota(s) alta(s)`}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setStatsOpen((v) => !v)}
+            className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-slate-300 hover:bg-white/5 sm:w-auto"
+          >
+            {statsOpen ? 'Ocultar indicadores' : 'Mostrar indicadores'}
+          </button>
+        </div>
       </header>
 
       <section className="mb-4 rounded-xl border border-white/10 bg-[#151b24] p-3 sm:mb-6 sm:p-4">
@@ -735,7 +781,11 @@ export function ErroresCuotaIaView() {
                 <ErrorRow
                   key={`${row.fuente}-${row.error_id}`}
                   row={row}
+                  correcting={correctMutation.isPending}
                   onCuotas={() => setCuotasRow(row)}
+                  onCorregir={() =>
+                    correctMutation.mutate([{ error_id: row.error_id, fuente: row.fuente }])
+                  }
                 />
               ))}
             </tbody>
@@ -768,13 +818,22 @@ function StatCard({
 
 function ErrorRow({
   row,
+  correcting,
   onCuotas,
+  onCorregir,
 }: {
   row: ErrorCuotaIaRow;
+  correcting?: boolean;
   onCuotas: () => void;
+  onCorregir: () => void;
 }) {
+  const sospechosa = isCuotaSospechosa(row);
   return (
-    <tr className="border-t border-white/5 align-top hover:bg-white/[0.03]">
+    <tr
+      className={`border-t border-white/5 align-top hover:bg-white/[0.03] ${
+        sospechosa ? 'bg-red-500/[0.07]' : ''
+      }`}
+    >
       <td className="whitespace-nowrap px-3 py-3">
         <div className="text-slate-200">{formatFixtureFechaHora(row)}</div>
         <div className="mt-0.5 text-xs text-slate-500">
@@ -810,7 +869,14 @@ function ErrorRow({
         ) : null}
       </td>
       <td className="px-3 py-3 text-right tabular-nums text-slate-200">
-        {row.cuota_casa_display}
+        <div className={sospechosa ? 'font-semibold text-red-300' : ''}>
+          {row.cuota_casa_display}
+        </div>
+        {sospechosa ? (
+          <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-red-300">
+            cuota invertida?
+          </div>
+        ) : null}
       </td>
       <td className="whitespace-nowrap px-3 py-3 text-sky-300/90">{row.bookmaker_display}</td>
       <td className="px-3 py-3 text-right tabular-nums text-slate-300">
@@ -843,13 +909,27 @@ function ErrorRow({
         {row.explicacion || '—'}
       </td>
       <td className="whitespace-nowrap px-3 py-3">
-        <button
-          type="button"
-          onClick={onCuotas}
-          className="rounded border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:border-indigo-500/40 hover:text-indigo-300"
-        >
-          {row.fuente === 'vivo' ? 'Cuotas live' : 'Cuotas pre'}
-        </button>
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={onCuotas}
+            className="rounded border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:border-indigo-500/40 hover:text-indigo-300"
+          >
+            {row.fuente === 'vivo' ? 'Cuotas live' : 'Cuotas pre'}
+          </button>
+          <button
+            type="button"
+            disabled={correcting}
+            onClick={onCorregir}
+            className={`rounded px-2.5 py-1 text-xs disabled:opacity-50 ${
+              sospechosa
+                ? 'border border-amber-400/50 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30'
+                : 'border border-white/10 text-slate-400 hover:border-amber-400/40 hover:text-amber-200'
+            }`}
+          >
+            Corregir
+          </button>
+        </div>
       </td>
     </tr>
   );

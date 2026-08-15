@@ -25,6 +25,7 @@ import {
 } from '@/components/partidos/sync-range-progress';
 import { PreMatchAnalysisModal } from '@/components/partidos/pre-match-analysis-modal';
 import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
+import { PrematchOddsModal } from '@/components/pronosticos-ia/prematch-odds-modal';
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
 import {
   appendToBreakdown,
@@ -184,6 +185,9 @@ export function PartidosView() {
   const [estimadasModal, setEstimadasModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [refereeModal, setRefereeModal] = useState<RowModal | null>(null);
   const [liveOddsModal, setLiveOddsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
+  const [prematchOddsModal, setPrematchOddsModal] = useState<Omit<RowModal, 'referee'> | null>(
+    null,
+  );
   const [preMatchModal, setPreMatchModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [promptModal, setPromptModal] = useState<
     (Omit<RowModal, 'referee'> & { kind: PromptKind }) | null
@@ -1883,6 +1887,12 @@ export function PartidosView() {
                     label: matchLabel(row),
                   })
                 }
+                onPrematchOdds={() =>
+                  setPrematchOddsModal({
+                    fixtureId: row.fixtureid,
+                    label: matchLabel(row),
+                  })
+                }
                 onPreMatch={() =>
                   setPreMatchModal({
                     fixtureId: row.fixtureid,
@@ -1961,6 +1971,12 @@ export function PartidosView() {
                         label: matchLabel(row),
                       })
                     }
+                    onPrematchOdds={() =>
+                      setPrematchOddsModal({
+                        fixtureId: row.fixtureid,
+                        label: matchLabel(row),
+                      })
+                    }
                     onPreMatch={() =>
                       setPreMatchModal({
                         fixtureId: row.fixtureid,
@@ -2028,6 +2044,13 @@ export function PartidosView() {
           fixtureId={liveOddsModal.fixtureId}
           matchLabel={liveOddsModal.label}
           onClose={() => setLiveOddsModal(null)}
+        />
+      )}
+      {prematchOddsModal && (
+        <PrematchOddsModal
+          fixtureId={prematchOddsModal.fixtureId}
+          matchLabel={prematchOddsModal.label}
+          onClose={() => setPrematchOddsModal(null)}
         />
       )}
       {preMatchModal && (
@@ -2100,6 +2123,7 @@ function PartidoMobileCard({
   onEstimadas,
   onReferee,
   onLiveOdds,
+  onPrematchOdds,
   onPreMatch,
   onLivePromptV2,
   onSyncFlb,
@@ -2113,6 +2137,7 @@ function PartidoMobileCard({
   onEstimadas: () => void;
   onReferee: () => void;
   onLiveOdds: () => void;
+  onPrematchOdds: () => void;
   onPreMatch: () => void;
   onLivePromptV2: () => void;
   onSyncFlb: () => void;
@@ -2163,6 +2188,7 @@ function PartidoMobileCard({
         <ActionBtn label="Est. estimadas" onClick={onEstimadas} />
         <ActionBtn label="Árbitro" onClick={onReferee} />
         <ActionBtn label="IA pre" onClick={onPreMatch} />
+        <ActionBtn label="Cuotas pre" onClick={onPrematchOdds} />
         <ActionBtn label="Prompt V2" onClick={onLivePromptV2} />
         {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
         <Link
@@ -2203,6 +2229,7 @@ function PartidoTableRow({
   onEstimadas,
   onReferee,
   onLiveOdds,
+  onPrematchOdds,
   onPreMatch,
   onLivePromptV2,
   onSyncFlb,
@@ -2216,6 +2243,7 @@ function PartidoTableRow({
   onEstimadas: () => void;
   onReferee: () => void;
   onLiveOdds: () => void;
+  onPrematchOdds: () => void;
   onPreMatch: () => void;
   onLivePromptV2: () => void;
   onSyncFlb: () => void;
@@ -2269,6 +2297,7 @@ function PartidoTableRow({
           <ActionBtn label="Est. estimadas" onClick={onEstimadas} />
           <ActionBtn label="Árbitro" onClick={onReferee} />
           <ActionBtn label="IA pre" onClick={onPreMatch} />
+          <ActionBtn label="Cuotas pre" onClick={onPrematchOdds} />
           <ActionBtn label="Prompt V2" onClick={onLivePromptV2} />
           {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
           <Link

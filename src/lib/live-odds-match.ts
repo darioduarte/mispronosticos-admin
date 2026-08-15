@@ -21,6 +21,27 @@ export function normalizeOddsText(s: string): string {
     .trim();
 }
 
+export function isCuotaSospechosa(row: {
+  tipo?: string | null;
+  categoria_normalizada?: string | null;
+  cuota_casa?: string | number | null;
+  cuota_casa_display?: string | null;
+}): boolean {
+  const cuota = parseFloat(
+    String(row.cuota_casa ?? row.cuota_casa_display ?? '')
+      .replace(',', '.')
+      .replace(/[^\d.+-]/g, ''),
+  );
+  if (!Number.isFinite(cuota)) return false;
+  const t = normalizeOddsText(`${row.tipo || ''} ${row.categoria_normalizada || ''}`);
+  const isUnder = /\b(menos|under)\b/.test(t);
+  const isOver = /\b(mas|over)\b/.test(t);
+  if (isUnder && cuota >= 4) return true;
+  if (isOver && cuota <= 1.08) return true;
+  if (cuota >= 8) return true;
+  return false;
+}
+
 export function inferTipoSide(tipo: string | null | undefined): LiveOddSide | null {
   const t = normalizeOddsText(tipo || '');
   if (/\b(menos|under)\b/.test(t)) return 'under';
