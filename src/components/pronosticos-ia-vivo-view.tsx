@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import { LiveAnalysisModal } from '@/components/pronosticos-ia/live-analysis-modal';
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
+import { LiveNowJobPanel } from '@/components/pronosticos-ia/live-now-job-panel';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
 import { ApuestasSimuladasPanel } from '@/components/pronosticos-ia/apuestas-simuladas-panel';
 import { CategoriaChecklist } from '@/components/pronosticos-ia/categoria-checklist';
@@ -243,6 +244,12 @@ export function PronosticosIaVivoView() {
           </button>
         </form>
       </section>
+
+      <LiveNowJobPanel
+        onFinished={() => {
+          void queryClient.invalidateQueries({ queryKey: ['pronosticos-ia-vivo'] });
+        }}
+      />
 
       {query.isLoading && <p className="text-sm text-slate-400">Cargando pronósticos en vivo...</p>}
       {query.isError && (

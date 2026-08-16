@@ -22,6 +22,8 @@ import type {
   PreMatchAnalysisResponse,
   PreMatchPlanResponse,
   PreMatchRangeJobResponse,
+  LiveNowPlanResponse,
+  LiveNowJobResponse,
   PronosticoIaRow,
   PronosticosIaResponse,
   PronosticosIaVivoResponse,
@@ -1514,6 +1516,44 @@ export async function startPreMatchRangeJob(payload: {
 export function cancelPreMatchRangeJob() {
   return adminFetch<PreMatchRangeJobResponse>(
     '/api/admin/pronosticos-ia/pre-match/range-job/cancel',
+    { method: 'POST' },
+  );
+}
+
+export function fetchLiveNowPlan() {
+  return adminFetch<LiveNowPlanResponse>('/api/admin/pronosticos-ia/live-now/plan');
+}
+
+export function fetchLiveNowJob() {
+  return adminFetch<LiveNowJobResponse>('/api/admin/pronosticos-ia/live-now/range-job');
+}
+
+export async function startLiveNowJob(payload: { pauseMs?: number } = {}) {
+  try {
+    return await adminFetch<LiveNowJobResponse>(
+      '/api/admin/pronosticos-ia/live-now/range-job',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) {
+      const current = await fetchLiveNowJob();
+      return {
+        ok: false,
+        alreadyRunning: true,
+        job: current.job,
+        error: e.message || 'Ya hay una generación masiva de análisis IA en vivo en curso',
+      } satisfies LiveNowJobResponse;
+    }
+    throw e;
+  }
+}
+
+export function cancelLiveNowJob() {
+  return adminFetch<LiveNowJobResponse>(
+    '/api/admin/pronosticos-ia/live-now/range-job/cancel',
     { method: 'POST' },
   );
 }

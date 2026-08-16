@@ -472,6 +472,69 @@ export type PreMatchRangeJobResponse = {
   cancelling?: boolean;
 };
 
+export type LiveNowPlanFixture = {
+  fixtureId: number;
+  date: string;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  status: string;
+  minute: number | null;
+  statusLabel: string;
+  scoreHome: number | null;
+  scoreAway: number | null;
+};
+
+export type LiveNowPlanResponse = {
+  success: boolean;
+  date?: string;
+  total?: number;
+  fixtures?: LiveNowPlanFixture[];
+  llmProvider?: string;
+  recommendedPauseMs?: number;
+  pauseNote?: string;
+  error?: string;
+};
+
+export type LiveNowJobFailure = {
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  error: string;
+};
+
+export type LiveNowJob = {
+  jobId: string;
+  phase: 'planning' | 'generating' | 'done' | 'cancelled' | 'error';
+  total: number;
+  current: number;
+  ok: number;
+  skipped: number;
+  failed: number;
+  currentFixture: LiveNowPlanFixture | null;
+  recentLog: string[];
+  isPausing?: boolean;
+  pauseMs?: number;
+  startedAtMs: number;
+  finishedAtMs?: number | null;
+  llmProvider?: string | null;
+  errorMessage?: string | null;
+  errorDetail?: string | null;
+  failures?: LiveNowJobFailure[];
+  heartbeatAtMs?: number;
+  runningInThisProcess?: boolean;
+};
+
+export type LiveNowJobResponse = {
+  ok: boolean;
+  accepted?: boolean;
+  alreadyRunning?: boolean;
+  job: LiveNowJob | null;
+  message?: string;
+  error?: string;
+  cancelling?: boolean;
+};
+
 export type MelbetOddItem = {
   linea?: string;
   betName?: string;

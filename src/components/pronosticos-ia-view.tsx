@@ -10,6 +10,7 @@ import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import { LiveAnalysisModal } from '@/components/pronosticos-ia/live-analysis-modal';
 import { OddsReferenciaModal } from '@/components/pronosticos-ia/odds-referencia-modal';
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
+import { LiveNowJobPanel } from '@/components/pronosticos-ia/live-now-job-panel';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
 import { CategoriaChecklist } from '@/components/pronosticos-ia/categoria-checklist';
 import {
@@ -291,6 +292,12 @@ export function PronosticosIaView() {
           {cacheMsg && <span className="text-xs text-amber-300">{cacheMsg}</span>}
         </div>
       </section>
+
+      <LiveNowJobPanel
+        onFinished={() => {
+          void queryClient.invalidateQueries({ queryKey: ['pronosticos-ia'] });
+        }}
+      />
 
       {query.isLoading && <p className="text-sm text-slate-400">Cargando pronósticos…</p>}
       {query.isError && (
