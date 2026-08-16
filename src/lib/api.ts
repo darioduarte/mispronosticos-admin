@@ -1513,11 +1513,40 @@ export async function startPreMatchRangeJob(payload: {
   }
 }
 
-export function cancelPreMatchRangeJob() {
-  return adminFetch<PreMatchRangeJobResponse>(
-    '/api/admin/pronosticos-ia/pre-match/range-job/cancel',
-    { method: 'POST' },
-  );
+export async function cancelPreMatchRangeJob() {
+  try {
+    return await adminFetch<PreMatchRangeJobResponse>(
+      '/api/admin/pronosticos-ia/pre-match/range-job/cancel',
+      { method: 'POST' },
+    );
+  } catch (e) {
+    // Si el backend está ocupado con GPT, el fetch puede fallar; el flag de
+    // cancelación en Redis igual puede haberse escrito — reintentar 1 vez y
+    // devolver el estado actual del job.
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      await new Promise((r) => setTimeout(r, 800));
+      try {
+        return await adminFetch<PreMatchRangeJobResponse>(
+          '/api/admin/pronosticos-ia/pre-match/range-job/cancel',
+          { method: 'POST' },
+        );
+      } catch {
+        const current = await fetchPreMatchRangeJob().catch(() => null);
+        if (current?.job) {
+          return {
+            ok: true,
+            cancelling: true,
+            job: current.job,
+            error:
+              'No hubo respuesta del servidor al cancelar; si el job sigue, espera a que termine el partido actual o reintenta.',
+          } satisfies PreMatchRangeJobResponse;
+        }
+        throw e;
+      }
+    }
+    throw e;
+  }
 }
 
 export function fetchLiveNowPlan() {
@@ -1551,11 +1580,37 @@ export async function startLiveNowJob(payload: { pauseMs?: number } = {}) {
   }
 }
 
-export function cancelLiveNowJob() {
-  return adminFetch<LiveNowJobResponse>(
-    '/api/admin/pronosticos-ia/live-now/range-job/cancel',
-    { method: 'POST' },
-  );
+export async function cancelLiveNowJob() {
+  try {
+    return await adminFetch<LiveNowJobResponse>(
+      '/api/admin/pronosticos-ia/live-now/range-job/cancel',
+      { method: 'POST' },
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      await new Promise((r) => setTimeout(r, 800));
+      try {
+        return await adminFetch<LiveNowJobResponse>(
+          '/api/admin/pronosticos-ia/live-now/range-job/cancel',
+          { method: 'POST' },
+        );
+      } catch {
+        const current = await fetchLiveNowJob().catch(() => null);
+        if (current?.job) {
+          return {
+            ok: true,
+            cancelling: true,
+            job: current.job,
+            error:
+              'No hubo respuesta del servidor al cancelar; si el job sigue, espera a que termine el partido actual o reintenta.',
+          } satisfies LiveNowJobResponse;
+        }
+        throw e;
+      }
+    }
+    throw e;
+  }
 }
 
 export type ClearCacheFixtureResult = {

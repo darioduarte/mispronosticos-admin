@@ -264,6 +264,14 @@ export function LiveNowJobPanel({ onFinished, variant = 'card' }: Props) {
       try {
         const result = await cancelLiveNowJob();
         if (result.job) applyJob(result.job, true);
+        if (result.error) {
+          toastWarning('IA en vivo (ahora)', result.error);
+        } else {
+          toastSuccess(
+            'IA en vivo (ahora)',
+            'Cancelación pedida. Se detiene al terminar el partido en curso.',
+          );
+        }
       } catch (e) {
         toastError('IA en vivo (ahora)', e);
       }

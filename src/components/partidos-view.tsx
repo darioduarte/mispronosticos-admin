@@ -1292,6 +1292,14 @@ export function PartidosView() {
       try {
         const result = await cancelPreMatchRangeJob();
         if (result.job) applyPreMatchJob(result.job, true);
+        if (result.error) {
+          toastWarning('IA prepartido (rango)', result.error);
+        } else {
+          toastSuccess(
+            'IA prepartido (rango)',
+            'Cancelación pedida. Se detiene al terminar el partido en curso.',
+          );
+        }
       } catch (e) {
         toastError('IA prepartido (rango)', e);
       }
