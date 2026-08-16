@@ -27,6 +27,7 @@ import { PreMatchAnalysisModal } from '@/components/partidos/pre-match-analysis-
 import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import { PrematchOddsModal } from '@/components/pronosticos-ia/prematch-odds-modal';
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
+import { LiveNowJobPanel } from '@/components/pronosticos-ia/live-now-job-panel';
 import {
   appendToBreakdown,
   classifySyncResult,
@@ -1655,6 +1656,13 @@ export function PartidosView() {
             {preMatchMsg && <span className="text-xs text-indigo-300">{preMatchMsg}</span>}
           </div>
         </div>
+
+        <LiveNowJobPanel
+          variant="embedded"
+          onFinished={() => {
+            void queryClient.invalidateQueries({ queryKey: ['partidos'] });
+          }}
+        />
       </section>
 
       {/* Resumen */}

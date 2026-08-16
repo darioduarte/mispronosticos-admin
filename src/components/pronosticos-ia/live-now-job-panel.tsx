@@ -70,9 +70,11 @@ function readStoredPauseMs() {
 
 type Props = {
   onFinished?: () => void;
+  /** `embedded`: fila dentro de un panel (p. ej. Partidos). `card`: bloque propio. */
+  variant?: 'card' | 'embedded';
 };
 
-export function LiveNowJobPanel({ onFinished }: Props) {
+export function LiveNowJobPanel({ onFinished, variant = 'card' }: Props) {
   const [pauseMs, setPauseMs] = useState(DEFAULT_LIVE_NOW_PAUSE_MS);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -274,9 +276,54 @@ export function LiveNowJobPanel({ onFinished }: Props) {
     setModalOpen(false);
   }
 
+  const controls = (
+    <>
+      <p className="mb-2 text-xs text-slate-500">
+        Generar análisis IA en vivo de todos los partidos destacados que están jugando ahora
+        (minuto 1 en adelante, entretiempo, 2T o el minuto actual). Corre en cola, un partido a
+        la vez, con pausa entre llamadas para no saturar GPT. Puedes salir de la página.
+      </p>
+      <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
+        <label className="flex items-center gap-2 text-sm text-slate-400">
+          <span className="whitespace-nowrap">Pausa entre partidos</span>
+          <select
+            value={pauseMs}
+            disabled={busy}
+            onChange={(e) => handlePauseChange(parseInt(e.target.value, 10))}
+            className="rounded-lg border border-white/10 bg-[#0b0f14] px-2 py-1.5 text-sm text-slate-200"
+          >
+            {LIVE_NOW_PAUSE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={() => void handleStart()}
+          disabled={busy}
+          className="w-full rounded-lg bg-orange-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50 sm:w-auto"
+        >
+          {busy ? 'Generando IA en vivo…' : 'Generar IA en vivo (ahora)'}
+        </button>
+        {job && !modalOpen && dismissedId !== job.jobId && (
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="w-full rounded-lg border border-orange-500/40 px-4 py-2.5 text-sm text-orange-200 hover:bg-orange-500/10 sm:w-auto"
+          >
+            Ver progreso IA en vivo
+          </button>
+        )}
+        {msg && <span className="text-xs text-orange-300">{msg}</span>}
+      </div>
+    </>
+  );
+
   return (
     <>
-      {job && !modalOpen && dismissedId !== job.jobId && (
+      {variant !== 'embedded' && job && !modalOpen && dismissedId !== job.jobId && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3">
           <div>
             <p className="text-sm font-medium text-orange-100">
@@ -305,48 +352,13 @@ export function LiveNowJobPanel({ onFinished }: Props) {
         </div>
       )}
 
-      <section className="mb-4 rounded-xl border border-orange-500/20 bg-[#151b24] p-3 sm:mb-6 sm:p-4">
-        <p className="mb-2 text-xs text-slate-500">
-          Generar análisis IA en vivo de todos los partidos destacados que están jugando ahora
-          (minuto 1 en adelante, entretiempo, 2T o el minuto actual). Corre en cola, un partido a
-          la vez, con pausa entre llamadas para no saturar GPT. Puedes salir de la página.
-        </p>
-        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
-          <label className="flex items-center gap-2 text-sm text-slate-400">
-            <span className="whitespace-nowrap">Pausa entre partidos</span>
-            <select
-              value={pauseMs}
-              disabled={busy}
-              onChange={(e) => handlePauseChange(parseInt(e.target.value, 10))}
-              className="rounded-lg border border-white/10 bg-[#0b0f14] px-2 py-1.5 text-sm text-slate-200"
-            >
-              {LIVE_NOW_PAUSE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={() => void handleStart()}
-            disabled={busy}
-            className="w-full rounded-lg bg-orange-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50 sm:w-auto"
-          >
-            {busy ? 'Generando IA en vivo…' : 'Generar IA en vivo (ahora)'}
-          </button>
-          {job && !modalOpen && dismissedId !== job.jobId && (
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="w-full rounded-lg border border-orange-500/40 px-4 py-2.5 text-sm text-orange-200 hover:bg-orange-500/10 sm:w-auto"
-            >
-              Ver progreso IA en vivo
-            </button>
-          )}
-          {msg && <span className="text-xs text-orange-300">{msg}</span>}
-        </div>
-      </section>
+      {variant === 'embedded' ? (
+        <div className="mt-4 border-t border-white/10 pt-4">{controls}</div>
+      ) : (
+        <section className="mb-4 rounded-xl border border-orange-500/20 bg-[#151b24] p-3 sm:mb-6 sm:p-4">
+          {controls}
+        </section>
+      )}
 
       {modalOpen && job && (
         <LiveNowProgressModal
