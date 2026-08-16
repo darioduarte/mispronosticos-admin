@@ -6,6 +6,7 @@ import {
   fetchRuntimeSettings,
   killLiveRuntime,
   resumeLivePredictionsRuntime,
+  resumeLivePredictionsSafeRuntime,
   resumeLiveRuntime,
   updateRuntimeSettings,
 } from '@/lib/api';
@@ -162,6 +163,11 @@ export function LiveRuntimePanel() {
     onSuccess: (data) => qc.setQueryData(['runtime-settings'], data),
   });
 
+  const resumePredictionsSafeMutation = useMutation({
+    mutationFn: resumeLivePredictionsSafeRuntime,
+    onSuccess: (data) => qc.setQueryData(['runtime-settings'], data),
+  });
+
   const clearAutoPauseMutation = useMutation({
     mutationFn: clearLiveAutoPause,
     onSuccess: (data) => qc.setQueryData(['runtime-settings'], data),
@@ -173,6 +179,7 @@ export function LiveRuntimePanel() {
     killMutation.isPending ||
     resumeMutation.isPending ||
     resumePredictionsMutation.isPending ||
+    resumePredictionsSafeMutation.isPending ||
     clearAutoPauseMutation.isPending;
 
   function handleFieldChange(key: string, value: boolean | number) {
@@ -234,6 +241,22 @@ export function LiveRuntimePanel() {
             onClick={() => {
               if (
                 window.confirm(
+                  '¿Activar IA en vivo en modo SEGURO?\n\nEnciende: maestro + predicción GPT.\nDeja APAGADO el hot path (poll continuo) — el cron de respaldo obtiene el reloj on-demand.\nRecomendado si el backend se satura con el hot path.',
+                )
+              ) {
+                resumePredictionsSafeMutation.mutate();
+              }
+            }}
+            className="w-full rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50 sm:col-span-2"
+          >
+            Activar IA en vivo (seguro, sin hot path)
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => {
+              if (
+                window.confirm(
                   '¿Activar pronósticos IA en vivo?\n\nEnciende: interruptor maestro, hot path (marcadores) y GPT en fases min30/HT/min60.\nStats incompletas van a Redis (no a MySQL en cada poll). Deja apagado: sockets y polling en app.',
                 )
               ) {
@@ -242,7 +265,7 @@ export function LiveRuntimePanel() {
             }}
             className="w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50 sm:col-span-2 lg:col-span-1"
           >
-            Activar pronósticos IA
+            Activar IA + hot path
           </button>
           <button
             type="button"
@@ -290,12 +313,14 @@ export function LiveRuntimePanel() {
         killMutation.isError ||
         resumeMutation.isError ||
         resumePredictionsMutation.isError ||
+        resumePredictionsSafeMutation.isError ||
         clearAutoPauseMutation.isError) && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {patchMutation.error?.message ||
             killMutation.error?.message ||
             resumeMutation.error?.message ||
             resumePredictionsMutation.error?.message ||
+            resumePredictionsSafeMutation.error?.message ||
             clearAutoPauseMutation.error?.message ||
             'Error al guardar.'}
           {patchMutation.error instanceof Error &&

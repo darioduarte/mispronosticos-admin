@@ -1406,6 +1406,14 @@ export function resumeLivePredictionsRuntime() {
   );
 }
 
+/** IA en vivo sin hot poll (cron + snap on-demand). */
+export function resumeLivePredictionsSafeRuntime() {
+  return adminFetch<RuntimeSettingsSnapshot>(
+    '/api/admin/runtime-settings/resume-live-predictions-safe',
+    { method: 'POST' },
+  );
+}
+
 export function clearLiveAutoPause() {
   return adminFetch<RuntimeSettingsSnapshot>(
     '/api/admin/runtime-settings/clear-auto-pause',
