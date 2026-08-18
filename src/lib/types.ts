@@ -877,6 +877,22 @@ export type RepairRefereesResponse = {
   error?: string;
 };
 
+export type FetchPartidosByDateResponse = {
+  success: boolean;
+  date?: string;
+  outstandingCount?: number;
+  totalFixturesInDb?: number;
+  totalBefore?: number;
+  createdApprox?: number;
+  refereeRepair?: {
+    updated?: number;
+    updatedFromApiFootball?: number;
+    updatedFromFlb?: number;
+  } | null;
+  message?: string;
+  error?: string;
+};
+
 export type PromedioMetricRow = {
   key: string;
   label: string;

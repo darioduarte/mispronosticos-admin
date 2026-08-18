@@ -35,6 +35,7 @@ import type {
   RefereeHistoryResponse,
   RefereeSearchResponse,
   RepairRefereesResponse,
+  FetchPartidosByDateResponse,
   PartidoStatisticsApiResponse,
   PartidoStatisticsFlbResponse,
   FlbCandidatesResponse,
@@ -785,6 +786,13 @@ export function fetchPartidos(params: {
   if (params.sinArbitro) qs.set('sinArbitro', '1');
   if (params.sinStats) qs.set('sinStats', '1');
   return adminFetch<PartidosResponse>(`/api/admin/partidos/rango?${qs}`);
+}
+
+export function fetchPartidosByDate(payload: { date: string; repairReferees?: boolean }) {
+  return adminFetch<FetchPartidosByDateResponse>('/api/admin/partidos/fetch-by-date', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 export function fetchSyncStatsPlan(payload: {

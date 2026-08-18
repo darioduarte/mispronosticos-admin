@@ -37,6 +37,7 @@ import { formatCaughtError, toastError, toastSuccess, toastWarning } from '@/lib
 import {
   cancelPreMatchRangeJob,
   fetchPartidos,
+  fetchPartidosByDate,
   fetchPreMatchRangeJob,
   fetchPromediosRecalcPlan,
   fetchPromediosSampleSyncPlan,
@@ -231,6 +232,9 @@ export function PartidosView() {
     (Omit<RowModal, 'referee'> & { kind: PromptKind }) | null
   >(null);
   const [syncPeriodMsg, setSyncPeriodMsg] = useState<string | null>(null);
+  const [fetchDate, setFetchDate] = useState(defaultDesde);
+  const [fetchDayBusy, setFetchDayBusy] = useState(false);
+  const [fetchDayMsg, setFetchDayMsg] = useState('');
 
   useEffect(() => {
     setSyncPauseMs(readStoredSyncPauseMs());
@@ -391,6 +395,54 @@ export function PartidosView() {
 
   function applyServerFilters() {
     setApplied({ desde, hasta, sinArbitro, sinStats });
+  }
+
+  async function handleFetchByDate() {
+    if (!fetchDate) {
+      toastWarning('Crear partidos del día', 'Elige una fecha.');
+      return;
+    }
+    if (
+      !confirm(
+        `¿Crear/actualizar los partidos del ${fetchDate} como el cron de las 6:00 AM? Se piden a API-Football y se insertan en BD (incluye ligas destacadas y reparación de árbitros).`,
+      )
+    ) {
+      return;
+    }
+
+    setFetchDayBusy(true);
+    setFetchDayMsg('');
+    try {
+      const result = await fetchPartidosByDate({ date: fetchDate, repairReferees: true });
+      if (!result.success) {
+        const msg = result.error || 'No se pudieron crear los partidos';
+        setFetchDayMsg(msg);
+        toastError('Crear partidos del día', msg);
+        return;
+      }
+
+      const msg =
+        result.message ||
+        `${result.outstandingCount ?? 0} destacados · ${result.totalFixturesInDb ?? 0} en BD`;
+      setFetchDayMsg(msg);
+      toastSuccess('Crear partidos del día', msg);
+
+      setDesde(fetchDate);
+      setHasta(fetchDate);
+      setApplied({
+        desde: fetchDate,
+        hasta: fetchDate,
+        sinArbitro,
+        sinStats,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['partidos'] });
+    } catch (e) {
+      const formatted = formatCaughtError(e);
+      setFetchDayMsg(formatted.message);
+      toastError('Crear partidos del día', e);
+    } finally {
+      setFetchDayBusy(false);
+    }
   }
 
   function patchFilter(patch: Partial<PartidosClientFilters>) {
@@ -1489,6 +1541,29 @@ export function PartidosView() {
 
         <div className="mt-4 border-t border-white/10 pt-4">
           <p className="mb-2 text-xs text-slate-500">
+            Crea los partidos de un día concreto: pide el calendario a API-Football e inserta o
+            actualiza en BD, igual que el cron de las 6:00 AM (
+            <code className="text-slate-400">createOrUpdateFixturesByDate</code>
+            ). Luego muestra ese día en la tabla.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
+            <DateField label="Fecha" value={fetchDate} onChange={setFetchDate} />
+            <button
+              type="button"
+              onClick={handleFetchByDate}
+              disabled={
+                fetchDayBusy || syncBusy || preMatchBusy || promediosBusy || sampleSyncBusy
+              }
+              className="w-full rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-600 disabled:opacity-50 sm:w-auto"
+            >
+              {fetchDayBusy ? 'Creando partidos…' : 'Crear partidos del día (API-Football)'}
+            </button>
+            {fetchDayMsg && <span className="text-xs text-sky-300">{fetchDayMsg}</span>}
+          </div>
+        </div>
+
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <p className="mb-2 text-xs text-slate-500">
             Sincronizar estadísticas FLB del rango visible (ligas destacadas, partido a partido con
             progreso)
           </p>
@@ -1520,7 +1595,7 @@ export function PartidosView() {
             <button
               type="button"
               onClick={handleSyncRange}
-              disabled={syncBusy || preMatchBusy}
+              disabled={syncBusy || preMatchBusy || fetchDayBusy}
               className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 sm:w-auto"
             >
               {syncBusy ? 'Sincronizando rango…' : 'Sincronizar rango (FLB)'}
@@ -1528,7 +1603,7 @@ export function PartidosView() {
             <button
               type="button"
               onClick={handleRepairReferees}
-              disabled={repairBusy || preMatchBusy}
+              disabled={repairBusy || preMatchBusy || fetchDayBusy}
               className="w-full rounded-lg bg-amber-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 sm:w-auto"
             >
               {repairBusy ? 'Reparando…' : 'Reparar árbitros'}
@@ -1580,7 +1655,7 @@ export function PartidosView() {
             <button
               type="button"
               onClick={handleRecalcPromediosRange}
-              disabled={promediosBusy || syncBusy || preMatchBusy || sampleSyncBusy}
+              disabled={promediosBusy || syncBusy || preMatchBusy || sampleSyncBusy || fetchDayBusy}
               className="w-full rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-600 disabled:opacity-50 sm:w-auto"
             >
               {promediosBusy ? 'Recalculando promedios…' : 'Recalcular promedios (rango)'}
@@ -1600,7 +1675,7 @@ export function PartidosView() {
               type="button"
               onClick={handlePromediosSampleSyncRange}
               disabled={
-                sampleSyncBusy || syncBusy || promediosBusy || preMatchBusy
+                sampleSyncBusy || syncBusy || promediosBusy || preMatchBusy || fetchDayBusy
               }
               className="w-full rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-50 sm:w-auto"
             >
@@ -1647,7 +1722,7 @@ export function PartidosView() {
             <button
               type="button"
               onClick={handleGeneratePreMatchRange}
-              disabled={preMatchBusy || syncBusy || promediosBusy || sampleSyncBusy}
+              disabled={preMatchBusy || syncBusy || promediosBusy || sampleSyncBusy || fetchDayBusy}
               className="w-full rounded-lg bg-indigo-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50 sm:w-auto"
             >
               {preMatchBusy ? 'Generando IA en segundo plano…' : 'Generar IA prepartido (rango)'}
