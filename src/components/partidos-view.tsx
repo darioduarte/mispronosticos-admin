@@ -38,6 +38,7 @@ import {
   cancelPreMatchRangeJob,
   fetchPartidos,
   fetchPartidosByDate,
+  fetchPartidosByDateJob,
   fetchPreMatchRangeJob,
   fetchPromediosRecalcPlan,
   fetchPromediosSampleSyncPlan,
@@ -414,16 +415,41 @@ export function PartidosView() {
     setFetchDayMsg('');
     try {
       const result = await fetchPartidosByDate({ date: fetchDate, repairReferees: true });
-      if (!result.success) {
+      if (!result.success && !result.job) {
         const msg = result.error || 'No se pudieron crear los partidos';
         setFetchDayMsg(msg);
         toastError('Crear partidos del día', msg);
         return;
       }
 
+      let job = result.job;
+      const queued =
+        result.dispatched || job?.phase === 'queued' || job?.phase === 'running';
+      if (queued) {
+        setFetchDayMsg(job?.message || 'Encolado en el worker…');
+        const deadline = Date.now() + 10 * 60 * 1000;
+        while (Date.now() < deadline) {
+          await sleepCancellable(2000, { current: false });
+          const status = await fetchPartidosByDateJob();
+          job = status.job;
+          if (job?.message) setFetchDayMsg(job.message);
+          if (!job || job.phase === 'done' || job.phase === 'error') break;
+        }
+      }
+
+      if (job?.phase === 'error' || (!job && !result.success)) {
+        const msg = job?.error || result.error || 'Error al crear los partidos';
+        setFetchDayMsg(msg);
+        toastError('Crear partidos del día', msg);
+        return;
+      }
+
       const msg =
+        job?.message ||
         result.message ||
-        `${result.outstandingCount ?? 0} destacados · ${result.totalFixturesInDb ?? 0} en BD`;
+        `${job?.outstandingCount ?? result.outstandingCount ?? 0} destacados · ${
+          job?.totalFixturesInDb ?? result.totalFixturesInDb ?? 0
+        } en BD`;
       setFetchDayMsg(msg);
       toastSuccess('Crear partidos del día', msg);
 
@@ -1541,10 +1567,8 @@ export function PartidosView() {
 
         <div className="mt-4 border-t border-white/10 pt-4">
           <p className="mb-2 text-xs text-slate-500">
-            Crea los partidos de un día concreto: pide el calendario a API-Football e inserta o
-            actualiza en BD, igual que el cron de las 6:00 AM (
-            <code className="text-slate-400">createOrUpdateFixturesByDate</code>
-            ). Luego muestra ese día en la tabla.
+            Crea los partidos de un día concreto en el worker (mismo flujo que el cron de las
+            6:00 AM). El API solo encola, para no interrumpir a los usuarios.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
             <DateField label="Fecha" value={fetchDate} onChange={setFetchDate} />
@@ -1689,10 +1713,10 @@ export function PartidosView() {
 
         <div className="mt-4 border-t border-white/10 pt-4">
           <p className="mb-2 text-xs text-slate-500">
-            Generar análisis IA prepartido del rango (ligas destacadas) en segundo plano. Puedes
-            salir de esta página: el servidor sigue y al volver verás el progreso, el resultado o
-            el error. Respeta la pausa del cron entre partidos (GPT ~15s / Gemini ~25s). Cada
-            llamada al LLM puede tardar 30–90s.
+            Generar análisis IA prepartido del rango en el worker (no en el API). Puedes salir de
+            esta página: el servidor worker sigue y al volver verás el progreso. Respeta la pausa
+            del cron entre partidos (GPT ~15s / Gemini ~25s). Cada llamada al LLM puede tardar
+            30–90s.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
             <label className="flex items-center gap-2 text-sm text-slate-400">

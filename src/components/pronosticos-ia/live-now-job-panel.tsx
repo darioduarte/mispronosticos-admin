@@ -195,7 +195,7 @@ export function LiveNowJobPanel({ onFinished, variant = 'card' }: Props) {
 
     try {
       let confirmText =
-        '¿Generar análisis IA en vivo de todos los partidos destacados en juego ahora (minuto 1+ / HT / ET)? El proceso corre en el servidor, uno a uno, con pausa entre partidos.';
+        '¿Generar análisis IA en vivo de todos los partidos destacados en juego ahora (minuto 1+ / HT / ET)? Corre en el worker, uno a uno, para no interrumpir el API.';
       try {
         const plan = await fetchLiveNowPlan();
         const n = plan.total ?? plan.fixtures?.length ?? 0;
@@ -212,7 +212,7 @@ export function LiveNowJobPanel({ onFinished, variant = 'card' }: Props) {
           .map((fx) => `• ${fx.homeTeam} vs ${fx.awayTeam} (${fx.statusLabel})`)
           .join('\n');
         const extra = n > 8 ? `\n… y ${n - 8} más` : '';
-        confirmText = `¿Generar análisis IA en vivo de ${n} partido(s) en juego ahora?\n\n${preview}${extra}\n\nCola en segundo plano: un partido a la vez, con pausa de ${pauseMs / 1000}s. Puedes salir de la página.`;
+        confirmText = `¿Generar análisis IA en vivo de ${n} partido(s) en juego ahora?\n\n${preview}${extra}\n\nSe encola en el worker: un partido a la vez, pausa de ${pauseMs / 1000}s. El API no ejecuta Luna.`;
       } catch {
         /* confirm genérico si el plan falla */
       }
@@ -287,9 +287,9 @@ export function LiveNowJobPanel({ onFinished, variant = 'card' }: Props) {
   const controls = (
     <>
       <p className="mb-2 text-xs text-slate-500">
-        Generar análisis IA en vivo de todos los partidos destacados que están jugando ahora
-        (minuto 1 en adelante, entretiempo, 2T o el minuto actual). Corre en cola, un partido a
-        la vez, con pausa entre llamadas para no saturar GPT. Puedes salir de la página.
+        Generar análisis IA en vivo de todos los partidos destacados que están jugando ahora.
+        Se encola en el worker para no interrumpir el API. Un partido a la vez, con pausa entre
+        llamadas. Puedes salir de la página.
       </p>
       <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
         <label className="flex items-center gap-2 text-sm text-slate-400">

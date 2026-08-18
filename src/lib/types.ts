@@ -460,6 +460,7 @@ export type PreMatchRangeJob = {
   failures?: PreMatchRangeJobFailure[];
   heartbeatAtMs?: number;
   runningInThisProcess?: boolean;
+  runner?: 'worker' | 'inprocess';
 };
 
 export type PreMatchRangeJobResponse = {
@@ -523,6 +524,7 @@ export type LiveNowJob = {
   failures?: LiveNowJobFailure[];
   heartbeatAtMs?: number;
   runningInThisProcess?: boolean;
+  runner?: 'worker' | 'inprocess';
 };
 
 export type LiveNowJobResponse = {
@@ -879,6 +881,7 @@ export type RepairRefereesResponse = {
 
 export type FetchPartidosByDateResponse = {
   success: boolean;
+  dispatched?: boolean;
   date?: string;
   outstandingCount?: number;
   totalFixturesInDb?: number;
@@ -891,6 +894,19 @@ export type FetchPartidosByDateResponse = {
   } | null;
   message?: string;
   error?: string;
+  alreadyRunning?: boolean;
+  job?: {
+    jobId: string;
+    phase: 'queued' | 'running' | 'done' | 'error';
+    runner?: 'worker' | 'inprocess';
+    date: string;
+    message?: string | null;
+    error?: string | null;
+    outstandingCount?: number;
+    totalFixturesInDb?: number;
+    totalBefore?: number;
+    createdApprox?: number;
+  } | null;
 };
 
 export type PromedioMetricRow = {

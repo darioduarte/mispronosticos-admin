@@ -795,6 +795,10 @@ export function fetchPartidosByDate(payload: { date: string; repairReferees?: bo
   });
 }
 
+export function fetchPartidosByDateJob() {
+  return adminFetch<FetchPartidosByDateResponse>('/api/admin/partidos/fetch-by-date');
+}
+
 export function fetchSyncStatsPlan(payload: {
   desde: string;
   hasta: string;
