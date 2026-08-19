@@ -1695,7 +1695,10 @@ export type DashboardActividadHoy = {
   compras: { total: number; ios: number; android: number };
   renovaciones: { total: number; ios: number; android: number };
   total: { ios: number; android: number; all: number };
+  registros?: { total: number; ios: number; android: number; otro: number };
+  iniciosSesion?: number;
   nota: string;
+  notaUsuarios?: string;
 };
 
 export type DashboardActividadResponse = {
@@ -1713,9 +1716,15 @@ export type DashboardSummary = {
     eliminados: number;
     temporales: number;
     conSuscripcionHistorica: number;
+    nuevosHoy?: number;
+    nuevosHoyPorApp?: DashboardPlatformCounts & { total?: number };
+    nuevos7d?: number;
+    nuevos30d?: number;
+    iniciosSesionHoy?: number;
     alcanceApp: DashboardPlatformCounts;
     suscriptoresUnicos: DashboardPlatformCounts;
     notaAlcance: string;
+    notaRegistros?: string;
   };
   suscripciones: {
     total: number;

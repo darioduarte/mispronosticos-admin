@@ -171,12 +171,22 @@ export function DashboardView() {
 
       {d && (
         <>
-          <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <KpiCard
               label="Usuarios registrados"
               value={fmt(d.usuarios.registrados)}
               hint={`${fmt(d.usuarios.temporales)} temporales · ${fmt(d.usuarios.eliminados)} eliminados`}
               accent="indigo"
+            />
+            <KpiCard
+              label="Usuarios hoy"
+              value={fmt(d.usuarios.nuevosHoy ?? d.suscripciones.actividadHoy?.registros?.total)}
+              hint={
+                d.usuarios.nuevosHoyPorApp
+                  ? `${d.suscripciones.fechaReferencia} · iOS ${fmt(d.usuarios.nuevosHoyPorApp.ios)} · Android ${fmt(d.usuarios.nuevosHoyPorApp.android)}${(d.usuarios.nuevosHoyPorApp.otro || 0) ? ` · otros ${fmt(d.usuarios.nuevosHoyPorApp.otro)}` : ''} · ${fmt(d.usuarios.iniciosSesionHoy)} inicios`
+                  : `${d.suscripciones.fechaReferencia} · ${fmt(d.usuarios.iniciosSesionHoy)} inicios de sesión`
+              }
+              accent="amber"
             />
             <KpiCard
               label="Suscripciones hoy"
@@ -209,6 +219,9 @@ export function DashboardView() {
           </section>
 
           <p className="mb-4 text-xs text-slate-500">{d.usuarios.notaAlcance}</p>
+          {d.usuarios.notaRegistros && (
+            <p className="mb-4 text-xs text-slate-500">{d.usuarios.notaRegistros}</p>
+          )}
 
           <section className="mb-6 grid gap-4 lg:grid-cols-2">
             <PlatformBar
@@ -250,6 +263,8 @@ export function DashboardView() {
                 <span>Nuevas 7d: <strong className="text-slate-200">{fmt(d.suscripciones.nuevas7d)}</strong></span>
                 <span>Nuevas 30d: <strong className="text-slate-200">{fmt(d.suscripciones.nuevas30d)}</strong></span>
                 <span>Usuarios con sub: <strong className="text-slate-200">{fmt(d.usuarios.conSuscripcionHistorica)}</strong></span>
+                <span>Registros 7d: <strong className="text-slate-200">{fmt(d.usuarios.nuevos7d)}</strong></span>
+                <span>Registros 30d: <strong className="text-slate-200">{fmt(d.usuarios.nuevos30d)}</strong></span>
               </div>
             </div>
 

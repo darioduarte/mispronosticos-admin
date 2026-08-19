@@ -98,6 +98,82 @@ function ActividadTable({ actividad }: { actividad: DashboardActividadHoy }) {
   );
 }
 
+function UsuariosPeriodoTable({ actividad }: { actividad: DashboardActividadHoy }) {
+  const registros = actividad.registros || { total: 0, ios: 0, android: 0, otro: 0 };
+  const title =
+    actividad.esUnDia === false
+      ? `Usuarios (${actividad.fechaDesde} — ${actividad.fechaHasta})`
+      : `Usuarios del día (${actividad.fecha})`;
+
+  const rows = [
+    {
+      label: 'Registros nuevos',
+      ios: registros.ios,
+      android: registros.android,
+      total: registros.total,
+      extra: registros.otro ? ` · otros ${fmt(registros.otro)}` : '',
+      cls: 'text-amber-300',
+    },
+    {
+      label: 'Inicios de sesión',
+      ios: null,
+      android: null,
+      total: actividad.iniciosSesion ?? 0,
+      extra: '',
+      cls: 'text-slate-200',
+    },
+  ];
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-medium text-slate-200">{title}</p>
+        <p className="text-xs text-slate-500">Zona horaria: America/Bogotá</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="pb-2 text-left">Tipo</th>
+              <th className="pb-2 text-right">
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-full bg-sky-500" /> iOS
+                </span>
+              </th>
+              <th className="pb-2 text-right">
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Android
+                </span>
+              </th>
+              <th className="pb-2 text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {rows.map((row) => (
+              <tr key={row.label}>
+                <td className="py-2.5 text-slate-300">
+                  {row.label}
+                  {row.extra ? <span className="text-xs text-slate-500">{row.extra}</span> : null}
+                </td>
+                <td className={`py-2.5 text-right ${row.cls}`}>
+                  {row.ios == null ? '—' : fmt(row.ios)}
+                </td>
+                <td className={`py-2.5 text-right ${row.cls}`}>
+                  {row.android == null ? '—' : fmt(row.android)}
+                </td>
+                <td className={`py-2.5 text-right ${row.cls}`}>{fmt(row.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {actividad.notaUsuarios && (
+        <p className="mt-3 text-xs text-slate-600">{actividad.notaUsuarios}</p>
+      )}
+    </div>
+  );
+}
+
 export function ActividadPeriodoPanel({ initialFecha }: { initialFecha?: string }) {
   const hoy = initialFecha || todayBogota();
   const [desde, setDesde] = useState(hoy);
@@ -175,7 +251,10 @@ export function ActividadPeriodoPanel({ initialFecha }: { initialFecha?: string 
       )}
       {query.data?.actividad && (
         <>
-          <ActividadTable actividad={query.data.actividad} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <UsuariosPeriodoTable actividad={query.data.actividad} />
+            <ActividadTable actividad={query.data.actividad} />
+          </div>
           <RenewalSyncPanel />
         </>
       )}
