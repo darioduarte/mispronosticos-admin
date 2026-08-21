@@ -72,6 +72,8 @@ import type {
   LigaPatchResponse,
   LigasResponse,
   LigaSyncResponse,
+  LigasDestacadasResponse,
+  LigaDestacadaSort,
   ArbitrosResponse,
   ArbitroDetailResponse,
   ArbitrosUnlinkedResponse,
@@ -1106,6 +1108,12 @@ export function syncLigaFromApi(id: string) {
   return adminFetch<LigaSyncResponse>(`/api/admin/ligas/${encodeURIComponent(id)}/sync-api`, {
     method: 'POST',
   });
+}
+
+export function fetchLigasDestacadasDia(params: { date: string; sort?: LigaDestacadaSort }) {
+  const qs = new URLSearchParams({ date: params.date });
+  if (params.sort) qs.set('sort', params.sort);
+  return adminFetch<LigasDestacadasResponse>(`/api/admin/ligas-destacadas?${qs}`);
 }
 
 export function fetchArbitros(params: { q?: string; limit?: number; offset?: number }) {

@@ -1248,6 +1248,99 @@ export type LigaSyncResponse = {
   error?: string;
 };
 
+export type LigaDestacadaSort = 'fouls' | 'yellow' | 'red';
+
+export type LigaDestacadaRefereeStats = {
+  name: string;
+  canonicalName: string | null;
+  refereeId: string | null;
+  linked: boolean;
+  country: string | null;
+  avgFouls: number | null;
+  avgYellow: number | null;
+  avgRed: number | null;
+  prevCount: number;
+  yellowDataMatches: number;
+  redDataMatches: number;
+  foulDataMatches: number;
+  profile: string;
+  summaryLabel: string;
+  lastMatchDate: string | null;
+  sinArbitro: boolean;
+};
+
+export type LigaDestacadaMatch = {
+  fixtureid: number;
+  fixturedate: string | null;
+  fechaDisplay: string;
+  local: string;
+  visitante: string;
+  estado: string;
+  estadoBadgeClass: 'ns' | 'ft' | 'live' | 'other';
+  marcador: string;
+  referee: LigaDestacadaRefereeStats;
+};
+
+export type LigaDestacadaLeague = {
+  leagueId: string | null;
+  name: string;
+  country: string;
+  countryFlag: string | null;
+  logo: string | null;
+  matchCount: number;
+  refereeCount: number;
+  sinArbitroCount: number;
+  matches: LigaDestacadaMatch[];
+};
+
+export type LigaDestacadaTopMatch = {
+  fixtureid: number;
+  fechaDisplay: string;
+  local: string;
+  visitante: string;
+  liga: string;
+  pais: string;
+  estado: string;
+};
+
+export type LigaDestacadaTopReferee = {
+  key: string;
+  rank: number;
+  name: string;
+  canonicalName: string | null;
+  refereeId: string | null;
+  linked: boolean;
+  country: string | null;
+  avgFouls: number | null;
+  avgYellow: number | null;
+  avgRed: number | null;
+  prevCount: number;
+  yellowDataMatches: number;
+  redDataMatches: number;
+  foulDataMatches: number;
+  profile: string;
+  summaryLabel: string;
+  lastMatchDate: string | null;
+  matchCount: number;
+  matches: LigaDestacadaTopMatch[];
+};
+
+export type LigasDestacadasResponse = {
+  success: boolean;
+  date?: string;
+  sort?: LigaDestacadaSort;
+  leagues?: LigaDestacadaLeague[];
+  topReferees?: LigaDestacadaTopReferee[];
+  meta?: {
+    leagueCount: number;
+    matchCount: number;
+    refereeCount: number;
+    sinArbitroCount: number;
+    historyLimit: number;
+  };
+  error?: string;
+};
+
 export type RefereeAliasRow = {
   id: string;
   refereeId: string;
