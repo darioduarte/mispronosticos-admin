@@ -13,7 +13,7 @@ const NAV = [
   { href: '/partidos', label: 'Partidos' },
   { href: '/historias', label: 'Historias' },
   { href: '/ligas', label: 'Ligas' },
-  { href: '/ligas-destacadas', label: 'Ligas destacadas' },
+  { href: '/estadisticas-ligas-destacadas', label: 'Estadísticas ligas destacadas' },
   { href: '/arbitros', label: 'Árbitros' },
   { href: '/pronosticos-ia', label: 'Pronósticos IA' },
   { href: '/pronosticos-ia-vivo', label: 'Pronósticos IA vivo' },

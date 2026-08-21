@@ -1,5 +1,5 @@
-import { LigasDestacadasView } from '@/components/ligas-destacadas-view';
+import { redirect } from 'next/navigation';
 
-export default function LigasDestacadasPage() {
-  return <LigasDestacadasView />;
+export default function LigasDestacadasRedirectPage() {
+  redirect('/estadisticas-ligas-destacadas');
 }

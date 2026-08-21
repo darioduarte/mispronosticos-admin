@@ -21,6 +21,12 @@ function todayBogota() {
   }).format(new Date());
 }
 
+type StatsSection = 'arbitros';
+
+const STAT_SECTIONS: { id: StatsSection; label: string }[] = [
+  { id: 'arbitros', label: 'Árbitros' },
+];
+
 const SORT_OPTIONS: { id: LigaDestacadaSort; label: string; hint: string }[] = [
   { id: 'fouls', label: 'Faltas', hint: 'Promedio de faltas totales por partido' },
   { id: 'yellow', label: 'Amarillas', hint: 'Promedio de tarjetas amarillas por partido' },
@@ -78,6 +84,7 @@ function normalizeSearch(s: string) {
 }
 
 export function LigasDestacadasView() {
+  const [section, setSection] = useState<StatsSection>('arbitros');
   const [date, setDate] = useState(todayBogota);
   const [appliedDate, setAppliedDate] = useState(todayBogota);
   const [sort, setSort] = useState<LigaDestacadaSort>('yellow');
@@ -92,7 +99,6 @@ export function LigasDestacadasView() {
   const leagues = query.data?.leagues ?? [];
   const topReferees = query.data?.topReferees ?? [];
   const meta = query.data?.meta;
-  const historyLimit = meta?.historyLimit ?? 10;
 
   const q = normalizeSearch(search);
 
@@ -146,12 +152,29 @@ export function LigasDestacadasView() {
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-6">
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-white">Ligas destacadas</h1>
+        <h1 className="text-2xl font-semibold text-white">Estadísticas ligas destacadas</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Partidos del día en ligas outstanding, con árbitro asignado y un top ordenable por
-          promedio de faltas, amarillas o rojas (últimos {historyLimit} partidos finalizados en BD).
+          Métricas del día para ligas outstanding. Hoy: árbitros. Aquí irán más bloques
+          (equipos, goles, etc.) sin salir de este menú.
         </p>
       </header>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {STAT_SECTIONS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setSection(item.id)}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              section === item.id
+                ? 'bg-indigo-600 text-white'
+                : 'border border-white/10 text-slate-300 hover:bg-white/5'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
       <section className="mb-6 rounded-xl border border-white/10 bg-[#111827] p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-end">
@@ -185,7 +208,7 @@ export function LigasDestacadasView() {
 
         <div className="mt-4">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-            Ordenar top por
+            Ordenar top de árbitros por
           </p>
           <div className="flex flex-wrap gap-2">
             {SORT_OPTIONS.map((opt) => (
@@ -217,7 +240,7 @@ export function LigasDestacadasView() {
       ) : null}
 
       {query.isLoading ? (
-        <p className="text-sm text-slate-400">Cargando ligas destacadas…</p>
+        <p className="text-sm text-slate-400">Cargando estadísticas de ligas destacadas…</p>
       ) : query.isError ? (
         <p className="text-sm text-red-300">{(query.error as Error).message}</p>
       ) : (
@@ -229,7 +252,8 @@ export function LigasDestacadasView() {
                   Top árbitros · {SORT_OPTIONS.find((o) => o.id === sort)?.label}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  {sortedTop.length} colegiados del día · mayor promedio primero
+                  {sortedTop.length} colegiados del día · últimos {meta?.historyLimit ?? 10} PT · mayor
+                  promedio primero
                 </p>
               </div>
               <div className="overflow-x-auto">
