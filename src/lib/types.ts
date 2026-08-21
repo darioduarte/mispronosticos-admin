@@ -439,7 +439,7 @@ export type PreMatchRangeJobFailure = {
 
 export type PreMatchRangeJob = {
   jobId: string;
-  phase: 'planning' | 'generating' | 'done' | 'cancelled' | 'error';
+  phase: 'planning' | 'warming' | 'generating' | 'paused_batch' | 'done' | 'cancelled' | 'error';
   desde: string;
   hasta: string;
   onlyMissing: boolean;
@@ -448,6 +448,9 @@ export type PreMatchRangeJob = {
   ok: number;
   skipped: number;
   failed: number;
+  warmHits?: number;
+  warmBuilt?: number;
+  warmFailed?: number;
   currentFixture: PreMatchPlanFixture | null;
   recentLog: string[];
   isPausing?: boolean;

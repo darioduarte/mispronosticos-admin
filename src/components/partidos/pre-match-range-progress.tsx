@@ -5,12 +5,15 @@ import type { PreMatchPlanFixture, PreMatchRangeJobFailure } from '@/lib/types';
 import { copyTextToClipboard } from '@/lib/sync-stats-source';
 
 export type PreMatchRangeProgressState = {
-  phase: 'planning' | 'generating' | 'done' | 'cancelled' | 'error';
+  phase: 'planning' | 'warming' | 'generating' | 'paused_batch' | 'done' | 'cancelled' | 'error';
   total: number;
   current: number;
   ok: number;
   skipped: number;
   failed: number;
+  warmHits?: number;
+  warmBuilt?: number;
+  warmFailed?: number;
   currentFixture: PreMatchPlanFixture | null;
   recentLog: string[];
   isPausing?: boolean;
@@ -44,7 +47,10 @@ export function PreMatchRangeProgressModal({
 }: Props) {
   const [errorCopied, setErrorCopied] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const busy = progress.phase === 'planning' || progress.phase === 'generating';
+  const busy =
+    progress.phase === 'planning' ||
+    progress.phase === 'warming' ||
+    progress.phase === 'generating';
 
   useEffect(() => {
     if (!busy) return;
@@ -63,16 +69,22 @@ export function PreMatchRangeProgressModal({
       : null;
 
   const label = progress.isPausing
-    ? `Pausa ${formatPauseMs(progress.pauseMs ?? 0)} (regla GPT/cron)…`
+    ? progress.phase === 'warming'
+      ? `Pausa ${formatPauseMs(progress.pauseMs ?? 0)} (cache)…`
+      : `Pausa ${formatPauseMs(progress.pauseMs ?? 0)} (regla GPT/cron)…`
     : progress.currentFixture
       ? `${progress.currentFixture.homeTeam} vs ${progress.currentFixture.awayTeam}`
       : progress.phase === 'planning'
         ? 'Preparando lista de partidos…'
-        : progress.phase === 'done'
-          ? 'Generación finalizada'
-          : progress.phase === 'cancelled'
-            ? 'Cancelado'
-            : '—';
+        : progress.phase === 'warming'
+          ? 'Armando cache de prompts (H2H/stats)…'
+          : progress.phase === 'done'
+            ? 'Generación finalizada'
+            : progress.phase === 'cancelled'
+              ? 'Cancelado'
+              : progress.phase === 'paused_batch'
+                ? 'Lote pausado'
+                : '—';
 
   return (
     <div
@@ -95,17 +107,16 @@ export function PreMatchRangeProgressModal({
           <p className="mt-1 text-sm text-slate-400">
             {desde} → {hasta}
             {onlyMissing ? ' · solo sin análisis / incompletos' : ' · regenerar todos'}
-            {(progress.pauseMs ?? pauseMs) > 0 && (
+            {(progress.pauseMs ?? pauseMs) > 0 && progress.phase !== 'warming' && (
               <span className="block text-xs text-slate-500 sm:inline sm:ml-2">
-                · pausa {formatPauseMs(progress.pauseMs ?? pauseMs)} entre partidos
+                · pausa {formatPauseMs(progress.pauseMs ?? pauseMs)} entre partidos GPT
               </span>
             )}
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Corre en el servidor: puedes salir de esta página y el proceso sigue. Al volver verás
-            el resultado o el error. Misma espera que el cron (GPT ~15s / Gemini ~25s). Cada
-            partido puede tardar 30–90s en el LLM
-            {progress.llmProvider ? ` · proveedor: ${progress.llmProvider}` : ''}.
+            Primero arma el cache frío de prompts (H2H/stats) y luego llama a la IA. Puedes salir
+            de esta página: el proceso sigue en el servidor.
+            {progress.llmProvider ? ` · proveedor: ${progress.llmProvider}` : ''}
           </p>
         </div>
 
@@ -118,20 +129,32 @@ export function PreMatchRangeProgressModal({
                     ? 'Esperando antes del siguiente'
                     : progress.phase === 'planning'
                       ? 'Planificando'
-                      : progress.phase === 'generating'
-                        ? 'Generando con IA'
-                        : progress.phase === 'done'
-                          ? 'Completado'
-                          : progress.phase === 'cancelled'
-                            ? 'Cancelado'
-                            : 'Error'}
+                      : progress.phase === 'warming'
+                        ? 'Armando cache de prompts'
+                        : progress.phase === 'generating'
+                          ? 'Generando con IA'
+                          : progress.phase === 'paused_batch'
+                            ? 'Lote pausado'
+                            : progress.phase === 'done'
+                              ? 'Completado'
+                              : progress.phase === 'cancelled'
+                                ? 'Cancelado'
+                                : 'Error'}
                 </p>
                 <p className="mt-0.5 text-slate-400">
                   {progress.phase === 'planning'
                     ? 'Obteniendo plan del rango…'
-                    : progress.total > 0
-                      ? `${progress.current} de ${progress.total} · quedan ${remaining}`
-                      : 'Sin partidos en el plan'}
+                    : progress.phase === 'warming'
+                      ? progress.total > 0
+                        ? `Cache: ${progress.warmHits ?? 0} hit · ${progress.warmBuilt ?? 0} armados${
+                            (progress.warmFailed ?? 0) > 0
+                              ? ` · ${progress.warmFailed} fallo(s)`
+                              : ''
+                          } · partido ${progress.current + 1} de ${progress.total}`
+                        : 'Preparando cache…'
+                      : progress.total > 0
+                        ? `${progress.current} de ${progress.total} · quedan ${remaining}`
+                        : 'Sin partidos en el plan'}
                 </p>
               </div>
               <span className="font-mono text-2xl font-semibold text-indigo-300">
@@ -173,6 +196,24 @@ export function PreMatchRangeProgressModal({
             <Stat label="Total" value={progress.total} className="text-slate-300" />
           </div>
 
+          {(progress.warmHits != null ||
+            progress.warmBuilt != null ||
+            progress.warmFailed != null) && (
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <Stat label="Cache hit" value={progress.warmHits ?? 0} className="text-cyan-300" />
+              <Stat
+                label="Cache armados"
+                value={progress.warmBuilt ?? 0}
+                className="text-sky-300"
+              />
+              <Stat
+                label="Cache fallos"
+                value={progress.warmFailed ?? 0}
+                className="text-amber-300"
+              />
+            </div>
+          )}
+
           {progress.recentLog.length > 0 && (
             <div>
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -189,7 +230,9 @@ export function PreMatchRangeProgressModal({
                           ? 'text-emerald-300'
                           : line.startsWith('○')
                             ? 'text-slate-400'
-                            : 'text-slate-500'
+                            : line.includes('Cache') || line.includes('🧊')
+                              ? 'text-cyan-300/90'
+                              : 'text-slate-500'
                     }
                   >
                     {line}
@@ -289,22 +332,28 @@ function PhaseBadge({
     ? 'Pausa'
     : phase === 'planning'
       ? 'Planificando'
-      : phase === 'generating'
-        ? 'En curso'
-        : phase === 'done'
-          ? 'Listo'
-          : phase === 'cancelled'
-            ? 'Cancelado'
-            : 'Error';
+      : phase === 'warming'
+        ? 'Cache'
+        : phase === 'generating'
+          ? 'En curso'
+          : phase === 'paused_batch'
+            ? 'Lote pausado'
+            : phase === 'done'
+              ? 'Listo'
+              : phase === 'cancelled'
+                ? 'Cancelado'
+                : 'Error';
   const cls = isPausing
     ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
-    : phase === 'planning' || phase === 'generating'
+    : phase === 'planning' || phase === 'warming' || phase === 'generating'
       ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-200'
-      : phase === 'done'
-        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-        : phase === 'cancelled'
-          ? 'border-slate-500/30 bg-slate-500/10 text-slate-300'
-          : 'border-red-500/30 bg-red-500/10 text-red-200';
+      : phase === 'paused_batch'
+        ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+        : phase === 'done'
+          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+          : phase === 'cancelled'
+            ? 'border-slate-500/30 bg-slate-500/10 text-slate-300'
+            : 'border-red-500/30 bg-red-500/10 text-red-200';
   return (
     <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${cls}`}>
       {text}

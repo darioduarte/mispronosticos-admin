@@ -109,7 +109,7 @@ const DEFAULT_PREMATCH_PAUSE_MS = 15000;
 const PREMATCH_JOB_DISMISSED_KEY = 'partidos.preMatchRangeJob.dismissedId';
 
 function isPreMatchJobActive(phase: PreMatchRangeJob['phase'] | undefined) {
-  return phase === 'planning' || phase === 'generating';
+  return phase === 'planning' || phase === 'warming' || phase === 'generating';
 }
 
 function jobToPreMatchProgress(job: PreMatchRangeJob): PreMatchRangeProgressState {
@@ -120,6 +120,9 @@ function jobToPreMatchProgress(job: PreMatchRangeJob): PreMatchRangeProgressStat
     ok: job.ok,
     skipped: job.skipped,
     failed: job.failed,
+    warmHits: job.warmHits,
+    warmBuilt: job.warmBuilt,
+    warmFailed: job.warmFailed,
     currentFixture: job.currentFixture,
     recentLog: job.recentLog || [],
     isPausing: job.isPausing,
@@ -335,7 +338,8 @@ export function PartidosView() {
     if (!preMatchJob) return;
     const prev = preMatchPrevPhaseRef.current;
     preMatchPrevPhaseRef.current = preMatchJob.phase;
-    if (prev == null || (prev !== 'planning' && prev !== 'generating')) return;
+    if (prev == null || (prev !== 'planning' && prev !== 'warming' && prev !== 'generating'))
+      return;
     if (preMatchJob.phase === 'done') {
       toastSuccess(
         'IA prepartido (rango)',
@@ -1309,7 +1313,7 @@ export function PartidosView() {
   async function handleGeneratePreMatchRange() {
     if (
       !confirm(
-        `¿Generar análisis IA prepartido del ${applied.desde} al ${applied.hasta}? El proceso corre en el servidor: puedes salir de la página y al volver verás el progreso, el resultado o el error.`,
+        `¿Generar análisis IA prepartido del ${applied.desde} al ${applied.hasta}?\n\nPrimero se arma el cache de prompts (H2H/stats) y luego se llama a GPT. El proceso corre en el servidor: puedes salir de la página y al volver verás el progreso.`,
       )
     ) {
       return;
