@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { fetchDashboardSummary, ApiError } from '@/lib/api';
+import type { DashboardSummary } from '@/lib/types';
 import { ActividadPeriodoPanel } from '@/components/actividad-periodo-panel';
 
 function fmt(n: number | undefined) {
@@ -23,13 +24,14 @@ function KpiCard({
   label: string;
   value: string | number;
   hint?: string;
-  accent?: 'indigo' | 'emerald' | 'sky' | 'amber';
+  accent?: 'indigo' | 'emerald' | 'sky' | 'amber' | 'rose';
 }) {
   const colors = {
     indigo: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-200',
     emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
     sky: 'border-sky-500/30 bg-sky-500/10 text-sky-200',
     amber: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
+    rose: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
   };
   return (
     <div className={`rounded-xl border p-5 ${colors[accent]}`}>
@@ -118,13 +120,86 @@ function TrendChart({ rows }: { rows: { mes: string; app: string; total: number 
   );
 }
 
-export function DashboardView() {
-  const query = useQuery({
+function CronHealthCard({ d }: { d: DashboardSummary }) {
+  const s = d.soporte;
+  const errorsToday = s.erroresHoy ?? 0;
+  const missed = s.cronMissedHoy ?? 0;
+  const failed = s.cronFailedHoy ?? 0;
+  const pending = s.alertasPendientes ?? 0;
+  const hot = errorsToday > 0 || missed > 0 || failed > 0 || pending > 0;
+  const ai = s.aiAnalysis;
+  const aiLabel = ai?.lastSuccessAt
+    ? new Date(ai.lastSuccessAt).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+    : 'sin heartbeat';
+
+  return (
+    <section
+      className={`mb-6 rounded-xl border p-4 ${
+        hot ? 'border-rose-500/40 bg-rose-500/10' : 'border-white/10 bg-[#111827]'
+      }`}
+    >
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-slate-200">Salud de crons y errores de sistema</p>
+        <Link href="/control-crons" className="text-xs text-indigo-300 hover:underline">
+          Control de crons →
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <Link href="/errores" className="rounded-lg p-2 transition hover:bg-white/[0.03]">
+          <p className="text-xs text-slate-500">Errores hoy</p>
+          <p className={`text-2xl font-semibold ${errorsToday > 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+            {fmt(errorsToday)}
+          </p>
+        </Link>
+        <div>
+          <p className="text-xs text-slate-500">Crons fallidos / no corridos</p>
+          <p
+            className={`text-2xl font-semibold ${
+              failed + missed > 0 ? 'text-amber-300' : 'text-slate-200'
+            }`}
+          >
+            {fmt(failed)} / {fmt(missed)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Correos alerta pendientes</p>
+          <p className={`text-2xl font-semibold ${pending > 0 ? 'text-amber-300' : 'text-slate-200'}`}>
+            {fmt(pending)}
+          </p>
+          <p className="text-[11px] text-slate-500">Enviados hoy: {fmt(s.alertasEnviadasHoy)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Último análisis IA 19:15</p>
+          <p className="text-sm font-semibold text-slate-200">{ai?.status || '—'}</p>
+          <p className="text-[11px] text-slate-500">{aiLabel}</p>
+        </div>
+      </div>
+      {(s.cronsAtencion || []).length > 0 && (
+        <ul className="mt-3 space-y-1 text-xs text-slate-400">
+          {s.cronsAtencion!.slice(0, 5).map((c) => (
+            <li key={c.jobKey}>
+              <span className="font-medium text-slate-300">{c.label}</span>
+              {' · '}
+              {c.status}
+              {c.lastError ? ` · ${c.lastError}` : ''}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function useDashboardData() {
+  return useQuery({
     queryKey: ['dashboard-summary'],
     queryFn: fetchDashboardSummary,
     refetchInterval: 60_000,
   });
+}
 
+export function DashboardView() {
+  const query = useDashboardData();
   const d = query.data;
 
   return (
@@ -171,6 +246,7 @@ export function DashboardView() {
 
       {d && (
         <>
+          <CronHealthCard d={d} />
           <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <KpiCard
               label="Usuarios registrados"

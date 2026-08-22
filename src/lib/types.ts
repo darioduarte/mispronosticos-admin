@@ -489,6 +489,108 @@ export type LiveNowPlanFixture = {
   scoreAway: number | null;
 };
 
+export type LivePipelineRunSummary = {
+  id: string;
+  windowKey: string;
+  phaseKey?: string | null;
+  minute?: number | null;
+  status?: string | null;
+  publishedCount: number;
+  hasOdds?: boolean | null;
+  oddsStatus?: string | null;
+  statsSource?: string | null;
+  noStats?: boolean;
+  warnings?: string[];
+  createdAt?: string;
+};
+
+export type LivePipelineFixtureRow = {
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  status: string;
+  minute: number | null;
+  statusLabel: string;
+  scoreHome: number | null;
+  scoreAway: number | null;
+  duePhase: string | null;
+  duePhaseLabel: string | null;
+  completedPhases: string[];
+  missedPhases: string[];
+  queuedPhases: string[];
+  runs: LivePipelineRunSummary[];
+  lastRun: LivePipelineRunSummary | null;
+  attention: 'critical' | 'warn' | 'ok' | 'off';
+  reason: string;
+  detail: string;
+  canRetrigger: boolean;
+};
+
+export type LivePipelineMonitorResponse = {
+  success: boolean;
+  generatedAt?: string;
+  date?: string;
+  processRole?: string;
+  note?: string | null;
+  pipeline?: {
+    enabled: boolean;
+    gptEnabled: boolean;
+    hotPollTrigger: boolean;
+    hotPathEnabled: boolean;
+    pollSeconds?: number;
+    safetyCronMinutes?: number;
+    gptBusyThisProcess?: boolean;
+    hotPollRunningThisProcess?: boolean;
+    pendingQueueSize?: number;
+    phaseSchedule?: string;
+  };
+  counts?: {
+    total: number;
+    critical?: number;
+    warn?: number;
+    ok?: number;
+    off?: number;
+  };
+  fixtures?: LivePipelineFixtureRow[];
+  recentEvents?: {
+    at: string;
+    kind: string;
+    fixtureId?: number | null;
+    phaseKey?: string | null;
+    reason?: string | null;
+    message?: string | null;
+    published?: number | null;
+    hasOdds?: boolean | null;
+    oddsStatus?: string | null;
+    statsSource?: string | null;
+  }[];
+  crons?: CronHeartbeatRow[];
+  error?: string;
+};
+
+export type CronHeartbeatRow = {
+  jobKey: string;
+  label: string;
+  cronExpr?: string | null;
+  role?: string | null;
+  lastStatus?: string | null;
+  lastStartedAt?: string | null;
+  lastSuccessAt?: string | null;
+  lastFailedAt?: string | null;
+  lastMissedAt?: string | null;
+  lastError?: string | null;
+  lastDurationMs?: number | null;
+  updatedAt?: string | null;
+};
+
+export type CronHeartbeatsResponse = {
+  success: boolean;
+  generatedAt?: string;
+  crons?: CronHeartbeatRow[];
+  error?: string;
+};
+
 export type LiveNowPlanResponse = {
   success: boolean;
   date?: string;
@@ -1848,6 +1950,25 @@ export type DashboardSummary = {
     erroresPorApp: DashboardPlatformCounts;
     sugerencias30d: number;
     waitlistIos: number;
+    erroresHoy?: number;
+    erroresCronHoy?: number;
+    cronMissedHoy?: number;
+    cronFailedHoy?: number;
+    alertasPendientes?: number;
+    alertasEnviadasHoy?: number;
+    aiAnalysis?: {
+      status: string | null;
+      lastSuccessAt: string | null;
+      lastStartedAt: string | null;
+      lastError: string | null;
+    } | null;
+    cronsAtencion?: Array<{
+      jobKey: string;
+      label: string;
+      status: string | null;
+      lastSuccessAt?: string | null;
+      lastError?: string | null;
+    }>;
   };
   ops: {
     socketsActivos: number;

@@ -9,6 +9,7 @@ import { AdminToastHost } from '@/components/admin-toast-host';
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/monitoreo', label: 'Monitoreo' },
+  { href: '/control-crons', label: 'Control de crons' },
   { href: '/parametros-en-vivo', label: 'Parámetros en vivo' },
   { href: '/partidos', label: 'Partidos' },
   { href: '/historias', label: 'Historias' },

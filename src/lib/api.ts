@@ -90,6 +90,8 @@ import type {
   OpsSnapshot,
   OpsIncidentsResponse,
   OpsIncidentsReportResponse,
+  CronHeartbeatsResponse,
+  LivePipelineMonitorResponse,
   RuntimeSettingsSnapshot,
   StoriesListResponse,
   StoryDetailResponse,
@@ -1342,6 +1344,16 @@ export function fetchDashboardActividad(desde: string, hasta: string) {
 
 export function fetchDashboardOps() {
   return adminFetch<OpsSnapshot>('/api/admin/dashboard/ops');
+}
+
+export function fetchCronHeartbeats() {
+  return adminFetch<CronHeartbeatsResponse>('/api/admin/dashboard/cron-heartbeats');
+}
+
+export function fetchLivePipelineMonitor() {
+  return adminFetch<LivePipelineMonitorResponse>(
+    '/api/admin/pronosticos-ia/live-pipeline/monitor',
+  );
 }
 
 export function fetchOpsIncidents(params: {
