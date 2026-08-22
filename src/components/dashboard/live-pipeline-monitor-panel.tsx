@@ -105,9 +105,9 @@ export function LivePipelineMonitorPanel() {
     onSettled: () => setTriggeringId(null),
     onSuccess: (res) => {
       if (res.ok) {
-        toastSuccess(res.message || 'Análisis disparado');
+        toastSuccess('Análisis en vivo', res.message || 'Análisis disparado');
       } else {
-        toastError(res.message || res.reason || 'No se pudo generar');
+        toastError('Análisis en vivo', res.message || res.reason || 'No se pudo generar');
       }
       void qc.invalidateQueries({ queryKey: ['live-pipeline-monitor'] });
     },
