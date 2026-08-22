@@ -6,7 +6,7 @@ import {
   fetchLivePipelineMonitor,
   triggerLiveAnalysisManual,
 } from '@/lib/api';
-import { formatCaughtError, toastError, toastSuccess } from '@/lib/admin-toast';
+import { toastError, toastSuccess } from '@/lib/admin-toast';
 import type { LivePipelineFixtureRow } from '@/lib/types';
 
 function attentionCls(a: string) {
@@ -111,7 +111,7 @@ export function LivePipelineMonitorPanel() {
       }
       void qc.invalidateQueries({ queryKey: ['live-pipeline-monitor'] });
     },
-    onError: (err) => toastError(formatCaughtError(err)),
+    onError: (err) => toastError('Re-ejecutar análisis', err),
   });
 
   const data = query.data;
