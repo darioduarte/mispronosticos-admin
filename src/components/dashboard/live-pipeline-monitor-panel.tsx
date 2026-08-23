@@ -120,8 +120,14 @@ export function LivePipelineMonitorPanel() {
     onMutate: (fixtureId) => setTriggeringId(fixtureId),
     onSettled: () => setTriggeringId(null),
     onSuccess: (res) => {
-      if (res.ok) {
-        toastSuccess('Análisis en vivo', res.message || 'Análisis disparado');
+      if (res.ok || res.reason === 'phase_already_processed') {
+        toastSuccess(
+          'Análisis en vivo',
+          res.message ||
+            (res.reason === 'phase_already_processed'
+              ? 'Esta fase ya tiene análisis publicado'
+              : 'Análisis disparado'),
+        );
       } else {
         toastError('Análisis en vivo', res.message || res.reason || 'No se pudo generar');
       }
