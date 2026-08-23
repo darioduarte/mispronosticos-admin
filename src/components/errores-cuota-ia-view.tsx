@@ -6,17 +6,8 @@ import { CuotasMomentoModal } from '@/components/pronosticos-ia/cuotas-momento-m
 import { corregirErroresCuota, fetchErroresCuotaIa } from '@/lib/api';
 import { isCuotaSospechosa } from '@/lib/live-odds-match';
 import { formatFixtureFechaHora, parseFixtureDateMs } from '@/lib/pronosticos-ia-stats';
+import { todayBogota } from '@/lib/dates';
 import type { ErrorCuotaIaFuente, ErrorCuotaIaRow } from '@/lib/types';
-
-function defaultDesde() {
-  const d = new Date();
-  d.setDate(d.getDate() - 7);
-  return d.toISOString().slice(0, 10);
-}
-
-function defaultHasta() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 type ResultFilter = 'all' | 'acertado' | 'fallido' | 'pendiente';
 type DiffScope = 'all' | 'alta' | 'normal';
@@ -367,12 +358,12 @@ function pct(n: number | null | undefined) {
 
 export function ErroresCuotaIaView() {
   const queryClient = useQueryClient();
-  const [desde, setDesde] = useState(defaultDesde());
-  const [hasta, setHasta] = useState(defaultHasta());
+  const [desde, setDesde] = useState(todayBogota());
+  const [hasta, setHasta] = useState(todayBogota());
   const [fuente, setFuente] = useState<ErrorCuotaIaFuente>('ambos');
   const [applied, setApplied] = useState({
-    desde: defaultDesde(),
-    hasta: defaultHasta(),
+    desde: todayBogota(),
+    hasta: todayBogota(),
     fuente: 'ambos' as ErrorCuotaIaFuente,
   });
   const [filters, setFilters] = useState<ErroresCuotaFilters>(DEFAULT_FILTERS);

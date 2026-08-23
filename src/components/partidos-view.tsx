@@ -56,18 +56,8 @@ import {
   type PartidosClientFilters,
   type PartidosSortMode,
 } from '@/lib/partidos-filters';
+import { todayBogota } from '@/lib/dates';
 import type { PartidoRow, PreMatchRangeJob } from '@/lib/types';
-
-function defaultDesde() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
-}
-
-function defaultHasta() {
-  const d = new Date();
-  d.setDate(d.getDate() + 7);
-  return d.toISOString().slice(0, 10);
-}
 
 type RowModal = {
   fixtureId: number;
@@ -181,13 +171,13 @@ async function sleepCancellable(ms: number, cancelRef: { current: boolean }) {
 
 export function PartidosView() {
   const queryClient = useQueryClient();
-  const [desde, setDesde] = useState(defaultDesde);
-  const [hasta, setHasta] = useState(defaultHasta);
+  const [desde, setDesde] = useState(todayBogota);
+  const [hasta, setHasta] = useState(todayBogota);
   const [sinArbitro, setSinArbitro] = useState(false);
   const [sinStats, setSinStats] = useState(false);
   const [applied, setApplied] = useState({
-    desde: defaultDesde(),
-    hasta: defaultHasta(),
+    desde: todayBogota(),
+    hasta: todayBogota(),
     sinArbitro: false,
     sinStats: false,
   });
@@ -236,7 +226,7 @@ export function PartidosView() {
     (Omit<RowModal, 'referee'> & { kind: PromptKind }) | null
   >(null);
   const [syncPeriodMsg, setSyncPeriodMsg] = useState<string | null>(null);
-  const [fetchDate, setFetchDate] = useState(defaultDesde);
+  const [fetchDate, setFetchDate] = useState(todayBogota);
   const [fetchDayBusy, setFetchDayBusy] = useState(false);
   const [fetchDayMsg, setFetchDayMsg] = useState('');
 

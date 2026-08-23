@@ -36,17 +36,8 @@ import {
   type SortMode,
   type StatsOptions,
 } from '@/lib/pronosticos-ia-stats';
+import { todayBogota } from '@/lib/dates';
 import type { PronosticoIaRow } from '@/lib/types';
-
-function defaultDesde() {
-  const d = new Date();
-  d.setDate(d.getDate() - 7);
-  return d.toISOString().slice(0, 10);
-}
-
-function defaultHasta() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 const DEFAULT_FILTERS: PronosticosIaFilters = {
   search: '',
@@ -108,11 +99,11 @@ export function PronosticosIaView() {
   const urlHasta = searchParams.get('hasta');
   const urlSearch = searchParams.get('search') ?? '';
 
-  const [desde, setDesde] = useState(urlDesde || defaultDesde());
-  const [hasta, setHasta] = useState(urlHasta || defaultHasta());
+  const [desde, setDesde] = useState(urlDesde || todayBogota());
+  const [hasta, setHasta] = useState(urlHasta || todayBogota());
   const [applied, setApplied] = useState({
-    desde: urlDesde || defaultDesde(),
-    hasta: urlHasta || defaultHasta(),
+    desde: urlDesde || todayBogota(),
+    hasta: urlHasta || todayBogota(),
   });
   const [filters, setFilters] = useState<PronosticosIaFilters>({
     ...DEFAULT_FILTERS,
@@ -129,7 +120,7 @@ export function PronosticosIaView() {
   const [comparadorModal, setComparadorModal] = useState<RowModal | null>(null);
   const [oddsRefModal, setOddsRefModal] = useState<RowModal | null>(null);
   const [cuotaBusy, setCuotaBusy] = useState<string | null>(null);
-  const [cacheDate, setCacheDate] = useState(defaultHasta());
+  const [cacheDate, setCacheDate] = useState(todayBogota());
   const [cacheBusy, setCacheBusy] = useState(false);
   const [cacheMsg, setCacheMsg] = useState<string | null>(null);
   const [cacheFixtureBusy, setCacheFixtureBusy] = useState<number | null>(null);

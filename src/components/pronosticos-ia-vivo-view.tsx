@@ -29,17 +29,8 @@ import {
   type SortMode,
   type StatsOptions,
 } from '@/lib/pronosticos-ia-stats';
+import { todayBogota } from '@/lib/dates';
 import type { PronosticoIaRow, PronosticoIaVivoRow } from '@/lib/types';
-
-function defaultDesde() {
-  const d = new Date();
-  d.setDate(d.getDate() - 7);
-  return d.toISOString().slice(0, 10);
-}
-
-function defaultHasta() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 const DEFAULT_FILTERS: PronosticosIaFilters = {
   search: '',
@@ -117,11 +108,11 @@ export function PronosticosIaVivoView() {
   const urlHasta = searchParams.get('hasta');
   const urlSearch = searchParams.get('search') ?? '';
 
-  const [desde, setDesde] = useState(urlDesde || defaultDesde());
-  const [hasta, setHasta] = useState(urlHasta || defaultHasta());
+  const [desde, setDesde] = useState(urlDesde || todayBogota());
+  const [hasta, setHasta] = useState(urlHasta || todayBogota());
   const [applied, setApplied] = useState({
-    desde: urlDesde || defaultDesde(),
-    hasta: urlHasta || defaultHasta(),
+    desde: urlDesde || todayBogota(),
+    hasta: urlHasta || todayBogota(),
   });
   const [filters, setFilters] = useState<PronosticosIaFilters>({
     ...DEFAULT_FILTERS,
