@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
   fetchLivePipelineMonitor,
+  reconcileLivePipeline,
   triggerLiveAnalysisManual,
 } from '@/lib/api';
 import { toastError, toastSuccess } from '@/lib/admin-toast';
@@ -93,6 +94,21 @@ export function LivePipelineMonitorPanel() {
   const [filter, setFilter] = useState<'all' | 'critical' | 'warn' | 'ok'>('all');
   const [triggeringId, setTriggeringId] = useState<number | null>(null);
 
+  const reconcileMut = useMutation({
+    mutationFn: () => reconcileLivePipeline({ maxItems: 8, maxFixtures: 50 }),
+    onSuccess: (res) => {
+      const q = res.sweep?.queued ?? 0;
+      const p = res.promoted ?? 0;
+      const d = res.drain?.processed ?? 0;
+      toastSuccess(
+        'Pipeline Luna',
+        `Encolados: ${p + q} · GPT procesados: ${d}`,
+      );
+      void qc.invalidateQueries({ queryKey: ['live-pipeline-monitor'] });
+    },
+    onError: (err) => toastError('Encolar pendientes', err),
+  });
+
   const query = useQuery({
     queryKey: ['live-pipeline-monitor'],
     queryFn: fetchLivePipelineMonitor,
@@ -148,7 +164,16 @@ export function LivePipelineMonitorPanel() {
             {data.generatedAt ? ` · ${formatWhen(data.generatedAt)}` : ''}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs">
+        <div className="flex flex-col items-end gap-2">
+          <button
+            type="button"
+            disabled={reconcileMut.isPending}
+            onClick={() => reconcileMut.mutate()}
+            className="rounded-lg border border-indigo-400/40 bg-indigo-500/15 px-3 py-1.5 text-xs font-medium text-indigo-200 hover:bg-indigo-500/25 disabled:opacity-50"
+          >
+            {reconcileMut.isPending ? 'Encolando…' : 'Encolar pendientes'}
+          </button>
+          <div className="flex flex-wrap gap-2 text-xs">
           {(
             [
               ['all', `Todos (${counts?.total ?? 0})`],
@@ -170,6 +195,7 @@ export function LivePipelineMonitorPanel() {
               {label}
             </button>
           ))}
+          </div>
         </div>
       </div>
 

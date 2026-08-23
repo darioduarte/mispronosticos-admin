@@ -91,6 +91,7 @@ import type {
   OpsIncidentsResponse,
   OpsIncidentsReportResponse,
   CronHeartbeatsResponse,
+  CronRerunResponse,
   LivePipelineMonitorResponse,
   RuntimeSettingsSnapshot,
   StoriesListResponse,
@@ -1350,10 +1351,41 @@ export function fetchCronHeartbeats() {
   return adminFetch<CronHeartbeatsResponse>('/api/admin/dashboard/cron-heartbeats');
 }
 
+export function rerunCronJob(jobKey: string, options: { force?: boolean; targetDate?: string } = {}) {
+  return adminFetch<CronRerunResponse>(
+    `/api/admin/dashboard/cron-heartbeats/${encodeURIComponent(jobKey)}/run`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        force: options.force === true,
+        targetDate: options.targetDate,
+      }),
+    },
+  );
+}
+
 export function fetchLivePipelineMonitor() {
   return adminFetch<LivePipelineMonitorResponse>(
     '/api/admin/pronosticos-ia/live-pipeline/monitor',
   );
+}
+
+export function reconcileLivePipeline(params?: {
+  maxItems?: number;
+  maxFixtures?: number;
+  maxScan?: number;
+}) {
+  return adminFetch<{
+    success: boolean;
+    ok?: boolean;
+    promoted?: number;
+    sweep?: { queued?: number; swept?: number };
+    drain?: { processed?: number };
+    reason?: string;
+  }>('/api/admin/pronosticos-ia/live-pipeline/reconcile', {
+    method: 'POST',
+    body: JSON.stringify(params || {}),
+  });
 }
 
 export function fetchOpsIncidents(params: {
