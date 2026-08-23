@@ -569,6 +569,16 @@ export type LivePipelineMonitorResponse = {
   error?: string;
 };
 
+export type CronSlotStatus =
+  | 'pending'
+  | 'waiting'
+  | 'running'
+  | 'ran'
+  | 'failed'
+  | 'missed'
+  | 'not_today'
+  | 'unknown';
+
 export type CronHeartbeatRow = {
   jobKey: string;
   label: string;
@@ -582,12 +592,49 @@ export type CronHeartbeatRow = {
   lastError?: string | null;
   lastDurationMs?: number | null;
   updatedAt?: string | null;
+  canRerun?: boolean;
+  expectedAt?: string | null;
+  nextAt?: string | null;
+  todayFireAt?: string | null;
+  todaySlotStatus?: CronSlotStatus | string | null;
+  lastSlotStatus?: CronSlotStatus | string | null;
+  lastSlotCovered?: boolean;
+};
+
+export type AiPrematchProcessStatus = {
+  status?: string | null;
+  targetDate?: string | null;
+  lastUpdatedAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  failedAt?: string | null;
+  progress?: { current?: number; total?: number; percentage?: number } | null;
+  processed?: number | null;
+  skipped?: number | null;
+  errors?: number | null;
+  total?: number | null;
+  source?: string | null;
+  error?: string;
 };
 
 export type CronHeartbeatsResponse = {
   success: boolean;
   generatedAt?: string;
+  timezone?: string;
   crons?: CronHeartbeatRow[];
+  featured?: CronHeartbeatRow & { process?: AiPrematchProcessStatus };
+  error?: string;
+};
+
+export type CronRerunResponse = {
+  success: boolean;
+  accepted?: boolean;
+  alreadyRunning?: boolean;
+  dispatched?: boolean;
+  jobKey?: string;
+  label?: string;
+  targetDate?: string;
+  message?: string;
   error?: string;
 };
 
@@ -1961,6 +2008,8 @@ export type DashboardSummary = {
       lastSuccessAt: string | null;
       lastStartedAt: string | null;
       lastError: string | null;
+      todaySlotStatus?: string | null;
+      todayFireAt?: string | null;
     } | null;
     cronsAtencion?: Array<{
       jobKey: string;
