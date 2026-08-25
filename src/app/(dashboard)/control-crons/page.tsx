@@ -6,8 +6,8 @@ export default function ControlCronsPage() {
       <div>
         <h1 className="text-xl font-semibold text-slate-100">Control de crons</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Heartbeats, estado del día y relanzamiento de jobs del worker (incl. IA prepartido
-          19:15). Base para seguimiento, monitoreo y observabilidad de crons.
+          Heartbeats por tier (críticos / data / live), estado del día y relanzamiento de la
+          cadena prepartido. Waiting de jobs live no cuenta como alerta.
         </p>
       </div>
       <CronHeartbeatsPanel />

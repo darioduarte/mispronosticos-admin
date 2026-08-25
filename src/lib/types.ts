@@ -579,11 +579,16 @@ export type CronSlotStatus =
   | 'not_today'
   | 'unknown';
 
+export type CronTier = 'critical' | 'data' | 'live' | 'other';
+
 export type CronHeartbeatRow = {
   jobKey: string;
   label: string;
   cronExpr?: string | null;
   role?: string | null;
+  tier?: CronTier | string | null;
+  severity?: string | null;
+  watchMissed?: boolean;
   lastStatus?: string | null;
   lastStartedAt?: string | null;
   lastSuccessAt?: string | null;
