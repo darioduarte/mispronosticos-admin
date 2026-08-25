@@ -126,8 +126,29 @@ function CronHealthCard({ d }: { d: DashboardSummary }) {
   const missed = s.cronMissedHoy ?? 0;
   const failed = s.cronFailedHoy ?? 0;
   const pending = s.alertasPendientes ?? 0;
-  const hot = errorsToday > 0 || missed > 0 || failed > 0 || pending > 0;
   const ai = s.aiAnalysis;
+  const todaySlot = ai?.todaySlotStatus;
+  const hot =
+    errorsToday > 0 ||
+    missed > 0 ||
+    failed > 0 ||
+    pending > 0 ||
+    todaySlot === 'missed' ||
+    todaySlot === 'failed';
+  const todaySlotLabel =
+    todaySlot === 'ran'
+      ? 'Se ejecutó hoy'
+      : todaySlot === 'running'
+        ? 'En curso'
+        : todaySlot === 'missed'
+          ? 'No se ejecutó hoy'
+          : todaySlot === 'failed'
+            ? 'Falló hoy'
+            : todaySlot === 'waiting'
+              ? 'Esperando heartbeat'
+              : todaySlot === 'pending'
+                ? 'Aún no toca (19:15)'
+                : ai?.status || '—';
   const aiLabel = ai?.lastSuccessAt
     ? new Date(ai.lastSuccessAt).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
     : 'sin heartbeat';
@@ -168,11 +189,21 @@ function CronHealthCard({ d }: { d: DashboardSummary }) {
           </p>
           <p className="text-[11px] text-slate-500">Enviados hoy: {fmt(s.alertasEnviadasHoy)}</p>
         </div>
-        <div>
-          <p className="text-xs text-slate-500">Último análisis IA 19:15</p>
-          <p className="text-sm font-semibold text-slate-200">{ai?.status || '—'}</p>
-          <p className="text-[11px] text-slate-500">{aiLabel}</p>
-        </div>
+        <Link href="/control-crons" className="rounded-lg p-2 transition hover:bg-white/[0.03]">
+          <p className="text-xs text-slate-500">IA prepartido 19:15</p>
+          <p
+            className={`text-sm font-semibold ${
+              todaySlot === 'missed' || todaySlot === 'failed'
+                ? 'text-amber-300'
+                : todaySlot === 'ran'
+                  ? 'text-emerald-300'
+                  : 'text-slate-200'
+            }`}
+          >
+            {todaySlotLabel}
+          </p>
+          <p className="text-[11px] text-slate-500">Último éxito: {aiLabel}</p>
+        </Link>
       </div>
       {(s.cronsAtencion || []).length > 0 && (
         <ul className="mt-3 space-y-1 text-xs text-slate-400">
