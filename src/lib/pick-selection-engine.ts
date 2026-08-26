@@ -445,9 +445,22 @@ export function selectPicks(picks: PickInput[]): SelectPicksResult {
 /** Markdown de seleccionables (máx. 1/partido) para pegar en LLM / banco */
 export function buildSelectedPicksMarkdown(
   selected: ScoredPick[],
-  extras?: Map<string, { local: string; visitante: string; liga: string; tipo: string; pronostico: string }>,
+  extras?: Map<
+    string,
+    {
+      local: string;
+      visitante: string;
+      liga: string;
+      tipo: string;
+      pronostico: string;
+      resultado?: string | null;
+      marcador?: string | null;
+    }
+  >,
 ): string {
   const headers = [
+    'Resultado',
+    'Marcador',
     'Score',
     'p*',
     'Cuota',
@@ -470,7 +483,15 @@ export function buildSelectedPicksMarkdown(
   for (const s of selected) {
     const ex = extras?.get(s.id);
     const motivo = s.reasons[0] || '—';
+    const res =
+      ex?.resultado === 'acertado'
+        ? 'Acertado'
+        : ex?.resultado === 'fallido'
+          ? 'Fallido'
+          : 'Pendiente';
     const cells = [
+      res,
+      ex?.marcador ?? '—',
       s.score.toFixed(1),
       pct(s.pCorr),
       (1 / s.qImpl).toFixed(2),

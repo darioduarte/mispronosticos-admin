@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   CFG,
   buildSelectedPicksMarkdown,
@@ -58,6 +58,39 @@ export function PickSelectionPanel({ rows, result }: Props) {
 
   if (rows.length === 0) return null;
 
+  const rowById = useMemo(() => {
+    const m = new Map<string, PronosticoIaRow>();
+    for (const r of rows) m.set(String(r.pronostico_id), r);
+    return m;
+  }, [rows]);
+
+  const bankPerf = useMemo(() => {
+    let ac = 0;
+    let fa = 0;
+    let pe = 0;
+    let stake = 0;
+    let retorno = 0;
+    for (const s of result.selected) {
+      const row = rowById.get(s.id);
+      const clase = row?.resultado_clase ?? 'pendiente';
+      if (clase === 'acertado') {
+        ac += 1;
+        stake += 1;
+        retorno += 1 / s.qImpl; // cuota decimal
+      } else if (clase === 'fallido') {
+        fa += 1;
+        stake += 1;
+      } else {
+        pe += 1;
+      }
+    }
+    const resolved = ac + fa;
+    const rate = resolved > 0 ? (100 * ac) / resolved : null;
+    const profit = retorno - stake;
+    const roi = stake > 0 ? (100 * profit) / stake : null;
+    return { ac, fa, pe, resolved, rate, stake, profit, roi };
+  }, [result.selected, rowById]);
+
   const extras = new Map(
     rows.map((r) => [
       String(r.pronostico_id),
@@ -67,6 +100,12 @@ export function PickSelectionPanel({ rows, result }: Props) {
         liga: [r.pais, r.liga].filter(Boolean).join(' · ') || '—',
         tipo: String(r.pronostico_tipo || '—'),
         pronostico: String(r.pronostico || '—'),
+        resultado: r.resultado_clase,
+        marcador:
+          r.goalshome != null && r.goalsaway != null
+            ? `${r.goalshome}-${r.goalsaway}`
+            : null,
+        mensaje: r.resultado_mensaje,
       },
     ]),
   );
@@ -123,11 +162,48 @@ export function PickSelectionPanel({ rows, result }: Props) {
         />
       </div>
 
+      {result.selected.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <Stat
+            label="Bank ✓"
+            value={String(bankPerf.ac)}
+            accent="text-emerald-300"
+          />
+          <Stat label="Bank ✗" value={String(bankPerf.fa)} accent="text-red-300" />
+          <Stat
+            label="Bank pend."
+            value={String(bankPerf.pe)}
+            accent="text-slate-400"
+          />
+          <Stat
+            label="% bank evaluados"
+            value={bankPerf.rate != null ? `${bankPerf.rate.toFixed(1)}%` : '—'}
+            accent="text-indigo-300"
+          />
+          <Stat
+            label="ROI bank (1u)"
+            value={
+              bankPerf.roi != null
+                ? `${bankPerf.profit >= 0 ? '+' : ''}${bankPerf.profit.toFixed(2)}u (${bankPerf.roi >= 0 ? '+' : ''}${bankPerf.roi.toFixed(0)}%)`
+                : '—'
+            }
+            accent={
+              bankPerf.roi == null
+                ? 'text-slate-400'
+                : bankPerf.roi >= 0
+                  ? 'text-emerald-300'
+                  : 'text-red-300'
+            }
+          />
+        </div>
+      )}
+
       {result.selected.length > 0 ? (
         <div className="overflow-x-auto rounded-lg border border-white/10">
-          <table className="w-full min-w-[720px] text-left text-xs">
+          <table className="w-full min-w-[820px] text-left text-xs">
             <thead className="bg-[#0c1017] text-slate-400">
               <tr>
+                <th className="px-2 py-2">Resultado</th>
                 <th className="px-2 py-2">Score</th>
                 <th className="px-2 py-2">Partido</th>
                 <th className="px-2 py-2">Pick</th>
@@ -143,6 +219,13 @@ export function PickSelectionPanel({ rows, result }: Props) {
                 const ex = extras.get(s.id);
                 return (
                   <tr key={s.id} className="border-t border-white/5 align-top">
+                    <td className="px-2 py-2">
+                      <ResultChip
+                        clase={ex?.resultado ?? 'pendiente'}
+                        marcador={ex?.marcador}
+                        mensaje={ex?.mensaje}
+                      />
+                    </td>
                     <td className="px-2 py-2 font-semibold text-emerald-300">
                       {s.score.toFixed(1)}
                     </td>
@@ -213,6 +296,40 @@ function Stat({
     <div className="rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2">
       <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
       <p className={`mt-0.5 text-lg font-bold ${accent ?? 'text-white'}`}>{value}</p>
+    </div>
+  );
+}
+
+function ResultChip({
+  clase,
+  marcador,
+  mensaje,
+}: {
+  clase: string;
+  marcador?: string | null;
+  mensaje?: string | null;
+}) {
+  const styles =
+    clase === 'acertado'
+      ? 'bg-emerald-500/20 text-emerald-300'
+      : clase === 'fallido'
+        ? 'bg-red-500/20 text-red-300'
+        : 'bg-slate-500/20 text-slate-300';
+  const label =
+    clase === 'acertado' ? 'Acertado' : clase === 'fallido' ? 'Fallido' : 'Pendiente';
+  return (
+    <div>
+      <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${styles}`}>
+        {label}
+      </span>
+      {marcador && (
+        <div className="mt-0.5 text-[10px] text-slate-500">{marcador}</div>
+      )}
+      {mensaje && (
+        <div className="mt-0.5 max-w-[140px] truncate text-[10px] text-slate-600" title={mensaje}>
+          {mensaje}
+        </div>
+      )}
     </div>
   );
 }
