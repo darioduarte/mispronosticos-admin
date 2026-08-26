@@ -500,6 +500,286 @@ export function computePronosticosIaStats(
   };
 }
 
+function mdCell(value: string | number | null | undefined): string {
+  if (value == null || value === '') return '—';
+  return String(value)
+    .replace(/\r?\n/g, ' ')
+    .replace(/\|/g, '\\|')
+    .trim();
+}
+
+function mdPct(n: number | null | undefined, digits = 1): string {
+  return n != null && Number.isFinite(n) ? `${n.toFixed(digits)}%` : '—';
+}
+
+/** Tabla markdown con encabezados (lista para pegar en otro LLM). */
+export function buildMarkdownTable(headers: string[], rows: (string | number | null | undefined)[][]): string {
+  if (headers.length === 0) return '';
+  const head = `| ${headers.map(mdCell).join(' | ')} |`;
+  const sep = `| ${headers.map(() => '---').join(' | ')} |`;
+  const body = rows.map((row) => `| ${row.map(mdCell).join(' | ')} |`).join('\n');
+  return [head, sep, body].filter(Boolean).join('\n');
+}
+
+function resultadoLabel(clase: string | null | undefined): string {
+  if (clase === 'acertado') return 'Acertado';
+  if (clase === 'fallido') return 'Fallido';
+  return 'Pendiente';
+}
+
+function hasLiveFields(rows: PronosticoIaRow[]): boolean {
+  return rows.some((r) => {
+    const live = r as PronosticoIaRow & {
+      windowKey?: string | null;
+      windowLabel?: string | null;
+      run_minute?: number | null;
+    };
+    return (
+      (live.windowKey != null && String(live.windowKey).trim() !== '') ||
+      (live.windowLabel != null && String(live.windowLabel).trim() !== '') ||
+      live.run_minute != null
+    );
+  });
+}
+
+export type PronosticosExportMeta = {
+  title?: string;
+  desde?: string;
+  hasta?: string;
+};
+
+/**
+ * Indicadores (tablas) + listado de pronósticos visibles, en markdown
+ * para pegar en otro LLM.
+ */
+export function buildPronosticosAnalisisExportMarkdown(
+  rows: PronosticoIaRow[],
+  options: StatsOptions,
+  meta: PronosticosExportMeta = {},
+): string {
+  const stats = computePronosticosIaStats(rows, options);
+  const live = hasLiveFields(rows);
+  const title = meta.title || 'Análisis de pronósticos IA';
+  const rango =
+    meta.desde || meta.hasta
+      ? `Rango: ${meta.desde || '—'} → ${meta.hasta || '—'}`
+      : null;
+
+  const rr = stats.rolling.recent;
+  const ro = stats.rolling.older;
+  const rRes = rr.ac + rr.fa;
+  const oRes = ro.ac + ro.fa;
+
+  const sections: string[] = [
+    `# ${title}`,
+    '',
+    rango || null,
+    `Filas visibles: ${stats.total} · Partidos únicos: ${stats.uniqueFixtures} · Picks de valor: ${stats.pickValorCount}`,
+    `Parámetros: mín. evaluados ranking=${options.minEvalRanking}, ventana reciente=${options.rollingDays}d, mín. muestra fiable=${options.minEvalSegments}`,
+    '',
+    '## Resumen',
+    '',
+    buildMarkdownTable(
+      [
+        '% aciertos / evaluados',
+        'Total',
+        'Acertados',
+        'Fallidos',
+        'Pendientes',
+        '% aciertos / total',
+        'Prob. media',
+        `Reciente (${options.rollingDays}d)`,
+        `Histórico (>${options.rollingDays}d)`,
+      ],
+      [
+        [
+          mdPct(stats.rateResolved),
+          stats.total,
+          stats.ac,
+          stats.fa,
+          stats.pe,
+          mdPct(stats.rateTotal),
+          mdPct(stats.avgProb),
+          rRes > 0 ? `${((100 * rr.ac) / rRes).toFixed(1)}% (${rr.ac}/${rRes})` : '—',
+          oRes > 0 ? `${((100 * ro.ac) / oRes).toFixed(1)}% (${ro.ac}/${oRes})` : '—',
+        ],
+      ],
+    ),
+    '',
+    '## Ranking por categoría',
+    '',
+    buildMarkdownTable(
+      ['#', 'Categoría', 'Total', 'Acertados', 'Fallidos', 'Pendientes', 'Evaluados', '% acierto', 'IC 95%', 'Prob. media'],
+      stats.categorias.map((r, i) => [
+        i + 1,
+        formatCategoriaLabel(r.label),
+        r.total,
+        r.ac,
+        r.fa,
+        r.pe,
+        r.resolved,
+        mdPct(r.rate),
+        r.wilson,
+        mdPct(r.avgProb),
+      ]),
+    ),
+    '',
+    '## Ranking por torneo',
+    '',
+    buildMarkdownTable(
+      ['#', 'País', 'Competición', 'Total', 'Acertados', 'Fallidos', 'Pendientes', 'Evaluados', '% acierto', 'IC 95%', 'Prob. media'],
+      stats.torneos.map((r, i) => [
+        i + 1,
+        r.pais,
+        r.liga,
+        r.total,
+        r.ac,
+        r.fa,
+        r.pe,
+        r.resolved,
+        mdPct(r.rate),
+        r.wilson,
+        mdPct(r.avgProb),
+      ]),
+    ),
+    '',
+    '## Calibración por tramo de probabilidad',
+    '',
+    buildMarkdownTable(
+      ['Tramo', 'Evaluados', '% realizado', 'Centro tramo', 'Δ calibración', 'IC 95%'],
+      stats.calibracion.map((r) => [
+        r.label,
+        r.eval,
+        mdPct(r.rate),
+        `${r.mid}%`,
+        r.delta != null ? `${r.delta > 0 ? '+' : ''}${r.delta.toFixed(1)} p.p.` : '—',
+        r.wilson,
+      ]),
+    ),
+    '',
+    '## Segmentación por línea',
+    '',
+    buildMarkdownTable(
+      ['Tramo línea', 'Total', 'Evaluados', '% acierto', 'Prob. media', 'IC 95%'],
+      stats.lineas.map((r) => [
+        r.label,
+        r.total,
+        r.resolved,
+        mdPct(r.rate),
+        mdPct(r.avgProb),
+        r.wilson,
+      ]),
+    ),
+    '',
+    '## Edge implícito (modelo vs mercado)',
+    '',
+    buildMarkdownTable(
+      ['Tramo Δ', 'Filas', 'Evaluados', '% acierto', 'Prob. modelo', 'Implícita', 'IC 95%'],
+      stats.edge.map((r) => [
+        r.label,
+        r.total,
+        r.resolved,
+        mdPct(r.rate),
+        mdPct(r.avgProb),
+        mdPct(r.implAvg),
+        r.wilson,
+      ]),
+    ),
+    '',
+    '## Pronósticos (filas visibles)',
+    '',
+  ].filter((line): line is string => line != null);
+
+  const pickHeaders = live
+    ? [
+        'Fecha',
+        'Fase',
+        'Minuto',
+        'Local',
+        'Visitante',
+        'País',
+        'Liga',
+        'Tipo',
+        'Pronóstico',
+        'Categoría',
+        'Línea',
+        'Equipo',
+        'Probabilidad',
+        'Cuota',
+        'Marcador',
+        'Resultado',
+        'Mensaje eval.',
+        'Estado',
+        'Guardados',
+        'Fixture ID',
+      ]
+    : [
+        'Fecha',
+        'Local',
+        'Visitante',
+        'País',
+        'Liga',
+        'Tipo',
+        'Pronóstico',
+        'Categoría',
+        'Línea',
+        'Equipo',
+        'Probabilidad',
+        'Cuota',
+        'Marcador',
+        'Resultado',
+        'Mensaje eval.',
+        'Estado',
+        'Guardados',
+        'Fixture ID',
+      ];
+
+  const pickRows = rows.map((row) => {
+    const liveRow = row as PronosticoIaRow & {
+      windowLabel?: string | null;
+      windowKey?: string | null;
+      run_minute?: number | null;
+    };
+    const local = row.equipo_local || row.teamshomename || '—';
+    const visitante = row.equipo_visitante || row.teamsawayname || '—';
+    const marcador =
+      row.goalshome != null && row.goalsaway != null
+        ? `${row.goalshome}-${row.goalsaway}`
+        : '—';
+    const base = [
+      formatFixtureFechaHora(row),
+      local,
+      visitante,
+      row.pais,
+      row.liga,
+      row.pronostico_tipo,
+      row.pronostico,
+      formatCategoriaLabel(row.categoria_normalizada || 'otros'),
+      row.linea_normalizada,
+      row.equipo_normalizado,
+      row.probabilidad,
+      row.cuota_display ?? row.cuota_decimal ?? row.cuota_llm_decimal,
+      marcador,
+      resultadoLabel(row.resultado_clase),
+      row.resultado_mensaje,
+      row.estado_partido,
+      row.totalUsuariosGuardado ?? 0,
+      row.fixtureid,
+    ];
+    if (!live) return base;
+    return [
+      formatFixtureFechaHora(row),
+      liveRow.windowLabel || liveRow.windowKey || '—',
+      liveRow.run_minute ?? '—',
+      ...base.slice(1),
+    ];
+  });
+
+  sections.push(buildMarkdownTable(pickHeaders, pickRows));
+  sections.push('');
+  return sections.join('\n');
+}
+
 export type ApuestasSimuladas = {
   stake: number;
   picks: number;

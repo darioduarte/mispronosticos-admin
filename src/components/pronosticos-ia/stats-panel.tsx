@@ -1,37 +1,76 @@
 'use client';
 
 import {
+  buildPronosticosAnalisisExportMarkdown,
   computePronosticosIaStats,
   formatCategoriaLabel,
   type PronosticosIaStats,
   type StatsOptions,
 } from '@/lib/pronosticos-ia-stats';
 import type { PronosticoIaRow } from '@/lib/types';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 type Props = {
   rows: PronosticoIaRow[];
   options: StatsOptions;
   onOptionsChange: (patch: Partial<StatsOptions>) => void;
+  /** Rango aplicado (para el texto exportado). */
+  desde?: string;
+  hasta?: string;
+  title?: string;
 };
 
-export function PronosticosIaStatsPanel({ rows, options, onOptionsChange }: Props) {
+export function PronosticosIaStatsPanel({
+  rows,
+  options,
+  onOptionsChange,
+  desde,
+  hasta,
+  title,
+}: Props) {
   const stats = useMemo(
     () => computePronosticosIaStats(rows, options),
     [rows, options],
   );
+  const [copied, setCopied] = useState(false);
 
   if (rows.length === 0) return null;
 
+  async function handleCopyAll() {
+    const text = buildPronosticosAnalisisExportMarkdown(rows, options, {
+      title: title || 'Análisis de pronósticos IA',
+      desde,
+      hasta,
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
     <section className="mb-6 space-y-6 rounded-xl border border-white/10 bg-[#151b24] p-5">
-      <div>
-        <h2 className="text-lg font-semibold text-white">
-          Indicadores de rendimiento (vista filtrada)
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Los porcentajes se recalculan con las filas visibles según tus filtros.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-white">
+            Indicadores de rendimiento (vista filtrada)
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Los porcentajes se recalculan con las filas visibles según tus filtros.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleCopyAll}
+          disabled={rows.length === 0}
+          className="shrink-0 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-2 text-sm font-medium text-indigo-200 hover:bg-indigo-500/20 disabled:opacity-50"
+          title="Copia indicadores y todos los pronósticos visibles en tablas markdown para pegarlos en otro LLM"
+        >
+          {copied ? 'Copiado' : 'Copiar indicadores + pronósticos'}
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-4 text-xs">

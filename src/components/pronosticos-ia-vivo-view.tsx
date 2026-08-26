@@ -22,6 +22,7 @@ import {
   filterPronosticosRows,
   formatCategoriaLabel,
   formatFixtureFechaHora,
+  buildPronosticosAnalisisExportMarkdown,
   sortPronosticosRows,
   type PickScope,
   type PronosticosIaFilters,
@@ -129,6 +130,7 @@ export function PronosticosIaVivoView() {
   const [liveOddsModal, setLiveOddsModal] = useState<RowModal | null>(null);
   const [liveAnalysisModal, setLiveAnalysisModal] = useState<RowModal | null>(null);
   const [triggerBusy, setTriggerBusy] = useState<number | null>(null);
+  const [exportCopied, setExportCopied] = useState(false);
 
   useEffect(() => {
     if (urlDesde) {
@@ -159,6 +161,22 @@ export function PronosticosIaVivoView() {
   }, [query.data?.data, filters, fase, sortMode]);
 
   const meta = query.data?.meta;
+
+  async function handleCopyAnalisisExport() {
+    if (filtered.length === 0) return;
+    const text = buildPronosticosAnalisisExportMarkdown(filtered as PronosticoIaRow[], statsOpts, {
+      title: 'Pronósticos IA en vivo',
+      desde: applied.desde,
+      hasta: applied.hasta,
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      setExportCopied(true);
+      window.setTimeout(() => setExportCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  }
 
   const categoriaOptions = useMemo(() => {
     const fromMeta = meta?.categorias ?? [];
@@ -208,13 +226,24 @@ export function PronosticosIaVivoView() {
             Picks de análisis en vivo por fase (min30 / HT / min60 / manual).
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setStatsOpen((v) => !v)}
-          className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-slate-300 hover:bg-white/5 sm:w-auto"
-        >
-          {statsOpen ? 'Ocultar indicadores' : 'Mostrar indicadores'}
-        </button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <button
+            type="button"
+            onClick={handleCopyAnalisisExport}
+            disabled={filtered.length === 0}
+            className="w-full rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-2.5 text-sm font-medium text-indigo-200 hover:bg-indigo-500/20 disabled:opacity-50 sm:w-auto"
+            title="Copia indicadores y pronósticos visibles en tablas markdown para pegarlos en otro LLM"
+          >
+            {exportCopied ? 'Copiado' : 'Copiar para LLM'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatsOpen((v) => !v)}
+            className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-sm text-slate-300 hover:bg-white/5 sm:w-auto"
+          >
+            {statsOpen ? 'Ocultar indicadores' : 'Mostrar indicadores'}
+          </button>
+        </div>
       </header>
 
       <section className="mb-4 rounded-xl border border-white/10 bg-[#151b24] p-3 sm:mb-6 sm:p-4">
@@ -362,6 +391,9 @@ export function PronosticosIaVivoView() {
           rows={filtered as PronosticoIaRow[]}
           options={statsOpts}
           onOptionsChange={(patch) => setStatsOpts((o) => ({ ...o, ...patch }))}
+          title="Pronósticos IA en vivo"
+          desde={applied.desde}
+          hasta={applied.hasta}
         />
       )}
 
