@@ -12,6 +12,11 @@ import { OddsReferenciaModal } from '@/components/pronosticos-ia/odds-referencia
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
 import { LiveNowJobPanel } from '@/components/pronosticos-ia/live-now-job-panel';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
+import {
+  PickSelectionPanel,
+  SelectionLabelBadge,
+  scorePronosticoRows,
+} from '@/components/pronosticos-ia/pick-selection-panel';
 import { CategoriaChecklist } from '@/components/pronosticos-ia/categoria-checklist';
 import {
   ExpandableText,
@@ -39,6 +44,7 @@ import {
 } from '@/lib/pronosticos-ia-stats';
 import { todayBogota } from '@/lib/dates';
 import type { PronosticoIaRow } from '@/lib/types';
+import type { PickLabel, ScoredPick } from '@/lib/pick-selection-engine';
 
 const DEFAULT_FILTERS: PronosticosIaFilters = {
   search: '',
@@ -126,6 +132,8 @@ export function PronosticosIaView() {
   const [cacheMsg, setCacheMsg] = useState<string | null>(null);
   const [cacheFixtureBusy, setCacheFixtureBusy] = useState<number | null>(null);
   const [exportCopied, setExportCopied] = useState(false);
+  const [selectionFilter, setSelectionFilter] = useState<'all' | PickLabel | 'bank'>('all');
+  const [selectionOpen, setSelectionOpen] = useState(true);
 
   useEffect(() => {
     if (urlDesde) {
@@ -151,6 +159,20 @@ export function PronosticosIaView() {
     const f = filterPronosticosRows(rows, filters);
     return sortPronosticosRows(f, sortMode);
   }, [query.data?.data, filters, sortMode]);
+
+  const selection = useMemo(() => scorePronosticoRows(filtered), [filtered]);
+
+  const displayed = useMemo(() => {
+    if (selectionFilter === 'all') return filtered;
+    if (selectionFilter === 'bank') {
+      const ids = new Set(selection.result.selected.map((s) => s.id));
+      return filtered.filter((r) => ids.has(String(r.pronostico_id)));
+    }
+    return filtered.filter((r) => {
+      const s = selection.byId.get(String(r.pronostico_id));
+      return s?.label === selectionFilter;
+    });
+  }, [filtered, selection, selectionFilter]);
 
   const meta = query.data?.meta;
 
@@ -364,6 +386,18 @@ export function PronosticosIaView() {
             ]}
           />
           <SelectFilter
+            label="Motor"
+            value={selectionFilter}
+            onChange={(v) => setSelectionFilter(v as 'all' | PickLabel | 'bank')}
+            options={[
+              { value: 'all', label: 'Todos (score)' },
+              { value: 'bank', label: `Bank (${selection.result.selected.length})` },
+              { value: 'seleccionable', label: 'Seleccionables' },
+              { value: 'dudoso', label: 'Dudosos' },
+              { value: 'descartar', label: 'Descartar' },
+            ]}
+          />
+          <SelectFilter
             label="Orden"
             value={sortMode}
             onChange={(v) => setSortMode(v as SortMode)}
@@ -389,12 +423,15 @@ export function PronosticosIaView() {
           <SmallNumber label="Prob. máx %" value={filters.probMax} onChange={(v) => patchFilter({ probMax: v })} />
           <SmallText label="Cuota mín" value={filters.minCuota} onChange={(v) => patchFilter({ minCuota: v })} />
           <SmallText label="Cuota máx" value={filters.maxCuota} onChange={(v) => patchFilter({ maxCuota: v })} />
-          <span className="col-span-2 self-end text-sm text-slate-500 sm:col-span-1">{filtered.length} filas visibles</span>
+          <span className="col-span-2 self-end text-sm text-slate-500 sm:col-span-1">
+            {displayed.length}/{filtered.length} filas
+          </span>
           <button
             type="button"
             onClick={() => {
               setFilters(DEFAULT_FILTERS);
               setSortMode('valor_desc');
+              setSelectionFilter('all');
             }}
             className="col-span-2 self-end rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-slate-200 sm:col-span-1"
           >
@@ -402,6 +439,20 @@ export function PronosticosIaView() {
           </button>
         </div>
       </section>
+
+      <div className="mb-3 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setSelectionOpen((v) => !v)}
+          className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200"
+        >
+          {selectionOpen ? 'Ocultar motor' : 'Mostrar motor'}
+        </button>
+      </div>
+
+      {selectionOpen && (
+        <PickSelectionPanel rows={filtered} result={selection.result} />
+      )}
 
       {statsOpen && (
         <PronosticosIaStatsPanel
@@ -416,10 +467,11 @@ export function PronosticosIaView() {
 
       {/* Vista móvil: tarjetas */}
       <div className="space-y-3 md:hidden">
-        {filtered.map((row) => (
+        {displayed.map((row) => (
           <PronosticoMobileCard
             key={row.pronostico_id}
             row={row}
+            scored={selection.byId.get(String(row.pronostico_id))}
             cuotaBusy={cuotaBusy}
             cacheFixtureBusy={cacheFixtureBusy}
             onFetchCuota={handleFetchCuota}
@@ -447,7 +499,7 @@ export function PronosticosIaView() {
             onClearCache={handleClearCacheFixture}
           />
         ))}
-        {!query.isLoading && filtered.length === 0 && (
+        {!query.isLoading && displayed.length === 0 && (
           <p className="rounded-xl border border-white/10 bg-[#151b24] px-4 py-8 text-center text-slate-500">
             Sin pronósticos para los filtros seleccionados.
           </p>
@@ -456,9 +508,10 @@ export function PronosticosIaView() {
 
       {/* Vista desktop: tabla */}
       <div className="hidden overflow-x-auto rounded-xl border border-white/10 bg-[#151b24] md:block">
-        <table className="w-full min-w-[1200px] text-left text-sm">
+        <table className="w-full min-w-[1280px] text-left text-sm">
           <thead className="border-b border-white/10 bg-[#0c1017] text-xs uppercase tracking-wide text-slate-400">
             <tr>
+              <th className="px-3 py-3">Motor</th>
               <th className="px-3 py-3">Fecha</th>
               <th className="px-3 py-3">Partido</th>
               <th className="px-3 py-3">Liga</th>
@@ -468,6 +521,7 @@ export function PronosticosIaView() {
               <th className="px-3 py-3">Línea</th>
               <th className="px-3 py-3">Equipo</th>
               <th className="px-3 py-3">Prob.</th>
+              <th className="px-3 py-3">p*</th>
               <th className="px-3 py-3">Marcador</th>
               <th className="px-3 py-3">Eval.</th>
               <th className="px-3 py-3">Estado</th>
@@ -476,11 +530,31 @@ export function PronosticosIaView() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((row) => (
+            {displayed.map((row) => {
+              const scored = selection.byId.get(String(row.pronostico_id));
+              return (
               <tr
                 key={row.pronostico_id}
                 className="border-b border-white/5 align-top hover:bg-indigo-500/5"
               >
+                <td className="whitespace-nowrap px-3 py-2">
+                  {scored ? (
+                    <div className="space-y-1">
+                      <SelectionLabelBadge label={scored.label} />
+                      <div className="text-xs font-semibold text-slate-200">
+                        {scored.score.toFixed(1)}
+                      </div>
+                      <div
+                        className="max-w-[120px] truncate text-[10px] text-slate-500"
+                        title={scored.reasons.join(' · ')}
+                      >
+                        {scored.reasons[0]}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-slate-600">—</span>
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-3 py-2 text-slate-400">
                   {formatFixtureFechaHora(row)}
                 </td>
@@ -516,6 +590,9 @@ export function PronosticosIaView() {
                 <td className="px-3 py-2 text-slate-400">{row.linea_normalizada ?? '—'}</td>
                 <td className="px-3 py-2 text-slate-400">{row.equipo_normalizado ?? '—'}</td>
                 <td className="px-3 py-2 text-slate-400">{row.probabilidad ?? '—'}</td>
+                <td className="px-3 py-2 text-slate-300">
+                  {scored ? `${(scored.pCorr * 100).toFixed(1)}%` : '—'}
+                </td>
                 <td className="whitespace-nowrap px-3 py-2 text-slate-300">
                   {row.goalshome != null && row.goalsaway != null
                     ? `${row.goalshome} - ${row.goalsaway}`
@@ -565,10 +642,11 @@ export function PronosticosIaView() {
                   />
                 </td>
               </tr>
-            ))}
-            {!query.isLoading && filtered.length === 0 && (
+              );
+            })}
+            {!query.isLoading && displayed.length === 0 && (
               <tr>
-                <td colSpan={14} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={16} className="px-4 py-8 text-center text-slate-500">
                   Sin pronósticos para los filtros seleccionados.
                 </td>
               </tr>
@@ -700,6 +778,7 @@ function PronosticoRowActions({
 
 function PronosticoMobileCard({
   row,
+  scored,
   cuotaBusy,
   cacheFixtureBusy,
   onFetchCuota,
@@ -713,6 +792,7 @@ function PronosticoMobileCard({
   onClearCache,
 }: {
   row: PronosticoIaRow;
+  scored?: ScoredPick;
   cuotaBusy: string | null;
   cacheFixtureBusy: number | null;
   onFetchCuota: (row: PronosticoIaRow) => void;
@@ -737,8 +817,20 @@ function PronosticoMobileCard({
             {formatFixtureFechaHora(row)} · {row.liga}
           </p>
         </div>
-        <ResultBadge clase={row.resultado_clase} />
+        <div className="flex flex-col items-end gap-1">
+          <ResultBadge clase={row.resultado_clase} />
+          {scored && <SelectionLabelBadge label={scored.label} />}
+        </div>
       </div>
+
+      {scored && (
+        <p className="mt-2 text-xs text-slate-400">
+          Score <strong className="text-slate-200">{scored.score.toFixed(1)}</strong>
+          {' · '}p* {(scored.pCorr * 100).toFixed(1)}%
+          {' · '}EV {(scored.ev * 100).toFixed(1)}%
+          <span className="mt-0.5 block text-[10px] text-slate-500">{scored.reasons[0]}</span>
+        </p>
+      )}
 
       <div className="mt-2">
         <ExpandableText
