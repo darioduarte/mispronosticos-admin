@@ -160,7 +160,11 @@ export function PronosticosIaView() {
     return sortPronosticosRows(f, sortMode);
   }, [query.data?.data, filters, sortMode]);
 
-  const selection = useMemo(() => scorePronosticoRows(filtered), [filtered]);
+  const allRows = query.data?.data;
+  const selection = useMemo(
+    () => scorePronosticoRows(filtered, allRows ?? []),
+    [filtered, allRows],
+  );
 
   const displayed = useMemo(() => {
     if (selectionFilter === 'all') return filtered;
@@ -390,7 +394,7 @@ export function PronosticosIaView() {
             value={selectionFilter}
             onChange={(v) => setSelectionFilter(v as 'all' | PickLabel | 'bank')}
             options={[
-              { value: 'all', label: 'Todos (score)' },
+              { value: 'all', label: 'Todos (orden)' },
               { value: 'bank', label: `Bank (${selection.result.selected.length})` },
               { value: 'seleccionable', label: 'Seleccionables' },
               { value: 'dudoso', label: 'Dudosos' },
@@ -451,7 +455,11 @@ export function PronosticosIaView() {
       </div>
 
       {selectionOpen && (
-        <PickSelectionPanel rows={filtered} result={selection.result} />
+        <PickSelectionPanel
+          rows={filtered}
+          result={selection.result}
+          backtest={selection.backtest}
+        />
       )}
 
       {statsOpen && (
@@ -521,7 +529,7 @@ export function PronosticosIaView() {
               <th className="px-3 py-3">Línea</th>
               <th className="px-3 py-3">Equipo</th>
               <th className="px-3 py-3">Prob.</th>
-              <th className="px-3 py-3">p*</th>
+              <th className="px-3 py-3">p_cal</th>
               <th className="px-3 py-3">Marcador</th>
               <th className="px-3 py-3">Eval.</th>
               <th className="px-3 py-3">Estado</th>
@@ -591,7 +599,13 @@ export function PronosticosIaView() {
                 <td className="px-3 py-2 text-slate-400">{row.equipo_normalizado ?? '—'}</td>
                 <td className="px-3 py-2 text-slate-400">{row.probabilidad ?? '—'}</td>
                 <td className="px-3 py-2 text-slate-300">
-                  {scored ? `${(scored.pCorr * 100).toFixed(1)}%` : '—'}
+                  {scored ? (
+                    <span title={`p_modelo ${(scored.pModelo * 100).toFixed(1)}% · n_eff=${scored.nEff}`}>
+                      {(scored.pCalibrada * 100).toFixed(1)}%
+                    </span>
+                  ) : (
+                    '—'
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-slate-300">
                   {row.goalshome != null && row.goalsaway != null
@@ -825,8 +839,9 @@ function PronosticoMobileCard({
 
       {scored && (
         <p className="mt-2 text-xs text-slate-400">
-          Score <strong className="text-slate-200">{scored.score.toFixed(1)}</strong>
-          {' · '}p* {(scored.pCorr * 100).toFixed(1)}%
+          Orden <strong className="text-slate-200">{scored.score.toFixed(1)}</strong>
+          {' · '}p_mod {(scored.pModelo * 100).toFixed(1)}%
+          {' · '}p_cal {(scored.pCalibrada * 100).toFixed(1)}%
           {' · '}EV {(scored.ev * 100).toFixed(1)}%
           <span className="mt-0.5 block text-[10px] text-slate-500">{scored.reasons[0]}</span>
         </p>

@@ -4,14 +4,19 @@ import { useMemo, useState } from 'react';
 import {
   CFG,
   buildSelectedPicksMarkdown,
+  runWalkForwardBacktest,
   selectPicks,
+  type HistoryCase,
   type PickLabel,
+  type RankingMode,
   type ScoredPick,
   type SelectPicksResult,
+  type WalkForwardBacktest,
 } from '@/lib/pick-selection-engine';
 import {
   categoriaKey,
   parseCuotaDecimal,
+  parseFixtureDateMs,
   parseProb,
   torneoKey,
 } from '@/lib/pronosticos-ia-stats';
@@ -20,13 +25,45 @@ import type { PronosticoIaRow } from '@/lib/types';
 type Props = {
   rows: PronosticoIaRow[];
   result: SelectPicksResult;
+  backtest: WalkForwardBacktest | null;
 };
 
-export function scorePronosticoRows(rows: PronosticoIaRow[]): {
+export function rowsToHistoryCases(rows: PronosticoIaRow[]): HistoryCase[] {
+  const out: HistoryCase[] = [];
+  for (const row of rows) {
+    if (row.resultado_clase !== 'acertado' && row.resultado_clase !== 'fallido') {
+      continue;
+    }
+    const pModelo = parseProb(row.probabilidad);
+    const cuota = parseCuotaDecimal(row);
+    if (pModelo == null || cuota == null) continue;
+    const p = pModelo > 1 ? pModelo / 100 : pModelo;
+    if (!(p > 0 && p < 1)) continue;
+    out.push({
+      id: String(row.pronostico_id),
+      fixtureId: Number(row.fixtureid) || 0,
+      categoria: categoriaKey(row),
+      torneo: torneoKey(row),
+      pModelo: p,
+      cuota,
+      fixtureDateMs: parseFixtureDateMs(row.fixturedate),
+      hit: row.resultado_clase === 'acertado',
+    });
+  }
+  return out;
+}
+
+export function scorePronosticoRows(
+  scoreRows: PronosticoIaRow[],
+  historyRows: PronosticoIaRow[],
+): {
   byId: Map<string, ScoredPick>;
   result: SelectPicksResult;
+  backtest: WalkForwardBacktest;
+  history: HistoryCase[];
 } {
-  const inputs = rows.map((row) => {
+  const history = rowsToHistoryCases(historyRows);
+  const inputs = scoreRows.map((row) => {
     const prob = parseProb(row.probabilidad);
     const cuota = parseCuotaDecimal(row);
     return {
@@ -36,12 +73,13 @@ export function scorePronosticoRows(rows: PronosticoIaRow[]): {
       torneo: torneoKey(row),
       probabilidad: prob ?? NaN,
       cuota: cuota ?? NaN,
+      fixtureDateMs: parseFixtureDateMs(row.fixturedate),
     };
   });
-  const result = selectPicks(inputs);
+  const result = selectPicks(inputs, history);
   const rejectedIds = new Set(result.rejectedSameFixture.map((r) => r.id));
   const byId = new Map<string, ScoredPick>();
-  for (const s of result.ranked) {
+  for (const s of result.rankedByComposite) {
     byId.set(
       s.id,
       rejectedIds.has(s.id)
@@ -49,12 +87,22 @@ export function scorePronosticoRows(rows: PronosticoIaRow[]): {
         : s,
     );
   }
-  return { byId, result };
+  const backtest = runWalkForwardBacktest(history);
+  return { byId, result, backtest, history };
 }
 
-export function PickSelectionPanel({ rows, result }: Props) {
+function pct(x: number) {
+  return `${(x * 100).toFixed(1)}%`;
+}
+
+function pp(x: number) {
+  return `${(x * 100).toFixed(1)} pp`;
+}
+
+export function PickSelectionPanel({ rows, result, backtest }: Props) {
   const [copied, setCopied] = useState(false);
   const [openReasons, setOpenReasons] = useState<string | null>(null);
+  const [rankMode, setRankMode] = useState<RankingMode>('composite');
 
   const rowById = useMemo(() => {
     const m = new Map<string, PronosticoIaRow>();
@@ -74,7 +122,7 @@ export function PickSelectionPanel({ rows, result }: Props) {
       if (clase === 'acertado') {
         ac += 1;
         stake += 1;
-        retorno += 1 / s.qImpl; // cuota decimal
+        retorno += 1 / s.qImpl;
       } else if (clase === 'fallido') {
         fa += 1;
         stake += 1;
@@ -88,6 +136,23 @@ export function PickSelectionPanel({ rows, result }: Props) {
     const roi = stake > 0 ? (100 * profit) / stake : null;
     return { ac, fa, pe, resolved, rate, stake, profit, roi };
   }, [result.selected, rowById]);
+
+  const rankedView = useMemo(() => {
+    switch (rankMode) {
+      case 'ev':
+        return result.rankedByEv.filter((s) => s.label === 'seleccionable').slice(0, 25);
+      case 'confianza':
+        return result.rankedByConfianza
+          .filter((s) => s.label === 'seleccionable')
+          .slice(0, 25);
+      case 'riesgo':
+        return result.rankedByRiesgo
+          .filter((s) => s.label === 'seleccionable')
+          .slice(0, 25);
+      default:
+        return result.selected;
+    }
+  }, [rankMode, result]);
 
   if (rows.length === 0) return null;
 
@@ -129,8 +194,8 @@ export function PickSelectionPanel({ rows, result }: Props) {
             Motor de selección (cuantitativo)
           </h2>
           <p className="mt-1 text-xs text-slate-500">
-            p* calibrada · categoría primaria · torneo secundario · máx. 1 pick/partido · score ≥{' '}
-            {CFG.scoreSelect} = seleccionable
+            Calibración jerárquica walk-forward · shrinkage k={CFG.shrinkK} · score solo
+            ordena (no es probabilidad) · máx. 1 pick/partido
           </p>
         </div>
         <button
@@ -164,17 +229,9 @@ export function PickSelectionPanel({ rows, result }: Props) {
 
       {result.selected.length > 0 && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-          <Stat
-            label="Bank ✓"
-            value={String(bankPerf.ac)}
-            accent="text-emerald-300"
-          />
+          <Stat label="Bank ✓" value={String(bankPerf.ac)} accent="text-emerald-300" />
           <Stat label="Bank ✗" value={String(bankPerf.fa)} accent="text-red-300" />
-          <Stat
-            label="Bank pend."
-            value={String(bankPerf.pe)}
-            accent="text-slate-400"
-          />
+          <Stat label="Bank pend." value={String(bankPerf.pe)} accent="text-slate-400" />
           <Stat
             label="% bank evaluados"
             value={bankPerf.rate != null ? `${bankPerf.rate.toFixed(1)}%` : '—'}
@@ -198,27 +255,99 @@ export function PickSelectionPanel({ rows, result }: Props) {
         </div>
       )}
 
-      {result.selected.length > 0 ? (
+      {backtest && (
+        <div className="rounded-lg border border-white/10 bg-[#0b0f14] p-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Backtest walk-forward
+          </h3>
+          <p className="mt-1 text-[11px] text-slate-500">{backtest.note}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Stat label="Hist. resuelto" value={String(backtest.nHistory)} />
+            <Stat
+              label="Bank WF hits"
+              value={
+                backtest.byComposite.hitRate != null
+                  ? `${(backtest.byComposite.hitRate * 100).toFixed(1)}% (${backtest.byComposite.hits}/${backtest.byComposite.nResolved})`
+                  : '—'
+              }
+              accent="text-emerald-300"
+            />
+            <Stat
+              label="ROI WF compuesto"
+              value={
+                backtest.byComposite.roi != null
+                  ? `${backtest.byComposite.profit >= 0 ? '+' : ''}${backtest.byComposite.profit.toFixed(2)}u (${backtest.byComposite.roi >= 0 ? '+' : ''}${backtest.byComposite.roi.toFixed(0)}%)`
+                  : '—'
+              }
+            />
+            <Stat
+              label="ROI WF por EV"
+              value={
+                backtest.byEv.roi != null
+                  ? `${backtest.byEv.profit >= 0 ? '+' : ''}${backtest.byEv.profit.toFixed(2)}u (${backtest.byEv.roi >= 0 ? '+' : ''}${backtest.byEv.roi.toFixed(0)}%)`
+                  : '—'
+              }
+            />
+          </div>
+          <p className="mt-2 text-[10px] text-slate-600">
+            Max DD compuesto: {backtest.byComposite.maxDrawdown.toFixed(2)}u · Max DD EV:{' '}
+            {backtest.byEv.maxDrawdown.toFixed(2)}u · picks WF:{' '}
+            {backtest.byComposite.nSelected}
+          </p>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            ['composite', 'Compuesto (bank)'],
+            ['ev', 'Valor esperado'],
+            ['confianza', 'Confiabilidad'],
+            ['riesgo', 'Riesgo ↑'],
+          ] as const
+        ).map(([mode, label]) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setRankMode(mode)}
+            className={`rounded-lg border px-2.5 py-1.5 text-xs ${
+              rankMode === mode
+                ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-200'
+                : 'border-white/10 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {rankedView.length > 0 ? (
         <div className="overflow-x-auto rounded-lg border border-white/10">
-          <table className="w-full min-w-[820px] text-left text-xs">
+          <table className="w-full min-w-[1100px] text-left text-xs">
             <thead className="bg-[#0c1017] text-slate-400">
               <tr>
                 <th className="px-2 py-2">Resultado</th>
                 <th className="px-2 py-2">Score</th>
                 <th className="px-2 py-2">Partido</th>
                 <th className="px-2 py-2">Pick</th>
-                <th className="px-2 py-2">p*</th>
-                <th className="px-2 py-2">Cuota</th>
-                <th className="px-2 py-2">Edge*</th>
+                <th className="px-2 py-2">p_mod</th>
+                <th className="px-2 py-2">p_cal</th>
+                <th className="px-2 py-2">q_impl</th>
+                <th className="px-2 py-2">Edge</th>
                 <th className="px-2 py-2">EV</th>
+                <th className="px-2 py-2">SweetΔ</th>
+                <th className="px-2 py-2">Conf</th>
+                <th className="px-2 py-2">Riesgo</th>
+                <th className="px-2 py-2">n_eff</th>
+                <th className="px-2 py-2">IC95</th>
                 <th className="px-2 py-2">Motivos</th>
               </tr>
             </thead>
             <tbody>
-              {result.selected.map((s) => {
+              {rankedView.map((s) => {
                 const ex = extras.get(s.id);
                 return (
-                  <tr key={s.id} className="border-t border-white/5 align-top">
+                  <tr key={`${rankMode}-${s.id}`} className="border-t border-white/5 align-top">
                     <td className="px-2 py-2">
                       <ResultChip
                         clase={ex?.resultado ?? 'pendiente'}
@@ -228,26 +357,38 @@ export function PickSelectionPanel({ rows, result }: Props) {
                     </td>
                     <td className="px-2 py-2 font-semibold text-emerald-300">
                       {s.score.toFixed(1)}
+                      <div className="text-[9px] font-normal text-slate-600">orden</div>
                     </td>
                     <td className="px-2 py-2 text-slate-200">
                       {ex?.local} vs {ex?.visitante}
                       <div className="text-[10px] text-slate-500">{ex?.liga}</div>
                     </td>
-                    <td className="max-w-[220px] px-2 py-2 text-slate-300">
+                    <td className="max-w-[200px] px-2 py-2 text-slate-300">
                       <div className="line-clamp-2">{ex?.pronostico}</div>
                       <div className="text-[10px] text-slate-500">{ex?.tipo}</div>
                     </td>
+                    <td className="px-2 py-2 text-slate-300">{pct(s.pModelo)}</td>
                     <td className="px-2 py-2 text-slate-300">
-                      {(s.pCorr * 100).toFixed(1)}%
+                      {pct(s.pCalibrada)}
+                      <div className="text-[9px] text-slate-600">{s.calibLevel}</div>
                     </td>
-                    <td className="px-2 py-2 text-slate-300">
-                      {(1 / s.qImpl).toFixed(2)}
-                    </td>
-                    <td className="px-2 py-2 text-slate-300">
-                      {(s.edgeCorr * 100).toFixed(1)} pp
-                    </td>
+                    <td className="px-2 py-2 text-slate-300">{pct(s.qImpl)}</td>
+                    <td className="px-2 py-2 text-slate-300">{pp(s.edgeVsMarket)}</td>
                     <td className="px-2 py-2 text-slate-300">
                       {(s.ev * 100).toFixed(1)}%
+                    </td>
+                    <td className="px-2 py-2 text-slate-300">{pp(s.distSweetSpot)}</td>
+                    <td className="px-2 py-2 text-slate-300">
+                      {(s.confianza * 100).toFixed(0)}%
+                    </td>
+                    <td className="px-2 py-2 text-slate-300">
+                      {(s.riesgo * 100).toFixed(0)}%
+                    </td>
+                    <td className="px-2 py-2 text-slate-300">{s.nEff}</td>
+                    <td className="px-2 py-2 text-slate-400">
+                      {s.ci95
+                        ? `${pct(s.ci95.low)}–${pct(s.ci95.high)}`
+                        : '—'}
                     </td>
                     <td className="px-2 py-2">
                       <button
@@ -275,8 +416,9 @@ export function PickSelectionPanel({ rows, result }: Props) {
         </div>
       ) : (
         <p className="text-xs text-slate-500">
-          Ningún pick supera los gates (calibración, categoría, EV, edge, cuota ≥{' '}
-          {CFG.minOdds}, score ≥ {CFG.scoreSelect}) con la vista filtrada actual.
+          Ningún pick supera los gates (calibración jerárquica, EV, edge, cuota ≥{' '}
+          {CFG.minOdds}, score compuesto ≥ {CFG.scoreSelect}) con la vista filtrada
+          actual.
         </p>
       )}
     </section>
@@ -295,7 +437,9 @@ function Stat({
   return (
     <div className="rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2">
       <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-0.5 text-lg font-bold ${accent ?? 'text-white'}`}>{value}</p>
+      <p className={`mt-0.5 text-sm font-bold sm:text-lg ${accent ?? 'text-white'}`}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -353,4 +497,3 @@ export function SelectionLabelBadge({ label }: { label: PickLabel }) {
     </span>
   );
 }
-

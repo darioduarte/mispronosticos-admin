@@ -6,7 +6,8 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:engine": "npx tsx --test src/lib/pick-selection-engine.test.ts"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
