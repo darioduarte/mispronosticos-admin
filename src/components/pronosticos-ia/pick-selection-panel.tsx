@@ -56,8 +56,6 @@ export function PickSelectionPanel({ rows, result }: Props) {
   const [copied, setCopied] = useState(false);
   const [openReasons, setOpenReasons] = useState<string | null>(null);
 
-  if (rows.length === 0) return null;
-
   const rowById = useMemo(() => {
     const m = new Map<string, PronosticoIaRow>();
     for (const r of rows) m.set(String(r.pronostico_id), r);
@@ -90,6 +88,8 @@ export function PickSelectionPanel({ rows, result }: Props) {
     const roi = stake > 0 ? (100 * profit) / stake : null;
     return { ac, fa, pe, resolved, rate, stake, profit, roi };
   }, [result.selected, rowById]);
+
+  if (rows.length === 0) return null;
 
   const extras = new Map(
     rows.map((r) => [
