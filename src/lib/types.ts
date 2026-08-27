@@ -2293,3 +2293,78 @@ export type StoryDeleteResponse = {
   error?: string;
 };
 
+export type AdminNotificationsDiagnostics = {
+  smtpConfigured: boolean;
+  adminEmails: string[];
+  adminsFoundInDb: number;
+  fcmTokenCount: number;
+  fcmByEmail: Record<string, number>;
+};
+
+export type AdminNotificationOutboxRow = {
+  id: string;
+  kind: string;
+  jobKey?: string | null;
+  severity: string;
+  subject: string;
+  status: string;
+  attempts: number;
+  lastError?: string | null;
+  createdAt: string;
+  sentAt?: string | null;
+};
+
+export type AdminLiveNotificationRow = {
+  runId: string;
+  fixtureid: number;
+  windowKey: string;
+  minute?: number | null;
+  scoreHome?: number | null;
+  scoreAway?: number | null;
+  runCreatedAt?: string | null;
+  notifiedAt: string;
+  picksNotified: number;
+  homeTeam?: string | null;
+  awayTeam?: string | null;
+  picksSummary?: string | null;
+};
+
+export type AdminNotificationsOverview = {
+  success: boolean;
+  generatedAt: string;
+  diagnostics: AdminNotificationsDiagnostics;
+  channels: {
+    adminPushEnabled: boolean;
+    userLivePushEnabled: boolean;
+  };
+  outbox: {
+    pending: number;
+    sentToday: number;
+    recent: AdminNotificationOutboxRow[];
+  };
+  liveAdmin: {
+    recent: AdminLiveNotificationRow[];
+  };
+  error?: string;
+};
+
+export type AdminNotificationTestResult = {
+  success: boolean;
+  channel: 'push' | 'both';
+  diagnostics: AdminNotificationsDiagnostics;
+  push: {
+    ok?: boolean;
+    sent?: number;
+    total?: number;
+    skipped?: boolean;
+    reason?: string;
+  };
+  email?: {
+    ok?: boolean;
+    sent?: number;
+    skipped?: boolean;
+    reason?: string;
+  } | null;
+  error?: string;
+};
+

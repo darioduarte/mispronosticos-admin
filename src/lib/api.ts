@@ -101,6 +101,8 @@ import type {
   StoryGenerateResponse,
   StoryDeleteResponse,
   StoryGenerateType,
+  AdminNotificationsOverview,
+  AdminNotificationTestResult,
 } from './types';
 import type { ConnectionProbe, LoginDiagnostic } from './login-diagnostics';
 
@@ -1760,4 +1762,20 @@ export function deleteStoriesByDate(date: string, type?: string) {
     `/api/admin/stories/by-date/${encodeURIComponent(date)}${suffix}`,
     { method: 'DELETE' },
   );
+}
+
+export function fetchAdminNotifications(limit = 30) {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  return adminFetch<AdminNotificationsOverview>(`/api/admin/notifications?${qs}`);
+}
+
+export function sendAdminNotificationTest(payload?: {
+  channel?: 'push' | 'both';
+  title?: string;
+  body?: string;
+}) {
+  return adminFetch<AdminNotificationTestResult>('/api/admin/notifications/test', {
+    method: 'POST',
+    body: JSON.stringify(payload || {}),
+  });
 }
