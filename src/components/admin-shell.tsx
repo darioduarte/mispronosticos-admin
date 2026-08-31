@@ -26,6 +26,7 @@ const NAV = [
   { href: '/sugerencias', label: 'Sugerencias' },
   { href: '/errores', label: 'Errores' },
   { href: '/errores-pago', label: 'Errores de pago' },
+  { href: '/webhooks-pago', label: 'Webhooks de pago' },
 ];
 
 function NavLinks({

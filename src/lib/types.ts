@@ -1850,6 +1850,36 @@ export type PaymentErrorMutationResponse = {
   error?: string;
 };
 
+export type PaymentWebhookEventRow = {
+  id: string;
+  provider: string;
+  eventId: string;
+  status: string;
+  attempts: number;
+  lastError: string | null;
+  receivedAt: string | null;
+  processedAt: string | null;
+  receivedAtDisplay: string | null;
+};
+
+export type PaymentWebhookEventsResponse = {
+  success: boolean;
+  total: number;
+  items: PaymentWebhookEventRow[];
+  error?: string;
+};
+
+export type PaymentWebhookActionResponse = {
+  success: boolean;
+  dryRun?: boolean;
+  provider?: string;
+  action?: string;
+  preview?: unknown;
+  result?: unknown;
+  note?: string;
+  error?: string;
+};
+
 export type RenewalSyncAction =
   | 'unchanged'
   | 'would_update'

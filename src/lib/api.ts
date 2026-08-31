@@ -63,6 +63,8 @@ import type {
   ErrorsResponse,
   PaymentErrorsResponse,
   PaymentErrorMutationResponse,
+  PaymentWebhookEventsResponse,
+  PaymentWebhookActionResponse,
   RenewalSyncPayload,
   RenewalSyncResponse,
   DashboardSummary,
@@ -1332,6 +1334,50 @@ export function syncSuscripcionRenewals(payload: RenewalSyncPayload = {}) {
       scope: payload.scope ?? 'active',
       limit: payload.limit ?? 50,
       allowCreate: payload.allowCreate === true,
+    }),
+  });
+}
+
+export function fetchPaymentWebhookEvents(params: {
+  status?: string;
+  provider?: string;
+  limit?: number;
+  offset?: number;
+} = {}) {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set('status', params.status);
+  if (params.provider) qs.set('provider', params.provider);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  return adminFetch<PaymentWebhookEventsResponse>(`/api/admin/payment-webhooks/events?${qs}`);
+}
+
+export function replayPaymentWebhookEvent(
+  id: string,
+  payload: { dryRun?: boolean } = {},
+) {
+  return adminFetch<PaymentWebhookActionResponse>(
+    `/api/admin/payment-webhooks/events/${encodeURIComponent(id)}/replay`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ dryRun: payload.dryRun !== false }),
+    },
+  );
+}
+
+export function triggerPaymentWebhookRenewal(payload: {
+  subscriptionId?: string;
+  purchaseToken?: string;
+  productId?: string;
+  dryRun?: boolean;
+}) {
+  return adminFetch<PaymentWebhookActionResponse>('/api/admin/payment-webhooks/trigger-renewal', {
+    method: 'POST',
+    body: JSON.stringify({
+      subscriptionId: payload.subscriptionId,
+      purchaseToken: payload.purchaseToken,
+      productId: payload.productId,
+      dryRun: payload.dryRun !== false,
     }),
   });
 }

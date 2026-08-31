@@ -13,6 +13,8 @@ const ERROR_TYPES = [
   { value: 'network_error', label: 'Error de red' },
   { value: 'foreign_key_error', label: 'Error de FK' },
   { value: 'temporary_user_blocked', label: 'Usuario temporal bloqueado' },
+  { value: 'webhook_renewal_failed', label: 'Webhook renovación' },
+  { value: 'webhook_cancellation_failed', label: 'Webhook cancelación' },
   { value: 'unknown_error', label: 'Error desconocido' },
 ];
 
@@ -41,6 +43,8 @@ const TYPE_COLORS: Record<string, string> = {
   network_error: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
   foreign_key_error: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
   temporary_user_blocked: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30',
+  webhook_renewal_failed: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+  webhook_cancellation_failed: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
   unknown_error: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
 };
 
