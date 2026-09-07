@@ -672,7 +672,7 @@ export function PronosticosIaView() {
       <p className="mt-4 text-xs text-slate-600">
         Labs Gemini/OpenRouter y filtros cruzados con perfiles siguen en{' '}
         <a
-          href={`${process.env.NEXT_PUBLIC_API_BASE_URL}/apiFootball/pronosticosAIHTML`}
+          href={`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/html/pronosticosAIHTML`}
           target="_blank"
           rel="noreferrer"
           className="text-indigo-400 hover:underline"
