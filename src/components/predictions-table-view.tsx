@@ -42,31 +42,16 @@ export function PredictionsTableView() {
     });
   }, [query.data, q]);
 
-  const legacyHtml =
-    typeof process.env.NEXT_PUBLIC_API_BASE_URL === 'string'
-      ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/html/predictionsTableHTML/${applied}`
-      : null;
-
   return (
     <div className="space-y-6 p-6 text-slate-100">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Tabla de predicciones</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Revisión admin (API JSON). Cuando esta pantalla cubra el uso diario, se retira el HBS
-            legacy.
+            Revisión admin vía API JSON (`/api/admin/predictions-table`). El HBS legacy ya fue
+            retirado.
           </p>
         </div>
-        {legacyHtml ? (
-          <a
-            href={legacyHtml}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-indigo-400 hover:underline"
-          >
-            Abrir HBS legacy
-          </a>
-        ) : null}
       </div>
 
       <form
