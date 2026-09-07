@@ -32,6 +32,7 @@ import type {
   CuotasMomentoResponse,
   CorregirCuotaErrorItem,
   CorregirCuotaErrorResponse,
+  PredictionsTableResponse,
   RefereeHistoryResponse,
   RefereeSearchResponse,
   RepairRefereesResponse,
@@ -587,6 +588,13 @@ export function fetchErroresCuotaIa(
   const qs = new URLSearchParams({ desde, hasta, fuente });
   return adminFetch<ErroresCuotaIaResponse>(
     `/api/admin/pronosticos-ia/errores-cuota/rango?${qs}`,
+  );
+}
+
+export function fetchPredictionsTable(date: string) {
+  const qs = new URLSearchParams({ date });
+  return adminFetch<PredictionsTableResponse>(
+    `/api/admin/predictions-table?${qs}`,
   );
 }
 
