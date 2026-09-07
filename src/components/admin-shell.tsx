@@ -21,6 +21,7 @@ const NAV = [
   { href: '/pronosticos-ia', label: 'Pronósticos IA' },
   { href: '/pronosticos-ia-vivo', label: 'Pronósticos IA vivo' },
   { href: '/errores-cuota-ia', label: 'Errores de cuota' },
+  { href: '/predictions-table', label: 'Tabla predicciones' },
   { href: '/suscripciones', label: 'Suscripciones' },
   { href: '/trials', label: 'Trials' },
   { href: '/sugerencias', label: 'Sugerencias' },

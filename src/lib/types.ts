@@ -120,6 +120,45 @@ export type PronosticosIaResponse = {
   message?: string;
 };
 
+export type PredictionsTableRow = {
+  fixtureid: number | string;
+  homeTeam?: string | null;
+  awayTeam?: string | null;
+  homeGoals?: number | string | null;
+  awayGoals?: number | string | null;
+  date?: string | null;
+  status?: string | null;
+  statusLong?: string | null;
+  league?: string | null;
+  country?: string | null;
+  prediction?: {
+    winner?: string | null;
+    advice?: string | null;
+    homeGoals?: number | string | null;
+    awayGoals?: number | string | null;
+    homePercent?: number | string | null;
+    drawPercent?: number | string | null;
+    awayPercent?: number | string | null;
+    type?: string | null;
+    hasAI?: boolean;
+    aiAnalysis?: string | null;
+  };
+  result?: {
+    status?: string | null;
+    isCorrect?: boolean | null;
+    message?: string | null;
+    score?: string | null;
+  };
+};
+
+export type PredictionsTableResponse = {
+  success: boolean;
+  date: string;
+  total: number;
+  data: PredictionsTableRow[];
+  message?: string;
+};
+
 /** Una fila = un pick de análisis en vivo (PredictionAILivePrognostic). */
 export type PronosticoIaVivoRow = PronosticoIaRow & {
   liveRunId: string;
