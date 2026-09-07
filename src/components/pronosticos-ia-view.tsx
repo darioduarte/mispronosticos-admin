@@ -670,16 +670,9 @@ export function PronosticosIaView() {
       </div>
 
       <p className="mt-4 text-xs text-slate-600">
-        Labs Gemini/OpenRouter y filtros cruzados con perfiles siguen en{' '}
-        <a
-          href={`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/html/pronosticosAIHTML`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-indigo-400 hover:underline"
-        >
-          pronosticosAIHTML
-        </a>
-        .
+        Labs OpenRouter y filtros cruzados con perfiles del HBS legacy quedaron fuera al
+        retirar <code>pronosticosAIHTML</code> (spec 067); se pueden reimplementar aquí si
+        hacen falta.
       </p>
 
       {statsFixture && (
