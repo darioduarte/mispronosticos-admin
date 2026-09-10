@@ -2517,8 +2517,14 @@ export type ExpertPronosticosResponse = {
   data: ExpertPronosticoRow[];
   meta: {
     fecha: string | null;
+    search?: string | null;
     fechas: ExpertFechaItem[];
     count?: number;
+    total: number;
+    limit: number;
+    offset: number;
+    page: number;
+    totalPages: number;
   };
 };
 

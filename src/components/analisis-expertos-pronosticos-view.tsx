@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ApiError,
   createExpertPronostico,
@@ -13,6 +13,7 @@ import {
 import type { ExpertPronosticoRow, ExpertPronosticoSavePayload } from '@/lib/types';
 
 const TIPO_ANUNCIO = ['INTERSTITIAL', 'REWARDED', 'PREMIUM'];
+const PAGE_SIZE = 25;
 
 const emptyForm: ExpertPronosticoSavePayload = {
   local: '',
@@ -64,15 +65,26 @@ function rowToForm(row: ExpertPronosticoRow): ExpertPronosticoSavePayload {
 
 export function AnalisisExpertosPronosticosView() {
   const queryClient = useQueryClient();
-  const [fecha, setFecha] = useState<string>('');
+  const [fecha, setFecha] = useState('');
+  const [search, setSearch] = useState('');
+  const [applied, setApplied] = useState({ fecha: '', search: '' });
+  const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ExpertPronosticoSavePayload>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
+  const offset = (page - 1) * PAGE_SIZE;
+
   const listQuery = useQuery({
-    queryKey: ['expert-pronosticos', fecha],
-    queryFn: () => fetchExpertPronosticos(fecha || undefined),
+    queryKey: ['expert-pronosticos', applied.fecha, applied.search, page],
+    queryFn: () =>
+      fetchExpertPronosticos({
+        fecha: applied.fecha || undefined,
+        search: applied.search || undefined,
+        limit: PAGE_SIZE,
+        offset,
+      }),
   });
 
   const catalogosQuery = useQuery({
@@ -80,19 +92,26 @@ export function AnalisisExpertosPronosticosView() {
     queryFn: fetchExpertCatalogos,
   });
 
-  useEffect(() => {
-    const first = listQuery.data?.meta?.fecha;
-    if (!fecha && first) setFecha(first);
-  }, [listQuery.data?.meta?.fecha, fecha]);
-
-  const fechas = listQuery.data?.meta?.fechas ?? [];
   const rows = listQuery.data?.data ?? [];
+  const meta = listQuery.data?.meta;
+  const fechas = meta?.fechas ?? [];
+  const total = meta?.total ?? 0;
+  const totalPages = meta?.totalPages ?? 1;
   const catalogos = catalogosQuery.data?.data;
+
   const campeonatosFiltrados = useMemo(() => {
     const all = catalogos?.campeonatos ?? [];
     if (!form.idDeporte) return all;
     return all.filter((c) => c.idDeporte === form.idDeporte);
   }, [catalogos?.campeonatos, form.idDeporte]);
+
+  function applyFilters() {
+    setPage(1);
+    setApplied({
+      fecha: fecha.trim(),
+      search: search.trim(),
+    });
+  }
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -131,11 +150,14 @@ export function AnalisisExpertosPronosticosView() {
     setEditingId(null);
     setForm({
       ...emptyForm,
-      fechaEvento: fecha ? `${fecha}T18:00` : '',
+      fechaEvento: applied.fecha ? `${applied.fecha}T18:00` : '',
     });
     setFormError(null);
     setShowForm(true);
   }
+
+  const from = total === 0 ? 0 : offset + 1;
+  const to = Math.min(offset + rows.length, total);
 
   return (
     <div className="p-6 lg:p-8">
@@ -143,7 +165,7 @@ export function AnalisisExpertosPronosticosView() {
         <div>
           <h1 className="text-2xl font-bold text-slate-100">Pronósticos de expertos</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Tipsters publicados en la app (antes gestionados desde Cuenta móvil).
+            Tipsters publicados en la app. Tabla paginada con filtro opcional por fecha.
           </p>
         </div>
         <button
@@ -155,21 +177,85 @@ export function AnalisisExpertosPronosticosView() {
         </button>
       </header>
 
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
-        {fechas.map((f) => (
+      <section className="mb-4 rounded-xl border border-white/10 bg-[#111827] p-4">
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="block text-sm">
+            <span className="mb-1 block text-xs font-medium text-slate-400">Fecha evento</span>
+            <input
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-sm text-slate-200"
+            />
+          </label>
+          <label className="block text-sm md:col-span-2">
+            <span className="mb-1 block text-xs font-medium text-slate-400">Buscar</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Local, visitante, apuesta, explicación…"
+              className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-sm text-slate-200"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') applyFilters();
+              }}
+            />
+          </label>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            {(fechas.slice(0, 8) || []).map((f) => (
+              <button
+                key={f.date}
+                type="button"
+                onClick={() => {
+                  setFecha(f.date);
+                  setPage(1);
+                  setApplied((prev) => ({ ...prev, fecha: f.date }));
+                }}
+                className={`rounded-lg border px-2.5 py-1 text-xs ${
+                  applied.fecha === f.date
+                    ? 'border-teal-500/50 bg-teal-500/20 text-teal-200'
+                    : 'border-white/10 text-slate-400 hover:bg-white/5'
+                }`}
+              >
+                {f.date}
+              </button>
+            ))}
+            {applied.fecha ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setFecha('');
+                  setPage(1);
+                  setApplied((prev) => ({ ...prev, fecha: '' }));
+                }}
+                className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-400 hover:bg-white/5"
+              >
+                Ver todas
+              </button>
+            ) : null}
+          </div>
           <button
-            key={f.date}
             type="button"
-            onClick={() => setFecha(f.date)}
-            className={`shrink-0 rounded-lg border px-3 py-2 text-sm ${
-              fecha === f.date
-                ? 'border-teal-500/50 bg-teal-500/20 text-teal-200'
-                : 'border-white/10 text-slate-400 hover:bg-white/5'
-            }`}
+            onClick={applyFilters}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
           >
-            {f.date}
+            Buscar
           </button>
-        ))}
+        </div>
+      </section>
+
+      <div className="mb-3 flex flex-wrap gap-2 text-xs text-slate-400">
+        <span className="rounded-full border border-white/10 bg-[#111827] px-3 py-1">
+          Total: <strong className="text-slate-200">{total}</strong>
+        </span>
+        <span className="rounded-full border border-white/10 bg-[#111827] px-3 py-1">
+          Mostrando {from}–{to}
+        </span>
+        <span className="rounded-full border border-white/10 bg-[#111827] px-3 py-1">
+          Página {page} / {totalPages}
+        </span>
       </div>
 
       {listQuery.isLoading ? (
@@ -179,36 +265,53 @@ export function AnalisisExpertosPronosticosView() {
           {(listQuery.error as Error)?.message || 'Error al cargar'}
         </p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-slate-500">No hay pronósticos para esta fecha.</p>
+        <p className="rounded-xl border border-white/10 bg-[#111827] p-6 text-sm text-slate-500">
+          No hay pronósticos con estos filtros.
+        </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-white/10">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-white/5 text-xs uppercase text-slate-500">
+            <thead className="bg-white/5 text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Evento</th>
+                <th className="px-4 py-3">Fecha</th>
+                <th className="px-4 py-3">Partido</th>
+                <th className="px-4 py-3">Campeonato</th>
                 <th className="px-4 py-3">Apuesta</th>
                 <th className="px-4 py-3">Cuota</th>
                 <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Anuncio</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-white/5 hover:bg-white/[0.03]">
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-400">
+                    {row.fechaEventoDisplay || row.fecha || '—'}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-slate-200">
                       {row.local}
                       {row.visitante ? ` vs ${row.visitante}` : ''}
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {row.campeonato?.nombre || '—'} · {row.fechaEventoDisplay || row.fechaEvento}
+                    {row.maximaConfianza ? (
+                      <div className="text-xs text-amber-300">Máxima confianza</div>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400">
+                    <div>{row.campeonato?.nombre || '—'}</div>
+                    <div className="text-xs text-slate-500">{row.deporte?.nombre || ''}</div>
+                  </td>
+                  <td className="max-w-[220px] px-4 py-3 text-slate-300">
+                    <div className="truncate" title={row.tipoDeApuesta}>
+                      {row.tipoDeApuesta}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-300">{row.tipoDeApuesta}</td>
                   <td className="px-4 py-3 text-slate-300">{row.cuota}</td>
                   <td className="px-4 py-3 text-slate-400">
                     {row.estadoPronostico?.nombre || '—'}
                   </td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{row.tipoAnuncio || '—'}</td>
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
@@ -224,6 +327,33 @@ export function AnalisisExpertosPronosticosView() {
           </table>
         </div>
       )}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-slate-500">
+          {PAGE_SIZE} por página
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={page <= 1 || listQuery.isFetching}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-slate-300 disabled:opacity-40"
+          >
+            Anterior
+          </button>
+          <span className="text-sm text-slate-400">
+            {page} / {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages || listQuery.isFetching}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-slate-300 disabled:opacity-40"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
 
       {showForm ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">

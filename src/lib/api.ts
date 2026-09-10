@@ -1846,9 +1846,17 @@ export function fetchExpertCatalogos() {
   return adminFetch<ExpertCatalogosResponse>(`${AE}/catalogos`);
 }
 
-export function fetchExpertPronosticos(fecha?: string) {
+export function fetchExpertPronosticos(params?: {
+  fecha?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}) {
   const qs = new URLSearchParams();
-  if (fecha) qs.set('fecha', fecha);
+  if (params?.fecha) qs.set('fecha', params.fecha);
+  if (params?.search) qs.set('search', params.search);
+  if (params?.limit != null) qs.set('limit', String(params.limit));
+  if (params?.offset != null) qs.set('offset', String(params.offset));
   const suffix = qs.toString() ? `?${qs}` : '';
   return adminFetch<ExpertPronosticosResponse>(`${AE}/pronosticos${suffix}`);
 }
