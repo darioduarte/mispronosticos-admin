@@ -2,33 +2,89 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { clearSession, getStoredUser } from '@/lib/auth';
 import { AdminToastHost } from '@/components/admin-toast-host';
 
-const NAV = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/monitoreo', label: 'Monitoreo' },
-  { href: '/notificaciones', label: 'Notificaciones' },
-  { href: '/control-analisis-vivo', label: 'Control de análisis en vivo' },
-  { href: '/control-crons', label: 'Control de crons' },
-  { href: '/parametros-en-vivo', label: 'Parámetros en vivo' },
-  { href: '/partidos', label: 'Partidos' },
-  { href: '/historias', label: 'Historias' },
-  { href: '/ligas', label: 'Ligas' },
-  { href: '/estadisticas-ligas-destacadas', label: 'Estadísticas ligas destacadas' },
-  { href: '/arbitros', label: 'Árbitros' },
-  { href: '/pronosticos-ia', label: 'Pronósticos IA' },
-  { href: '/pronosticos-ia-vivo', label: 'Pronósticos IA vivo' },
-  { href: '/errores-cuota-ia', label: 'Errores de cuota' },
-  { href: '/predictions-table', label: 'Tabla predicciones' },
-  { href: '/suscripciones', label: 'Suscripciones' },
-  { href: '/trials', label: 'Trials' },
-  { href: '/sugerencias', label: 'Sugerencias' },
-  { href: '/errores', label: 'Errores' },
-  { href: '/errores-pago', label: 'Errores de pago' },
-  { href: '/webhooks-pago', label: 'Webhooks de pago' },
+type NavItem = { href: string; label: string };
+type NavGroup = { id: string; label: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    id: 'general',
+    label: 'General',
+    items: [
+      { href: '/dashboard', label: 'Dashboard' },
+      { href: '/monitoreo', label: 'Monitoreo' },
+      { href: '/notificaciones', label: 'Notificaciones' },
+    ],
+  },
+  {
+    id: 'operacion-vivo',
+    label: 'Operación en vivo',
+    items: [
+      { href: '/control-analisis-vivo', label: 'Control de análisis en vivo' },
+      { href: '/control-crons', label: 'Control de crons' },
+      { href: '/parametros-en-vivo', label: 'Parámetros en vivo' },
+    ],
+  },
+  {
+    id: 'datos',
+    label: 'Datos y partidos',
+    items: [
+      { href: '/partidos', label: 'Partidos' },
+      { href: '/historias', label: 'Historias' },
+      { href: '/ligas', label: 'Ligas' },
+      { href: '/estadisticas-ligas-destacadas', label: 'Estadísticas ligas destacadas' },
+      { href: '/arbitros', label: 'Árbitros' },
+    ],
+  },
+  {
+    id: 'ia',
+    label: 'Pronósticos IA',
+    items: [
+      { href: '/pronosticos-ia', label: 'Pronósticos IA' },
+      { href: '/pronosticos-ia-vivo', label: 'Pronósticos IA vivo' },
+      { href: '/errores-cuota-ia', label: 'Errores de cuota' },
+      { href: '/predictions-table', label: 'Tabla predicciones' },
+    ],
+  },
+  {
+    id: 'analisis-expertos',
+    label: 'Análisis de expertos',
+    items: [
+      { href: '/analisis-expertos/pronosticos', label: 'Pronósticos' },
+      { href: '/analisis-expertos/estados', label: 'Estados de pronóstico' },
+      { href: '/analisis-expertos/deportes', label: 'Deportes' },
+      { href: '/analisis-expertos/campeonatos', label: 'Campeonatos' },
+      { href: '/analisis-expertos/noticias', label: 'Noticias' },
+    ],
+  },
+  {
+    id: 'negocio',
+    label: 'Negocio',
+    items: [
+      { href: '/suscripciones', label: 'Suscripciones' },
+      { href: '/trials', label: 'Trials' },
+      { href: '/sugerencias', label: 'Sugerencias' },
+    ],
+  },
+  {
+    id: 'errores',
+    label: 'Errores y pagos',
+    items: [
+      { href: '/errores', label: 'Errores' },
+      { href: '/errores-pago', label: 'Errores de pago' },
+      { href: '/webhooks-pago', label: 'Webhooks de pago' },
+    ],
+  },
 ];
+
+function isActivePath(pathname: string, href: string) {
+  if (pathname === href) return true;
+  if (href !== '/' && pathname.startsWith(`${href}/`)) return true;
+  return false;
+}
 
 function NavLinks({
   pathname,
@@ -39,23 +95,32 @@ function NavLinks({
 }) {
   return (
     <>
-      {NAV.map((item) => {
-        const active = pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-              active
-                ? 'bg-indigo-600/25 text-indigo-200'
-                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-            }`}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
+      {NAV_GROUPS.map((group) => (
+        <div key={group.id} className="mb-4">
+          <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            {group.label}
+          </p>
+          <div className="space-y-0.5">
+            {group.items.map((item) => {
+              const active = isActivePath(pathname, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={`block rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    active
+                      ? 'bg-indigo-600/25 text-indigo-200'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </>
   );
 }
@@ -66,7 +131,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const user = getStoredUser();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const currentPage = NAV.find((item) => item.href === pathname)?.label ?? 'Panel admin';
+  const currentPage = useMemo(() => {
+    for (const group of NAV_GROUPS) {
+      const hit = group.items.find((item) => isActivePath(pathname, item.href));
+      if (hit) return hit.label;
+    }
+    return 'Panel admin';
+  }, [pathname]);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -88,15 +159,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-[#0b0f14] text-slate-100">
-      {/* Sidebar desktop */}
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-white/10 bg-[#111827] md:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-white/10 bg-[#111827] md:flex">
         <div className="border-b border-white/10 px-4 py-5">
           <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">
             Mis Pronósticos
           </p>
           <p className="mt-1 text-sm font-medium text-slate-300">Panel admin</p>
         </div>
-        <nav className="flex-1 space-y-1 p-3">
+        <nav className="flex-1 overflow-y-auto p-3">
           <NavLinks pathname={pathname} />
         </nav>
         <div className="border-t border-white/10 p-4">
@@ -114,7 +184,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top bar móvil */}
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-[#111827]/95 px-4 py-3 backdrop-blur md:hidden">
           <button
             type="button"
@@ -149,7 +218,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Drawer móvil */}
         {menuOpen ? (
           <div className="fixed inset-0 z-40 md:hidden">
             <button

@@ -2437,3 +2437,88 @@ export type AdminNotificationTestResult = {
   error?: string;
 };
 
+export type ExpertCatalogItem = {
+  id: string;
+  nombre: string;
+  icono?: string | null;
+  color?: string | null;
+  idDeporte?: string;
+};
+
+export type ExpertFechaItem = {
+  date: string;
+  select?: boolean;
+};
+
+export type ExpertPronosticoRow = {
+  id: string;
+  local: string;
+  visitante?: string | null;
+  idDeporte: string;
+  idCampeonato: string;
+  tipoDeApuesta: string;
+  fecha: string;
+  resultadoLocal?: string | null;
+  resultadoVisitante?: string | null;
+  explicacion?: string | null;
+  idEstadoPronostico: string;
+  idTipoPronostico: string;
+  fechaEvento: string;
+  fechaEventoDisplay?: string | null;
+  cuota: number | string;
+  tipoAnuncio?: string | null;
+  storie?: boolean | null;
+  maximaConfianza?: boolean | null;
+  deporte?: ExpertCatalogItem | null;
+  campeonato?: ExpertCatalogItem | null;
+  estadoPronostico?: ExpertCatalogItem | null;
+  tipoPronostico?: ExpertCatalogItem | null;
+};
+
+export type ExpertPronosticoSavePayload = {
+  local: string;
+  visitante?: string | null;
+  idDeporte: string;
+  idCampeonato: string;
+  tipoDeApuesta: string;
+  explicacion?: string | null;
+  idEstadoPronostico: string;
+  idTipoPronostico: string;
+  fechaEvento: string;
+  cuota: number | string;
+  tipoAnuncio?: string;
+  storie?: boolean;
+  maximaConfianza?: boolean;
+  resultadoLocal?: string | null;
+  resultadoVisitante?: string | null;
+};
+
+export type ExpertNoticiaRow = {
+  id: string;
+  urlImagen: string;
+  autor: string;
+  fecha: string;
+  titulo?: string | null;
+  descripcion?: string | null;
+};
+
+export type ExpertCatalogosResponse = {
+  success: boolean;
+  data: {
+    deportes: ExpertCatalogItem[];
+    campeonatos: ExpertCatalogItem[];
+    estados: ExpertCatalogItem[];
+    tiposPronostico: ExpertCatalogItem[];
+  };
+};
+
+export type ExpertPronosticosResponse = {
+  success: boolean;
+  data: ExpertPronosticoRow[];
+  meta: {
+    fecha: string | null;
+    fechas: ExpertFechaItem[];
+    count?: number;
+  };
+};
+

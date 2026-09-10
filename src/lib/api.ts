@@ -106,6 +106,12 @@ import type {
   StoryGenerateType,
   AdminNotificationsOverview,
   AdminNotificationTestResult,
+  ExpertCatalogItem,
+  ExpertCatalogosResponse,
+  ExpertNoticiaRow,
+  ExpertPronosticoRow,
+  ExpertPronosticoSavePayload,
+  ExpertPronosticosResponse,
 } from './types';
 import type { ConnectionProbe, LoginDiagnostic } from './login-diagnostics';
 
@@ -1832,4 +1838,134 @@ export function sendAdminNotificationTest(payload?: {
     method: 'POST',
     body: JSON.stringify(payload || {}),
   });
+}
+
+const AE = '/api/admin/analisis-expertos';
+
+export function fetchExpertCatalogos() {
+  return adminFetch<ExpertCatalogosResponse>(`${AE}/catalogos`);
+}
+
+export function fetchExpertPronosticos(fecha?: string) {
+  const qs = new URLSearchParams();
+  if (fecha) qs.set('fecha', fecha);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return adminFetch<ExpertPronosticosResponse>(`${AE}/pronosticos${suffix}`);
+}
+
+export function fetchExpertPronostico(id: string) {
+  return adminFetch<{ success: boolean; data: ExpertPronosticoRow }>(
+    `${AE}/pronosticos/${encodeURIComponent(id)}`,
+  );
+}
+
+export function createExpertPronostico(payload: ExpertPronosticoSavePayload) {
+  return adminFetch<{ success: boolean; data: ExpertPronosticoRow }>(`${AE}/pronosticos`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateExpertPronostico(id: string, payload: ExpertPronosticoSavePayload) {
+  return adminFetch<{ success: boolean; data: ExpertPronosticoRow }>(
+    `${AE}/pronosticos/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  );
+}
+
+export function fetchExpertDeportes() {
+  return adminFetch<{ success: boolean; data: ExpertCatalogItem[] }>(`${AE}/deportes`);
+}
+
+export function createExpertDeporte(payload: { nombre: string; icono?: string; color?: string }) {
+  return adminFetch<{ success: boolean; data: ExpertCatalogItem }>(`${AE}/deportes`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateExpertDeporte(
+  id: string,
+  payload: Partial<{ nombre: string; icono: string; color: string }>,
+) {
+  return adminFetch<{ success: boolean; data: ExpertCatalogItem }>(
+    `${AE}/deportes/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  );
+}
+
+export function fetchExpertCampeonatos(idDeporte?: string) {
+  const qs = new URLSearchParams();
+  if (idDeporte) qs.set('idDeporte', idDeporte);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return adminFetch<{ success: boolean; data: ExpertCatalogItem[] }>(`${AE}/campeonatos${suffix}`);
+}
+
+export function createExpertCampeonato(payload: { nombre: string; idDeporte: string }) {
+  return adminFetch<{ success: boolean; data: ExpertCatalogItem }>(`${AE}/campeonatos`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateExpertCampeonato(
+  id: string,
+  payload: Partial<{ nombre: string; idDeporte: string }>,
+) {
+  return adminFetch<{ success: boolean; data: ExpertCatalogItem }>(
+    `${AE}/campeonatos/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  );
+}
+
+export function fetchExpertEstados() {
+  return adminFetch<{ success: boolean; data: ExpertCatalogItem[] }>(`${AE}/estados`);
+}
+
+export function createExpertEstado(payload: { nombre: string }) {
+  return adminFetch<{ success: boolean; data: ExpertCatalogItem }>(`${AE}/estados`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchExpertNoticias(params?: { limit?: number; offset?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.offset) qs.set('offset', String(params.offset));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return adminFetch<{
+    success: boolean;
+    data: ExpertNoticiaRow[];
+    meta: { limit: number; offset: number; count: number };
+  }>(`${AE}/noticias${suffix}`);
+}
+
+export function createExpertNoticia(payload: {
+  urlImagen: string;
+  autor: string;
+  titulo?: string;
+  descripcion?: string;
+  fecha?: string;
+}) {
+  return adminFetch<{ success: boolean; data: ExpertNoticiaRow }>(`${AE}/noticias`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateExpertNoticia(
+  id: string,
+  payload: Partial<{
+    urlImagen: string;
+    autor: string;
+    titulo: string;
+    descripcion: string;
+    fecha: string;
+  }>,
+) {
+  return adminFetch<{ success: boolean; data: ExpertNoticiaRow }>(
+    `${AE}/noticias/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  );
 }
