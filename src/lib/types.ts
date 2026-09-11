@@ -2579,3 +2579,57 @@ export type PromoOverviewResponse = {
   };
 };
 
+export type LegalDocumentRow = {
+  id: string;
+  documentType: string;
+  version: string;
+  title?: string | null;
+  publishedAt?: string | null;
+  isCurrent?: boolean;
+  requiresReacceptance?: boolean;
+  changeSummary?: string | null;
+  contentPath?: string | null;
+  contentHash?: string | null;
+  termsUrl?: string | null;
+};
+
+export type LegalDocumentsResponse = {
+  success: boolean;
+  data: {
+    documents: LegalDocumentRow[];
+    currentByType: Record<
+      string,
+      { id: string; version: string; title?: string | null; publishedAt?: string | null } | null
+    >;
+    documentTypes: Record<string, string>;
+    defaultViews: Record<string, string>;
+    defaultTitles?: Record<string, string>;
+  };
+};
+
+export type SellerTermsAuditAcceptance = {
+  id?: string;
+  acceptedAt?: string | null;
+  sellerId?: string | null;
+  sellerName?: string | null;
+  sellerEmail?: string | null;
+  documentVersion?: string | null;
+  platform?: string | null;
+};
+
+export type SellerTermsAuditResponse = {
+  success: boolean;
+  data: {
+    ready?: boolean;
+    currentDocument?: LegalDocumentRow | null;
+    summary?: {
+      acceptancesCount?: number;
+      pendingReacceptanceCount?: number;
+      activeSellersCount?: number;
+      [key: string]: unknown;
+    } | null;
+    acceptances?: SellerTermsAuditAcceptance[];
+    pendingSellers?: Array<{ id?: string; name?: string | null; email?: string | null }>;
+  };
+};
+

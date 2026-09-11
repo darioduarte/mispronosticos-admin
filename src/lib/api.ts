@@ -116,6 +116,9 @@ import type {
   PromoSellerRow,
   PromoCampaignRow,
   PromoCodeRow,
+  LegalDocumentsResponse,
+  LegalDocumentRow,
+  SellerTermsAuditResponse,
 } from './types';
 import type { ConnectionProbe, LoginDiagnostic } from './login-diagnostics';
 
@@ -2015,4 +2018,50 @@ export function fetchPromoPlayCatalog() {
 
 export function fetchPromoIosCatalog() {
   return adminFetch<{ success: boolean; data: Record<string, unknown> }>(`${PROMO}/catalog/ios`);
+}
+
+const LEGAL = '/api/admin/legal-documents';
+
+export function fetchLegalDocuments(documentType?: string) {
+  const qs = new URLSearchParams();
+  if (documentType) qs.set('documentType', documentType);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return adminFetch<LegalDocumentsResponse>(`${LEGAL}${suffix}`);
+}
+
+export function publishLegalDocument(payload: {
+  documentType: string;
+  version: string;
+  title?: string;
+  viewFileName?: string;
+  changeSummary?: string;
+  requiresReacceptance?: boolean;
+  makeCurrent?: boolean;
+}) {
+  return adminFetch<{ success: boolean; data: LegalDocumentRow }>(`${LEGAL}/publish`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function setLegalDocumentCurrent(id: string) {
+  return adminFetch<{ success: boolean; data: Pick<LegalDocumentRow, 'id' | 'documentType' | 'version' | 'isCurrent'> }>(
+    `${LEGAL}/${encodeURIComponent(id)}/set-current`,
+    { method: 'POST', body: '{}' },
+  );
+}
+
+export function fetchSellerTermsAudit(params?: {
+  fromDate?: string;
+  toDate?: string;
+  sellerId?: string;
+  limit?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params?.fromDate) qs.set('fromDate', params.fromDate);
+  if (params?.toDate) qs.set('toDate', params.toDate);
+  if (params?.sellerId) qs.set('sellerId', params.sellerId);
+  if (params?.limit != null) qs.set('limit', String(params.limit));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return adminFetch<SellerTermsAuditResponse>(`${LEGAL}/audit/seller-terms${suffix}`);
 }
