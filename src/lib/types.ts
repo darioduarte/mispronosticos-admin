@@ -2528,3 +2528,54 @@ export type ExpertPronosticosResponse = {
   };
 };
 
+export type PromoCampaignRow = {
+  id: string;
+  name: string;
+  description?: string | null;
+  discountLabel?: string | null;
+  platform: 'android' | 'ios' | string;
+  iosProductId?: string | null;
+  iosOfferId?: string | null;
+  androidProductId?: string | null;
+  androidOfferTag?: string | null;
+  androidOfferToken?: string | null;
+  status: 'draft' | 'active' | 'inactive' | string;
+  startsAt?: string | null;
+  endsAt?: string | null;
+};
+
+export type PromoCodeRow = {
+  id: string;
+  code: string;
+  sellerId: string;
+  campaignId: string;
+  campaignIds?: string[];
+  campaigns?: PromoCampaignRow[];
+  campaign?: PromoCampaignRow | null;
+  maxUses?: number | null;
+  currentUses?: number;
+  maxUsesPerUser?: number;
+  status: 'active' | 'inactive' | string;
+  expiresAt?: string | null;
+};
+
+export type PromoSellerRow = {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  country?: string | null;
+  payoutAccountNumber?: string | null;
+  commissionRate?: number | string | null;
+  status: 'active' | 'inactive' | string;
+  promoCodes?: PromoCodeRow[];
+};
+
+export type PromoOverviewResponse = {
+  success: boolean;
+  data: {
+    sellers: PromoSellerRow[];
+    campaigns: PromoCampaignRow[];
+  };
+};
+

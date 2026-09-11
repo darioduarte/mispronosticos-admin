@@ -112,6 +112,10 @@ import type {
   ExpertPronosticoRow,
   ExpertPronosticoSavePayload,
   ExpertPronosticosResponse,
+  PromoOverviewResponse,
+  PromoSellerRow,
+  PromoCampaignRow,
+  PromoCodeRow,
 } from './types';
 import type { ConnectionProbe, LoginDiagnostic } from './login-diagnostics';
 
@@ -1976,4 +1980,39 @@ export function updateExpertNoticia(
     `${AE}/noticias/${encodeURIComponent(id)}`,
     { method: 'PATCH', body: JSON.stringify(payload) },
   );
+}
+
+const PROMO = '/api/admin/promociones';
+
+export function fetchPromoOverview() {
+  return adminFetch<PromoOverviewResponse>(PROMO);
+}
+
+export function upsertPromoSeller(payload: Partial<PromoSellerRow> & { sellerEmail?: string }) {
+  return adminFetch<{ success: boolean; data: PromoSellerRow }>(`${PROMO}/sellers`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function upsertPromoCode(payload: Partial<PromoCodeRow> & { campaignIds: string[] }) {
+  return adminFetch<{ success: boolean; data: PromoCodeRow }>(`${PROMO}/promo-codes`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function upsertPromoCampaign(payload: Partial<PromoCampaignRow>) {
+  return adminFetch<{ success: boolean; data: PromoCampaignRow }>(`${PROMO}/campaigns`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchPromoPlayCatalog() {
+  return adminFetch<{ success: boolean; data: Record<string, unknown> }>(`${PROMO}/catalog/play`);
+}
+
+export function fetchPromoIosCatalog() {
+  return adminFetch<{ success: boolean; data: Record<string, unknown> }>(`${PROMO}/catalog/ios`);
 }

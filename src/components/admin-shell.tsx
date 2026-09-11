@@ -66,6 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/suscripciones', label: 'Suscripciones' },
       { href: '/trials', label: 'Trials' },
+      { href: '/promociones', label: 'Vendedores y códigos' },
       { href: '/sugerencias', label: 'Sugerencias' },
     ],
   },
