@@ -386,7 +386,13 @@ function FixtureRow({
           {f.league} · #{f.fixtureId}
         </p>
       </td>
-      <td className="py-2.5 pr-3 text-slate-300">{f.statusLabel}</td>
+      <td
+        className={`py-2.5 pr-3 font-medium tabular-nums ${
+          f.statusLabel.includes('+') ? 'text-amber-300' : 'text-slate-200'
+        }`}
+      >
+        {f.statusLabel}
+      </td>
       <td className="py-2.5 pr-3">
         <PhaseChips
           completed={f.completedPhases}
