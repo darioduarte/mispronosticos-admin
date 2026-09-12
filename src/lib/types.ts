@@ -550,6 +550,8 @@ export type LivePipelineFixtureRow = {
   league: string;
   status: string;
   minute: number | null;
+  /** Minutos de añadido (API-Football `extra`); null si no aplica. */
+  extra?: number | null;
   statusLabel: string;
   scoreHome: number | null;
   scoreAway: number | null;
