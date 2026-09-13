@@ -2366,6 +2366,7 @@ export type StoryDeleteResponse = {
 
 export type AdminNotificationsDiagnostics = {
   smtpConfigured: boolean;
+  fcmConfigured?: boolean;
   adminEmails: string[];
   adminsFoundInDb: number;
   fcmTokenCount: number;
@@ -2429,6 +2430,8 @@ export type AdminNotificationTestResult = {
     total?: number;
     skipped?: boolean;
     reason?: string;
+    message?: string;
+    failures?: Array<{ reason?: string; status?: number | null }>;
   };
   email?: {
     ok?: boolean;
@@ -2625,10 +2628,11 @@ export type SellerTermsAuditResponse = {
     ready?: boolean;
     currentDocument?: LegalDocumentRow | null;
     summary?: {
-      acceptancesCount?: number;
+      totalAcceptances?: number;
+      uniqueSellers?: number;
+      byVersion?: Record<string, number>;
       pendingReacceptanceCount?: number;
       activeSellersCount?: number;
-      [key: string]: unknown;
     } | null;
     acceptances?: SellerTermsAuditAcceptance[];
     pendingSellers?: Array<{ id?: string; name?: string | null; email?: string | null }>;
