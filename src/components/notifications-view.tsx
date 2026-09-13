@@ -4,7 +4,18 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAdminNotifications, sendAdminNotificationTest } from '@/lib/api';
 import { toastError, toastSuccess } from '@/lib/admin-toast';
-import type { AdminLiveNotificationRow, AdminNotificationOutboxRow } from '@/lib/types';
+import type {
+  AdminLiveNotificationRow,
+  AdminNotificationOutboxRow,
+  AdminNotificationTestResult,
+} from '@/lib/types';
+
+function testFailureMessage(res: AdminNotificationTestResult) {
+  if (res.push?.message) return res.push.message;
+  if (res.push?.reason) return res.push.reason;
+  if (res.email?.reason && res.email.ok === false) return `Correo: ${res.email.reason}`;
+  return res.error || 'Revisa tokens FCM de admins y credenciales Firebase.';
+}
 
 function formatWhen(iso?: string | null) {
   if (!iso) return '—';
@@ -187,11 +198,11 @@ export function NotificationsView() {
             : `Push de prueba enviado a ${sent} dispositivo(s) admin`,
         );
       } else {
-        toastError(res.push?.reason || res.error || 'No se pudo enviar la prueba');
+        toastError('No se pudo enviar la prueba', testFailureMessage(res));
       }
       queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
-    onError: (err: Error) => toastError(err.message || 'Error al enviar prueba'),
+    onError: (err: Error) => toastError('Error al enviar prueba', err),
   });
 
   const data = query.data;
@@ -226,8 +237,10 @@ export function NotificationsView() {
         <KpiCard
           label="Tokens FCM admin"
           value={diag?.fcmTokenCount ?? '—'}
-          hint={`${diag?.adminsFoundInDb ?? 0} admins en BD`}
-          accent="indigo"
+          hint={`${diag?.adminsFoundInDb ?? 0} admins en BD · FCM ${
+            diag?.fcmConfigured === false ? 'NO configurado' : 'OK'
+          }`}
+          accent={diag?.fcmConfigured === false ? 'amber' : 'indigo'}
         />
         <KpiCard
           label="Alertas pendientes"
@@ -280,7 +293,8 @@ export function NotificationsView() {
         <section className="rounded-xl border border-white/10 bg-[#111827] p-4">
           <h2 className="text-sm font-semibold text-slate-200">Probar notificación</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Envía un push (o push + correo) solo a administradores.
+            Envía un push (o push + correo) solo a administradores. Llega al
+            dispositivo donde cada admin abrió la app por última vez.
           </p>
           <div className="mt-4 space-y-3">
             <div>

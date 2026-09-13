@@ -2364,6 +2364,7 @@ export type StoryDeleteResponse = {
 
 export type AdminNotificationsDiagnostics = {
   smtpConfigured: boolean;
+  fcmConfigured?: boolean;
   adminEmails: string[];
   adminsFoundInDb: number;
   fcmTokenCount: number;
@@ -2427,6 +2428,8 @@ export type AdminNotificationTestResult = {
     total?: number;
     skipped?: boolean;
     reason?: string;
+    message?: string;
+    failures?: Array<{ reason?: string; status?: number | null }>;
   };
   email?: {
     ok?: boolean;
