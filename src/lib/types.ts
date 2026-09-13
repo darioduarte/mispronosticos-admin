@@ -2626,10 +2626,11 @@ export type SellerTermsAuditResponse = {
     ready?: boolean;
     currentDocument?: LegalDocumentRow | null;
     summary?: {
-      acceptancesCount?: number;
+      totalAcceptances?: number;
+      uniqueSellers?: number;
+      byVersion?: Record<string, number>;
       pendingReacceptanceCount?: number;
       activeSellersCount?: number;
-      [key: string]: unknown;
     } | null;
     acceptances?: SellerTermsAuditAcceptance[];
     pendingSellers?: Array<{ id?: string; name?: string | null; email?: string | null }>;
