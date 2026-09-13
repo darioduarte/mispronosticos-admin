@@ -26,10 +26,18 @@ En el backend (`.env` del API, no de este repo): `ADMIN_PANEL_PASSWORD`, `JWT_SE
 
 ## Pruebas
 
+Suite de funciones puras (`src/**/*.test.ts`, node:test + tsx). Sin red, sin
+backend, sin `.env` reales.
+
 ```bash
 npm run test:engine
 npm run lint
 npm run build
 ```
+
+CI en GitHub Actions (push/PR a `main`): `.github/workflows/ci.yml`
+(`npm ci`, `npm run lint -- src/lib`, `test:engine`, `build` con
+`NEXT_PUBLIC_API_BASE_URL` dummy). El lint de todo el panel (`npm run lint`)
+tiene hallazgos previos en UI; CI cubre `src/lib`.
 
 Pantallas y deploy: `README.md` y `docs/DEPLOY.md`.

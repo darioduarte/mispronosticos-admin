@@ -71,11 +71,20 @@ Guía de despliegue: [`docs/DEPLOY.md`](./docs/DEPLOY.md).
 
 ## Pruebas
 
+Funciones puras en `src/lib/` (filtros de partidos, cuotas live, stats/Top AI,
+motor de picks, sync FLB, árbitros, fechas, diagnóstico de login). Sin red ni
+backend. Un `*.test.ts` al lado de cada módulo.
+
 ```bash
-npm run test:engine   # motor de selección de picks
+npm run test:engine   # node:test + tsx sobre src/**/*.test.ts
 npm run lint
 npm run build
 ```
+
+CI (GitHub Actions en `main` y PRs): `npm ci` → `npm run lint -- src/lib` →
+`test:engine` → `build` con `NEXT_PUBLIC_API_BASE_URL` dummy.
+Workflow: `.github/workflows/ci.yml`. `npm run lint` (panel completo) hoy
+reporta hallazgos previos en UI; no forma parte de este cambio.
 
 ## Seguridad
 
