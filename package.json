@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:engine": "npx tsx --test src/lib/pick-selection-engine.test.ts"
+    "test:engine": "tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
@@ -24,6 +24,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }
