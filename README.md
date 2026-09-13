@@ -76,7 +76,7 @@ motor de picks, sync FLB, árbitros, fechas, diagnóstico de login). Sin red ni
 backend. Un `*.test.ts` al lado de cada módulo.
 
 ```bash
-npm run test:engine   # node:test + tsx sobre src/**/*.test.ts
+npm run test:engine   # node:test + tsx sobre src/lib/*.test.ts
 npm run lint
 npm run build
 ```

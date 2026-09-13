@@ -26,7 +26,7 @@ En el backend (`.env` del API, no de este repo): `ADMIN_PANEL_PASSWORD`, `JWT_SE
 
 ## Pruebas
 
-Suite de funciones puras (`src/**/*.test.ts`, node:test + tsx). Sin red, sin
+Suite de funciones puras (`src/lib/*.test.ts`, node:test + tsx). Sin red, sin
 backend, sin `.env` reales.
 
 ```bash
