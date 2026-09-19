@@ -660,6 +660,8 @@ export type AiPrematchProcessStatus = {
   errors?: number | null;
   total?: number | null;
   source?: string | null;
+  minutesSinceUpdate?: number | null;
+  stale?: boolean;
   error?: string;
 };
 
