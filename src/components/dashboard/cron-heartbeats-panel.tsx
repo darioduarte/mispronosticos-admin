@@ -168,19 +168,22 @@ export function CronHeartbeatsPanel() {
     onError: (err) => toastError('Reiniciar cron', err),
   });
 
-  function confirmAndRerun(job: Pick<CronHeartbeatRow, 'jobKey' | 'label' | 'todaySlotStatus'>) {
+  function confirmAndRerun(job: Pick<CronHeartbeatRow, 'jobKey' | 'label' | 'todaySlotStatus'>, opts?: { force?: boolean }) {
     const alreadyRan = job.todaySlotStatus === 'ran';
     const running = job.todaySlotStatus === 'running';
+    const force = opts?.force === true || running;
     const isAi = job.jobKey.startsWith('ai_');
-    const msg = running
-      ? `El cron «${job.label}» figura en curso. ¿Forzar un relanzamiento? Solo si el worker se reinició a media corrida.`
-      : alreadyRan
-        ? isAi
-          ? `El cron «${job.label}» ya corrió hoy. ¿Volver a lanzarlo? Solo genera análisis faltantes.`
-          : `El cron «${job.label}» ya corrió hoy. ¿Volver a lanzarlo?`
-        : `¿Relanzar «${job.label}» ahora en el worker?`;
+    const msg = force && !running
+      ? `El análisis IA está colgado (sin avance). ¿Liberar el candado y relanzar «${job.label}» en el worker?`
+      : running
+        ? `El cron «${job.label}» figura en curso. ¿Forzar un relanzamiento? Solo si el worker se reinició a media corrida.`
+        : alreadyRan
+          ? isAi
+            ? `El cron «${job.label}» ya corrió hoy. ¿Volver a lanzarlo? Solo genera análisis faltantes.`
+            : `El cron «${job.label}» ya corrió hoy. ¿Volver a lanzarlo?`
+          : `¿Relanzar «${job.label}» ahora en el worker?`;
     if (!window.confirm(msg)) return;
-    rerunMut.mutate({ jobKey: job.jobKey, force: running });
+    rerunMut.mutate({ jobKey: job.jobKey, force });
   }
 
   const crons = query.data?.crons || [];
@@ -212,8 +215,9 @@ export function CronHeartbeatsPanel() {
   }, [crons, tierFilter, onlyAttention]);
 
   const aiStatus = (featured?.todaySlotStatus || featured?.lastStatus || '') as CronSlotStatus | string;
-  const needsRerun = ['missed', 'waiting', 'failed'].includes(String(aiStatus));
   const process = featured?.process;
+  const processStale = process?.stale === true;
+  const needsRerun = ['missed', 'waiting', 'failed'].includes(String(aiStatus)) || processStale;
   const progressPct = process?.progress?.percentage;
   const progressText =
     process?.progress && process.progress.total
@@ -267,14 +271,18 @@ export function CronHeartbeatsPanel() {
             <button
               type="button"
               disabled={rerunMut.isPending}
-              onClick={() => confirmAndRerun(featured)}
+              onClick={() => confirmAndRerun(featured, { force: processStale })}
               className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                 needsRerun
                   ? 'border-amber-400/50 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30'
                   : 'border-white/15 bg-white/5 text-slate-200 hover:bg-white/10'
               } disabled:opacity-50`}
             >
-              {rerunMut.isPending ? 'Relanzando…' : rerunButtonLabel(String(aiStatus), true)}
+              {rerunMut.isPending
+                ? 'Relanzando…'
+                : processStale
+                  ? 'Liberar y relanzar IA'
+                  : rerunButtonLabel(String(aiStatus), true)}
             </button>
           </div>
 
@@ -310,9 +318,11 @@ export function CronHeartbeatsPanel() {
               <p className="text-[11px] text-slate-500">
                 {progressText
                   ? `${progressText}${progressPct != null ? ` (${progressPct}%)` : ''}`
-                  : process?.lastUpdatedAt
-                    ? formatWhen(process.lastUpdatedAt)
-                    : '—'}
+                  : '—'}
+                {process?.lastUpdatedAt
+                  ? ` · último avance ${formatWhen(process.lastUpdatedAt)}`
+                  : ''}
+                {processStale ? ' · colgado' : ''}
               </p>
             </div>
           </div>
@@ -322,8 +332,9 @@ export function CronHeartbeatsPanel() {
           ) : null}
           {needsRerun ? (
             <p className="mt-3 text-xs text-amber-100/90">
-              Si acabas de escalar el worker después de las 19:15, node-cron no recupera el tick
-              perdido. Usa el botón para correr el mismo job en el worker.
+              {processStale
+                ? 'El proceso GPT no avanza. Si el botón no arranca, reinicia el componente jobs en App Platform y vuelve a pulsar Reiniciar cron IA.'
+                : 'Si acabas de escalar el worker después de las 19:15, node-cron no recupera el tick perdido. Usa el botón para correr el mismo job en el worker.'}
             </p>
           ) : null}
         </section>
