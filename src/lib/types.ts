@@ -1002,6 +1002,18 @@ export type FlbMappingSaveResponse = {
   error?: string;
 };
 
+export type SyncPartidoEventsResponse = {
+  success: boolean;
+  fixtureId?: number;
+  source?: string;
+  count?: number;
+  persisted?: boolean;
+  statusShort?: string | null;
+  message?: string;
+  error?: string;
+  integrity?: { complete?: boolean; reason?: string; count?: number; goalEvents?: number };
+};
+
 export type SyncPartidoStatsResponse = {
   success: boolean;
   fixtureId?: number;

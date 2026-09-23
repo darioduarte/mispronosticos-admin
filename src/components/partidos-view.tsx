@@ -46,6 +46,7 @@ import {
   recalculatePartidoPromedios,
   repairPartidosReferees,
   startPreMatchRangeJob,
+  syncPartidoEvents,
   syncPartidoStats,
   syncPeriodSnapshotTables,
 } from '@/lib/api';
@@ -211,6 +212,7 @@ export function PartidosView() {
   const [preMatchDismissedId, setPreMatchDismissedId] = useState<string | null>(null);
   const preMatchPrevPhaseRef = useRef<PreMatchRangeJob['phase'] | null>(null);
   const [syncRowId, setSyncRowId] = useState<number | null>(null);
+  const [eventsRowId, setEventsRowId] = useState<number | null>(null);
   const [repairBusy, setRepairBusy] = useState(false);
   const [repairMsg, setRepairMsg] = useState('');
   const [statsModal, setStatsModal] = useState<Omit<RowModal, 'referee'> | null>(null);
@@ -1384,6 +1386,32 @@ export function PartidosView() {
     setPreMatchModalOpen(false);
   }
 
+  async function handleSyncEvents(fixtureId: number) {
+    setEventsRowId(fixtureId);
+    try {
+      const result = await syncPartidoEvents(fixtureId);
+      if (!result.success) {
+        toastError(
+          `Eventos #${fixtureId}`,
+          result.error || result.message || 'Error al sincronizar eventos',
+        );
+        return;
+      }
+      const integrity =
+        result.integrity?.complete === false
+          ? ` Integridad: ${result.integrity.reason || 'incompleto'}.`
+          : '';
+      toastSuccess(
+        `Eventos #${fixtureId}`,
+        `${result.message || 'Eventos enviados a la app.'}${integrity}`,
+      );
+    } catch (e) {
+      toastError(`Eventos #${fixtureId}`, e);
+    } finally {
+      setEventsRowId(null);
+    }
+  }
+
   async function handleSyncOne(fixtureId: number) {
     setSyncRowId(fixtureId);
     try {
@@ -1986,6 +2014,8 @@ export function PartidosView() {
                 showLiveOdds={row.estadoBadgeClass === 'live'}
                 onSyncFlb={() => handleSyncOne(row.fixtureid)}
                 syncBusy={syncRowId === row.fixtureid}
+                onSyncEvents={() => handleSyncEvents(row.fixtureid)}
+                eventsBusy={eventsRowId === row.fixtureid}
               />
             ))}
             {filtered.length === 0 && (
@@ -2070,6 +2100,8 @@ export function PartidosView() {
                     showLiveOdds={row.estadoBadgeClass === 'live'}
                     onSyncFlb={() => handleSyncOne(row.fixtureid)}
                     syncBusy={syncRowId === row.fixtureid}
+                    onSyncEvents={() => handleSyncEvents(row.fixtureid)}
+                    eventsBusy={eventsRowId === row.fixtureid}
                   />
                 ))}
                 {filtered.length === 0 && (
@@ -2206,6 +2238,8 @@ function PartidoMobileCard({
   onLivePromptV2,
   onSyncFlb,
   syncBusy,
+  onSyncEvents,
+  eventsBusy,
   showLiveOdds,
 }: {
   row: PartidoRow;
@@ -2220,6 +2254,8 @@ function PartidoMobileCard({
   onLivePromptV2: () => void;
   onSyncFlb: () => void;
   syncBusy?: boolean;
+  onSyncEvents: () => void;
+  eventsBusy?: boolean;
   showLiveOdds?: boolean;
 }) {
   const iaHref = `/pronosticos-ia?search=${row.fixtureid}&desde=${dateRange.desde}&hasta=${dateRange.hasta}`;
@@ -2261,6 +2297,7 @@ function PartidoMobileCard({
 
       <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
         <ActionBtn label={syncBusy ? '…' : 'Sync FLB'} onClick={onSyncFlb} disabled={syncBusy} />
+        <ActionBtn label={eventsBusy ? '…' : 'Eventos'} onClick={onSyncEvents} disabled={eventsBusy} />
         <ActionBtn label="Stats" onClick={onStats} />
         <ActionBtn label="Promedios" onClick={onPromedios} />
         <ActionBtn label="Est. estimadas" onClick={onEstimadas} />
@@ -2312,6 +2349,8 @@ function PartidoTableRow({
   onLivePromptV2,
   onSyncFlb,
   syncBusy,
+  onSyncEvents,
+  eventsBusy,
   showLiveOdds,
 }: {
   row: PartidoRow;
@@ -2326,6 +2365,8 @@ function PartidoTableRow({
   onLivePromptV2: () => void;
   onSyncFlb: () => void;
   syncBusy?: boolean;
+  onSyncEvents: () => void;
+  eventsBusy?: boolean;
   showLiveOdds?: boolean;
 }) {
   const iaHref = `/pronosticos-ia?search=${row.fixtureid}&desde=${dateRange.desde}&hasta=${dateRange.hasta}`;
@@ -2370,6 +2411,7 @@ function PartidoTableRow({
       <td className="px-3 py-2">
         <div className="flex flex-wrap gap-1">
           <ActionBtn label={syncBusy ? '…' : 'Sync FLB'} onClick={onSyncFlb} disabled={syncBusy} />
+          <ActionBtn label={eventsBusy ? '…' : 'Eventos'} onClick={onSyncEvents} disabled={eventsBusy} />
           <ActionBtn label="Stats" onClick={onStats} />
           <ActionBtn label="Promedios" onClick={onPromedios} />
           <ActionBtn label="Est. estimadas" onClick={onEstimadas} />

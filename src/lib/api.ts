@@ -42,6 +42,7 @@ import type {
   FlbCandidatesResponse,
   FlbMappingSaveResponse,
   FlbCandidateRow,
+  SyncPartidoEventsResponse,
   SyncPartidoStatsResponse,
   PromediosMuestraResponse,
   PromediosRecalcPlanResponse,
@@ -968,6 +969,13 @@ export function deletePartidoFlbMapping(fixtureId: number) {
   return adminFetch<FlbMappingSaveResponse>(
     `/api/admin/partidos/fixtures/${fixtureId}/flb-mapping`,
     { method: 'DELETE' },
+  );
+}
+
+export function syncPartidoEvents(fixtureId: number) {
+  return adminFetch<SyncPartidoEventsResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/sync-events`,
+    { method: 'POST' },
   );
 }
 
