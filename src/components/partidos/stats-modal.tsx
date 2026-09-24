@@ -7,12 +7,14 @@ import {
   fetchPartidoStatistics,
   fetchPartidoStatisticsFlb,
   fetchPartidoFlbCandidates,
+  fetchPartidoMomentum,
   savePartidoFlbMapping,
   deletePartidoFlbMapping,
   syncPartidoStats,
   syncPartidoH2HStats,
 } from '@/lib/api';
-import type { FlbCandidateRow, FlbCandidatesResponse, FlbMappingRow, H2HMatchRow } from '@/lib/types';
+import type { FixtureMomentumResponse, FlbCandidateRow, FlbCandidatesResponse, FlbMappingRow, H2HMatchRow } from '@/lib/types';
+import { MomentumPreview } from '@/components/partidos/momentum-preview';
 
 type Props = {
   fixtureId: number;
@@ -73,10 +75,15 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, in
   const [h2hSyncMsg, setH2hSyncMsg] = useState('');
   const [flbSearchDate, setFlbSearchDate] = useState<string | null>(null);
   const [flbDateInput, setFlbDateInput] = useState('');
+  const [momentumBusy, setMomentumBusy] = useState(false);
+  const [momentum, setMomentum] = useState<FixtureMomentumResponse | null>(null);
+  const [momentumError, setMomentumError] = useState('');
 
   useEffect(() => {
     setFlbSearchDate(null);
     setFlbDateInput('');
+    setMomentum(null);
+    setMomentumError('');
   }, [fixtureId]);
 
   const bdQuery = useQuery({
@@ -115,6 +122,21 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, in
   function resetFlbSearchAuto() {
     setFlbSearchDate(null);
     setFlbDateInput('');
+  }
+
+  async function handleMomentum() {
+    setMomentumBusy(true);
+    setMomentumError('');
+    try {
+      const result = await fetchPartidoMomentum(fixtureId);
+      setMomentum(result);
+      if (!result.success && result.error) setMomentumError(result.error);
+    } catch (err) {
+      setMomentum(null);
+      setMomentumError(err instanceof Error ? err.message : 'No se pudo consultar el momentum');
+    } finally {
+      setMomentumBusy(false);
+    }
   }
 
   const h2hQuery = useQuery({
@@ -376,6 +398,21 @@ export function PartidoStatsModal({ fixtureId, matchLabel, onClose, onSynced, in
 
           {tab === 'flb' && (
             <>
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleMomentum}
+                  disabled={momentumBusy}
+                  className="rounded-md bg-sky-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                >
+                  {momentumBusy ? 'Consultando momentum…' : 'Ver momentum'}
+                </button>
+                <span className="text-xs text-slate-500">
+                  Pide la serie a FLB y los goles/tarjetas a API-Football. No guarda nada.
+                </span>
+              </div>
+              {momentumError ? <p className="mb-3 text-sm text-red-300">{momentumError}</p> : null}
+              {momentum ? <MomentumPreview data={momentum} /> : null}
               {(flbQuery.isLoading || flbCandidatesQuery.isLoading) && (
                 <p className="text-sm text-slate-400">Consultando Live-Football-Data…</p>
               )}

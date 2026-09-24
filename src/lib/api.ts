@@ -39,6 +39,7 @@ import type {
   FetchPartidosByDateResponse,
   PartidoStatisticsApiResponse,
   PartidoStatisticsFlbResponse,
+  FixtureMomentumResponse,
   FlbCandidatesResponse,
   FlbMappingSaveResponse,
   FlbCandidateRow,
@@ -928,6 +929,12 @@ export function fetchPartidoStatistics(fixtureId: number) {
 export function fetchPartidoStatisticsApi(fixtureId: number) {
   return adminFetch<PartidoStatisticsApiResponse>(
     `/api/admin/partidos/fixtures/${fixtureId}/statistics-api`,
+  );
+}
+
+export function fetchPartidoMomentum(fixtureId: number) {
+  return adminFetch<FixtureMomentumResponse>(
+    `/api/admin/partidos/fixtures/${fixtureId}/momentum`,
   );
 }
 

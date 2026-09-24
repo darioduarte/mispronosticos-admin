@@ -929,6 +929,39 @@ export type PartidoStatisticsApiResponse = {
   error?: string;
 };
 
+export type MomentumBar = { minute: number; value: number };
+
+export type MomentumEvent = {
+  minute: number;
+  extra: number | null;
+  type: 'goal' | 'yellow' | 'red';
+  side: 'home' | 'away';
+};
+
+export type MomentumSummary = {
+  possession: [number | null, number | null];
+  shotsOn: [number | null, number | null];
+  shotsOff: [number | null, number | null];
+  totalShots: [number | null, number | null];
+  corners: [number | null, number | null];
+  yellow: [number | null, number | null];
+  red: [number | null, number | null];
+};
+
+export type FixtureMomentumResponse = {
+  success: boolean;
+  fixtureId?: number;
+  eventId?: string | null;
+  coverageLevel?: string | null;
+  matchName?: string | null;
+  bars?: MomentumBar[];
+  events?: MomentumEvent[];
+  summary?: MomentumSummary | null;
+  momentumFound?: boolean;
+  error?: string | null;
+  warnings?: string[];
+};
+
 export type PartidoStatisticsFlbResponse = {
   success: boolean;
   fixtureId?: number;
