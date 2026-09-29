@@ -2522,6 +2522,7 @@ export type ExpertPronosticoRow = {
   campeonato?: ExpertCatalogItem | null;
   estadoPronostico?: ExpertCatalogItem | null;
   tipoPronostico?: ExpertCatalogItem | null;
+  fixtureId?: number | null;
 };
 
 export type ExpertPronosticoSavePayload = {
@@ -2540,6 +2541,17 @@ export type ExpertPronosticoSavePayload = {
   maximaConfianza?: boolean;
   resultadoLocal?: string | null;
   resultadoVisitante?: string | null;
+  fixtureId?: number | string | null;
+};
+
+export type ExpertFixtureHit = {
+  fixtureid: number;
+  teamshomename?: string | null;
+  teamsawayname?: string | null;
+  goalshome?: number | null;
+  goalsaway?: number | null;
+  fixturestatusshort?: string | null;
+  fixturedate?: string | null;
 };
 
 export type ExpertNoticiaRow = {

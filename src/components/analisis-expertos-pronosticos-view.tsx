@@ -8,9 +8,10 @@ import {
   fetchExpertCatalogos,
   fetchExpertPronostico,
   fetchExpertPronosticos,
+  fetchExpertFixtures,
   updateExpertPronostico,
 } from '@/lib/api';
-import type { ExpertPronosticoRow, ExpertPronosticoSavePayload } from '@/lib/types';
+import type { ExpertFixtureHit, ExpertPronosticoRow, ExpertPronosticoSavePayload } from '@/lib/types';
 
 const TIPO_ANUNCIO = ['INTERSTITIAL', 'REWARDED', 'PREMIUM'];
 const PAGE_SIZE = 25;
@@ -31,6 +32,7 @@ const emptyForm: ExpertPronosticoSavePayload = {
   maximaConfianza: false,
   resultadoLocal: '',
   resultadoVisitante: '',
+  fixtureId: '',
 };
 
 function toDatetimeLocal(value?: string | null) {
@@ -60,6 +62,7 @@ function rowToForm(row: ExpertPronosticoRow): ExpertPronosticoSavePayload {
     maximaConfianza: !!row.maximaConfianza,
     resultadoLocal: row.resultadoLocal || '',
     resultadoVisitante: row.resultadoVisitante || '',
+    fixtureId: row.fixtureId ?? '',
   };
 }
 
@@ -73,6 +76,9 @@ export function AnalisisExpertosPronosticosView() {
   const [form, setForm] = useState<ExpertPronosticoSavePayload>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [fixtureQuery, setFixtureQuery] = useState('');
+  const [fixtureHits, setFixtureHits] = useState<ExpertFixtureHit[]>([]);
+  const [fixtureSearchError, setFixtureSearchError] = useState<string | null>(null);
 
   const offset = (page - 1) * PAGE_SIZE;
 
@@ -136,6 +142,9 @@ export function AnalisisExpertosPronosticosView() {
 
   async function openEdit(id: string) {
     setFormError(null);
+    setFixtureHits([]);
+    setFixtureQuery('');
+    setFixtureSearchError(null);
     setEditingId(id);
     setShowForm(true);
     try {
@@ -153,7 +162,27 @@ export function AnalisisExpertosPronosticosView() {
       fechaEvento: applied.fecha ? `${applied.fecha}T18:00` : '',
     });
     setFormError(null);
+    setFixtureHits([]);
+    setFixtureQuery('');
+    setFixtureSearchError(null);
     setShowForm(true);
+  }
+
+  async function searchFixtures() {
+    const q = fixtureQuery.trim();
+    if (q.length < 2 && !/^\d+$/.test(q)) {
+      setFixtureSearchError('Escribe un equipo o el id del partido');
+      return;
+    }
+    setFixtureSearchError(null);
+    try {
+      const date = form.fechaEvento ? form.fechaEvento.slice(0, 10) : undefined;
+      const res = await fetchExpertFixtures({ q, date });
+      setFixtureHits(res.data || []);
+      if (!res.data?.length) setFixtureSearchError('No hay partidos con ese dato');
+    } catch (err) {
+      setFixtureSearchError(err instanceof ApiError ? err.message : 'No se pudo buscar');
+    }
   }
 
   const from = total === 0 ? 0 : offset + 1;
@@ -297,6 +326,9 @@ export function AnalisisExpertosPronosticosView() {
                     {row.maximaConfianza ? (
                       <div className="text-xs text-amber-300">Máxima confianza</div>
                     ) : null}
+                    {row.fixtureId ? (
+                      <div className="text-xs text-teal-400">Partido {row.fixtureId}</div>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-slate-400">
                     <div>{row.campeonato?.nombre || '—'}</div>
@@ -419,6 +451,76 @@ export function AnalisisExpertosPronosticosView() {
                   value={form.visitante || ''}
                   onChange={(e) => setForm((f) => ({ ...f, visitante: e.target.value }))}
                 />
+              </label>
+              <label className="block text-sm sm:col-span-2">
+                <span className="mb-1 block text-slate-400">Partido real</span>
+                <div className="flex gap-2">
+                  <input
+                    className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2"
+                    placeholder="Equipo o id"
+                    value={fixtureQuery}
+                    onChange={(e) => setFixtureQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        searchFixtures();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={searchFixtures}
+                    className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-200 hover:bg-white/5"
+                  >
+                    Buscar
+                  </button>
+                </div>
+                {form.fixtureId ? (
+                  <p className="mt-2 text-xs text-teal-300">
+                    Vinculado al partido {form.fixtureId}
+                    <button
+                      type="button"
+                      className="ml-2 text-slate-400 underline"
+                      onClick={() => setForm((f) => ({ ...f, fixtureId: '' }))}
+                    >
+                      Quitar
+                    </button>
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Si lo vinculas, la app muestra el marcador y cierra el pendiente al terminar.
+                  </p>
+                )}
+                {fixtureSearchError ? (
+                  <p className="mt-1 text-xs text-amber-300">{fixtureSearchError}</p>
+                ) : null}
+                {fixtureHits.length > 0 ? (
+                  <ul className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-white/10">
+                    {fixtureHits.map((hit) => (
+                      <li key={hit.fixtureid}>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-white/5"
+                          onClick={() => {
+                            setForm((f) => ({
+                              ...f,
+                              fixtureId: hit.fixtureid,
+                              local: hit.teamshomename || f.local,
+                              visitante: hit.teamsawayname || f.visitante || '',
+                            }));
+                            setFixtureHits([]);
+                            setFixtureQuery('');
+                          }}
+                        >
+                          {hit.teamshomename} vs {hit.teamsawayname}
+                          <span className="ml-2 text-xs text-slate-500">
+                            {hit.fixturestatusshort || '—'} · {hit.fixtureid}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </label>
               <label className="block text-sm sm:col-span-2">
                 <span className="mb-1 block text-slate-400">Tipo de apuesta</span>

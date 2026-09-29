@@ -114,6 +114,7 @@ import type {
   ExpertPronosticoRow,
   ExpertPronosticoSavePayload,
   ExpertPronosticosResponse,
+  ExpertFixtureHit,
   PromoOverviewResponse,
   PromoSellerRow,
   PromoCampaignRow,
@@ -1901,6 +1902,13 @@ export function updateExpertPronostico(id: string, payload: ExpertPronosticoSave
     `${AE}/pronosticos/${encodeURIComponent(id)}`,
     { method: 'PATCH', body: JSON.stringify(payload) },
   );
+}
+
+export function fetchExpertFixtures(params: { q: string; date?: string }) {
+  const qs = new URLSearchParams();
+  qs.set('q', params.q);
+  if (params.date) qs.set('date', params.date);
+  return adminFetch<{ success: boolean; data: ExpertFixtureHit[] }>(`${AE}/fixtures?${qs}`);
 }
 
 export function fetchExpertDeportes() {
