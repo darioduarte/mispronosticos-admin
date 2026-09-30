@@ -884,6 +884,17 @@ export type RefereeSearchItem = {
     avgFouls?: number | null;
     label?: string | null;
   } | null;
+  countries?: { name: string; count: number }[];
+  leagues?: { name: string; country?: string | null; count: number }[];
+  nameVariants?: string[];
+  suggestedCanonical?: {
+    refereeId: string;
+    canonicalName: string;
+    country?: string | null;
+    confidence?: string;
+    reason?: string;
+    leagues?: { name: string; country?: string | null; count: number }[];
+  } | null;
 };
 
 export type RefereeSearchResponse = {

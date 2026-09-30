@@ -210,6 +210,37 @@ export function RefereeModal({
     }
   }
 
+  async function handleLinkSearchHit(item: RefereeSearchItem) {
+    const suggestion = item.suggestedCanonical;
+    if (!suggestion?.refereeId) return;
+    setBusy(true);
+    try {
+      const result = await saveFixtureReferee(fixtureId, item.name, {
+        forceRefereeId: suggestion.refereeId,
+        country: suggestion.country || flbCountry,
+      });
+      if (!result.success) {
+        showMsg(result.error || 'No se pudo vincular', 'err');
+        return;
+      }
+      setIdentity(result.identity || null);
+      if (result.fixturereferee) {
+        setCustomName(result.fixturereferee);
+        setSelectedName(result.fixturereferee);
+      }
+      showMsg(
+        `Vinculado a ${result.identity?.canonicalName || suggestion.canonicalName}. Promedios y análisis usan esa identidad.`,
+        'ok',
+      );
+      onSaved();
+      await searchQuery.refetch();
+    } catch (e) {
+      showMsg((e as Error).message, 'err');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function pickReferee(item: RefereeSearchItem) {
     const saveAs = (item.nameToSave || item.canonicalName || item.name).trim();
     setSelectedName(saveAs);
@@ -385,22 +416,31 @@ export function RefereeModal({
               )}
 
               {searchQuery.data?.referees && searchQuery.data.referees.length > 0 && (
-                <ul className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-white/10 bg-[#0b0f14] p-2">
+                <ul className="max-h-[28rem] space-y-1 overflow-y-auto rounded-lg border border-white/10 bg-[#0b0f14] p-2">
                   {searchQuery.data.referees.map((r) => {
                     const selected =
                       selectedName === r.name ||
                       selectedName === r.nameToSave ||
                       selectedName === r.canonicalName;
+                    const countries = (r.countries || []).map((c) => `${c.name} (${c.count})`).join(' · ');
+                    const leagues = (r.leagues || [])
+                      .map((l) => `${l.name}${l.country ? ` · ${l.country}` : ''} (${l.count})`)
+                      .join(' · ');
+                    const suggestionLeagues = (r.suggestedCanonical?.leagues || [])
+                      .slice(0, 3)
+                      .map((l) => `${l.name}${l.country ? ` · ${l.country}` : ''}`)
+                      .join(' · ');
                     return (
-                      <li key={`${r.refereeId || 'x'}:${r.name}`}>
+                      <li
+                        key={`${r.refereeId || 'x'}:${r.name}`}
+                        className={`rounded-lg px-3 py-2 text-sm ${
+                          selected ? 'bg-indigo-600/20 text-indigo-200' : 'text-slate-300'
+                        }`}
+                      >
                         <button
                           type="button"
                           onClick={() => pickReferee(r)}
-                          className={`w-full rounded-lg px-3 py-2 text-left text-sm transition hover:bg-indigo-500/10 ${
-                            selected
-                              ? 'bg-indigo-600/20 text-indigo-200'
-                              : 'text-slate-300'
-                          }`}
+                          className="w-full rounded-lg text-left transition hover:bg-indigo-500/10"
                         >
                           <span className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">{r.name}</span>
@@ -419,6 +459,21 @@ export function RefereeModal({
                               {r.identityLabel}
                             </span>
                           )}
+                          {countries ? (
+                            <span className="mt-1 block text-xs text-sky-300/90">País: {countries}</span>
+                          ) : (
+                            <span className="mt-1 block text-xs text-slate-500">País: sin partidos con país en BD</span>
+                          )}
+                          {leagues ? (
+                            <span className="mt-0.5 block text-xs text-slate-300">Torneos: {leagues}</span>
+                          ) : (
+                            <span className="mt-0.5 block text-xs text-slate-500">Torneos: sin partidos finalizados en BD</span>
+                          )}
+                          {r.nameVariants && r.nameVariants.length > 0 ? (
+                            <span className="mt-0.5 block text-xs text-slate-500">
+                              Otras grafías: {r.nameVariants.join(' · ')}
+                            </span>
+                          ) : null}
                           {r.disciplineLabel && (
                             <span
                               className={`mt-0.5 block text-xs ${
@@ -433,6 +488,23 @@ export function RefereeModal({
                             </span>
                           )}
                         </button>
+                        {r.suggestedCanonical?.refereeId ? (
+                          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2 py-1.5">
+                            <span className="text-xs text-amber-100/90">
+                              Posible canónico: {r.suggestedCanonical.canonicalName}
+                              {r.suggestedCanonical.country ? ` · ${r.suggestedCanonical.country}` : ''}
+                              {suggestionLeagues ? ` · ${suggestionLeagues}` : ''}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => handleLinkSearchHit(r)}
+                              className="rounded border border-indigo-400/40 px-2 py-1 text-[11px] font-semibold text-indigo-200 hover:bg-indigo-500/10 disabled:opacity-50"
+                            >
+                              Vincular
+                            </button>
+                          </div>
+                        ) : null}
                       </li>
                     );
                   })}
@@ -473,9 +545,10 @@ export function RefereeModal({
               )}
 
               <p className="text-xs text-slate-600">
-                Al guardar, si hay match fuerte con un canónico se agrega el nombre FLB/API como
-                alias y se usa el canónico en el fixture (así salen promedios e historial). En la
-                lista verás si está vinculado, su canónico y las stats del grupo de alias.
+                Cada resultado muestra el país y los torneos en los que ese nombre ha pitado.
+                Compara eso antes de vincular: un mismo apellido en otro país o campeonato es otra
+                persona. Al vincular, promedios, historial y análisis del partido usan solo esa
+                identidad canónica.
               </p>
             </div>
           )}

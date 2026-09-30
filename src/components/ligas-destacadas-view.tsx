@@ -471,6 +471,26 @@ function RefereeDetailDrawer({
     queryFn: () => fetchRefereeHistory(referee.name, referee.matches[0]?.fixtureid),
   });
 
+  const historySummary = historyQuery.data?.summary as {
+    avgFouls?: number | null;
+    avgYellow?: number | null;
+    avgRed?: number | null;
+    foulDataMatches?: number;
+    yellowDataMatches?: number;
+    redDataMatches?: number;
+    prevCount?: number;
+    name?: string;
+  } | undefined;
+  const summaryLabel = historyQuery.data?.summaryLabel || referee.summaryLabel;
+  const avgFouls = historySummary ? (historySummary.avgFouls ?? null) : referee.avgFouls;
+  const avgYellow = historySummary ? (historySummary.avgYellow ?? null) : referee.avgYellow;
+  const avgRed = historySummary ? (historySummary.avgRed ?? null) : referee.avgRed;
+  const foulDataMatches = historySummary ? (historySummary.foulDataMatches ?? 0) : referee.foulDataMatches;
+  const yellowDataMatches = historySummary ? (historySummary.yellowDataMatches ?? 0) : referee.yellowDataMatches;
+  const redDataMatches = historySummary ? (historySummary.redDataMatches ?? 0) : referee.redDataMatches;
+  const prevCount = historySummary?.prevCount ?? referee.prevCount;
+  const title = historySummary?.name || referee.canonicalName || referee.name;
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4" role="presentation">
       <button type="button" aria-label="Cerrar" className="absolute inset-0" onClick={onClose} />
@@ -481,12 +501,12 @@ function RefereeDetailDrawer({
       >
         <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">{referee.canonicalName || referee.name}</h2>
+            <h2 className="text-lg font-semibold text-white">{title}</h2>
             <p className="text-sm text-slate-400">
-              {referee.country || 'País no registrado'} · {referee.prevCount} PT previos · {date}
+              {referee.country || 'País no registrado'} · {prevCount} PT previos · {date}
             </p>
-            {referee.summaryLabel ? (
-              <p className="mt-1 text-xs text-emerald-300/90">{referee.summaryLabel}</p>
+            {summaryLabel ? (
+              <p className="mt-1 text-xs text-emerald-300/90">{summaryLabel}</p>
             ) : null}
           </div>
           <button
@@ -499,9 +519,9 @@ function RefereeDetailDrawer({
         </div>
         <div className="max-h-[75vh] overflow-auto p-5">
           <div className="mb-4 grid grid-cols-3 gap-2">
-            <AvgCard label="Faltas / PT" value={fmtAvg(referee.avgFouls)} hint={`${referee.foulDataMatches} con dato`} />
-            <AvgCard label="Amarillas / PT" value={fmtAvg(referee.avgYellow)} hint={`${referee.yellowDataMatches} con dato`} />
-            <AvgCard label="Rojas / PT" value={fmtAvg(referee.avgRed)} hint={`${referee.redDataMatches} con dato`} />
+            <AvgCard label="Faltas / PT" value={fmtAvg(avgFouls)} hint={`${foulDataMatches} con dato`} />
+            <AvgCard label="Amarillas / PT" value={fmtAvg(avgYellow)} hint={`${yellowDataMatches} con dato`} />
+            <AvgCard label="Rojas / PT" value={fmtAvg(avgRed)} hint={`${redDataMatches} con dato`} />
           </div>
 
           <h3 className="mb-2 text-sm font-medium text-slate-300">
@@ -523,7 +543,9 @@ function RefereeDetailDrawer({
           <h3 className="mb-2 text-sm font-medium text-slate-300">Historial disciplinario</h3>
           <RefereeHistorySamplePanel
             matches={historyQuery.data?.matches ?? []}
-            summaryLabel={historyQuery.data?.summaryLabel}
+            summaryLabel={historyQuery.data?.summaryLabel && historyQuery.data.summaryLabel !== summaryLabel
+              ? historyQuery.data.summaryLabel
+              : null}
             isLoading={historyQuery.isLoading}
             invalidateQueryKeys={[['ligas-destacadas-history', referee.name, referee.matches[0]?.fixtureid]]}
             emptyMessage="Sin historial previo en BD para este árbitro"
