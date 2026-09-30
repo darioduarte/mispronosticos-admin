@@ -75,8 +75,11 @@ export function ArbitrosView() {
   );
 
   function applySearch() {
-    setAppliedQ(q.trim());
+    const next = q.trim();
+    setAppliedQ(next);
     setDetailId(null);
+    const key = tab === 'sin-vincular' ? ['arbitros-unlinked', next] : ['arbitros', next];
+    void queryClient.invalidateQueries({ queryKey: key });
   }
 
   async function handleCreateFromUnlinked(row: ArbitroUnlinkedRow) {
@@ -291,7 +294,11 @@ export function ArbitrosView() {
               <div className="border-b border-white/10 px-4 py-3">
                 <h2 className="text-sm font-medium text-slate-200">Nombres en Fixture sin alias</h2>
                 <p className="text-xs text-slate-500">
-                  {unlinkedQuery.isLoading ? 'Cargando…' : `${unlinked.length} variantes`}
+                  {unlinkedQuery.isLoading
+                    ? 'Cargando…'
+                    : unlinkedQuery.isError
+                      ? 'No se pudo cargar'
+                      : `${unlinked.length} variantes`}
                 </p>
               </div>
               <div className="max-h-[32rem] overflow-y-auto divide-y divide-white/5">
@@ -332,7 +339,18 @@ export function ArbitrosView() {
                     </div>
                   </div>
                 ))}
-                {!unlinkedQuery.isLoading && !unlinked.length ? (
+                {unlinkedQuery.isError ? (
+                  <div className="px-4 py-8 text-center text-sm text-amber-200">
+                    <p>No se pudo buscar. {errorText(unlinkedQuery.error)}</p>
+                    <button
+                      type="button"
+                      onClick={() => unlinkedQuery.refetch()}
+                      className="mt-3 rounded-lg border border-amber-400/40 px-3 py-1 text-xs text-amber-100 hover:bg-amber-500/10"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                ) : !unlinkedQuery.isLoading && !unlinked.length ? (
                   <p className="px-4 py-8 text-center text-sm text-slate-500">No hay nombres sin vincular</p>
                 ) : null}
               </div>
@@ -367,7 +385,11 @@ export function ArbitrosView() {
               <div className="border-b border-white/10 px-4 py-3">
                 <h2 className="text-sm font-medium text-slate-200">Árbitros canónicos</h2>
                 <p className="text-xs text-slate-500">
-                  {listQuery.isLoading ? 'Cargando…' : `${canonicos.length} registros`}
+                  {listQuery.isLoading
+                    ? 'Cargando…'
+                    : listQuery.isError
+                      ? 'No se pudo cargar'
+                      : `${canonicos.length} registros`}
                 </p>
               </div>
               <div className="max-h-[36rem] overflow-y-auto divide-y divide-white/5">
@@ -388,7 +410,18 @@ export function ArbitrosView() {
                     <OfficiatingLines countries={row.countries} leagues={row.leagues} />
                   </button>
                 ))}
-                {!listQuery.isLoading && !canonicos.length ? (
+                {listQuery.isError ? (
+                  <div className="px-4 py-8 text-center text-sm text-amber-200">
+                    <p>No se pudo buscar. {errorText(listQuery.error)}</p>
+                    <button
+                      type="button"
+                      onClick={() => listQuery.refetch()}
+                      className="mt-3 rounded-lg border border-amber-400/40 px-3 py-1 text-xs text-amber-100 hover:bg-amber-500/10"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                ) : !listQuery.isLoading && !canonicos.length ? (
                   <p className="px-4 py-8 text-center text-sm text-slate-500">Sin árbitros canónicos aún</p>
                 ) : null}
               </div>
@@ -558,6 +591,14 @@ export function ArbitrosView() {
       ) : null}
     </div>
   );
+}
+
+function errorText(error: unknown) {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: string }).message || '').trim();
+    if (message) return message;
+  }
+  return 'Error de red';
 }
 
 function OfficiatingLines({
