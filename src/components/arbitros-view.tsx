@@ -297,9 +297,10 @@ export function ArbitrosView() {
               <div className="max-h-[32rem] overflow-y-auto divide-y divide-white/5">
                 {unlinked.map((row) => (
                   <div key={row.name} className="flex items-center justify-between gap-2 px-4 py-3">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm text-slate-200">{row.name}</p>
                       <p className="text-xs text-slate-500">{row.fixtureCount} partidos</p>
+                      <OfficiatingLines countries={row.countries} leagues={row.leagues} />
                     </div>
                     <div className="flex shrink-0 flex-wrap justify-end gap-2">
                       <button
@@ -384,6 +385,7 @@ export function ArbitrosView() {
                       {row.aliasCount ?? row.aliases?.length ?? 0} alias
                       {row.country ? ` · ${row.country}` : ''}
                     </p>
+                    <OfficiatingLines countries={row.countries} leagues={row.leagues} />
                   </button>
                 ))}
                 {!listQuery.isLoading && !canonicos.length ? (
@@ -403,6 +405,7 @@ export function ArbitrosView() {
           ) : (
             <>
               <h2 className="text-lg font-medium text-white">{referee.canonicalName}</h2>
+              <OfficiatingLines countries={referee.countries} leagues={referee.leagues} />
               {historyQuery.data?.summaryLabel ? (
                 <p className="mt-1 text-xs text-emerald-300/90">{historyQuery.data.summaryLabel}</p>
               ) : null}
@@ -553,6 +556,28 @@ export function ArbitrosView() {
           onClose={() => setSampleRow(null)}
         />
       ) : null}
+    </div>
+  );
+}
+
+function OfficiatingLines({
+  countries,
+  leagues,
+}: {
+  countries?: ArbitroUnlinkedRow['countries'];
+  leagues?: ArbitroUnlinkedRow['leagues'];
+}) {
+  const countryText = (countries || []).map((c) => `${c.name} (${c.count})`).join(' · ');
+  const leagueText = (leagues || [])
+    .slice(0, 3)
+    .map((l) => `${l.name}${l.country ? ` · ${l.country}` : ''} (${l.count})`)
+    .join(' · ');
+  return (
+    <div className="mt-1 space-y-0.5">
+      <p className="text-xs text-sky-300/90">{countryText ? `País: ${countryText}` : 'País: sin dato en BD'}</p>
+      <p className="text-xs text-slate-400">
+        {leagueText ? `Torneos: ${leagueText}` : 'Torneos: sin partidos finalizados'}
+      </p>
     </div>
   );
 }
