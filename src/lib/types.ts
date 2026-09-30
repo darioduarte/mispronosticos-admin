@@ -1605,6 +1605,9 @@ export type RefereeAliasRow = {
   updatedAt?: string;
 };
 
+export type OfficiatingCountry = { name: string; count: number };
+export type OfficiatingLeague = { name: string; country?: string | null; count: number };
+
 export type ArbitroRow = {
   id: string;
   canonicalName: string;
@@ -1612,6 +1615,8 @@ export type ArbitroRow = {
   notes?: string | null;
   aliases: RefereeAliasRow[];
   aliasCount?: number;
+  countries?: OfficiatingCountry[];
+  leagues?: OfficiatingLeague[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -1632,6 +1637,8 @@ export type ArbitroDetailResponse = {
 export type ArbitroUnlinkedRow = {
   name: string;
   fixtureCount: number;
+  countries?: OfficiatingCountry[];
+  leagues?: OfficiatingLeague[];
 };
 
 export type ArbitrosUnlinkedResponse = {
