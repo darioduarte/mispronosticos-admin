@@ -2073,6 +2073,12 @@ export type DashboardTendenciaMes = {
   total: number;
 };
 
+export type DashboardFacturadoDiario = {
+  dias: Array<{ dia: string; cargos: number; montos: Record<string, number> }>;
+  monedas: string[];
+  nota?: string;
+};
+
 export type DashboardActividadHoy = {
   fecha: string;
   fechaDesde?: string;
@@ -2131,6 +2137,7 @@ export type DashboardSummary = {
     topProductos: DashboardTopProducto[];
     tendenciaMensual: DashboardTendenciaMes[];
     tendenciaTotalMensual?: DashboardTendenciaMes[];
+    facturadoDiario?: DashboardFacturadoDiario;
   };
   trials: { activos: number; total: number };
   soporte: {

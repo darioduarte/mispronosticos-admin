@@ -142,6 +142,61 @@ function TrendChart({
   );
 }
 
+function fmtMoney(n: number) {
+  return n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function BillingByDayTable({
+  billing,
+}: {
+  billing?: DashboardSummary['suscripciones']['facturadoDiario'];
+}) {
+  const dias = [...(billing?.dias || [])].reverse();
+  const monedas = billing?.monedas || [];
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
+      <p className="text-sm font-medium text-slate-200">Facturado por día (30 días)</p>
+      <p className="mb-4 mt-1 text-[11px] leading-snug text-slate-500">
+        {billing?.nota
+          || 'Precio guardado en el recibo de cada alta, en la moneda de la tienda.'}
+      </p>
+      {dias.length === 0 || monedas.length === 0 ? (
+        <p className="text-sm text-slate-500">Sin montos en los recibos de estos días.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-xs uppercase text-slate-500">
+              <tr>
+                <th className="sticky left-0 bg-[#111827] pb-2 pr-4 text-left">Día</th>
+                <th className="pb-2 pr-4 text-right">Cargos</th>
+                {monedas.map((code) => (
+                  <th key={code} className="pb-2 pl-4 text-right">{code}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {dias.map((row) => (
+                <tr key={row.dia}>
+                  <td className="sticky left-0 bg-[#111827] py-2 pr-4 text-slate-300">{row.dia}</td>
+                  <td className="py-2 pr-4 text-right text-slate-400">{fmt(row.cargos)}</td>
+                  {monedas.map((code) => {
+                    const amount = row.montos?.[code] || 0;
+                    return (
+                      <td key={code} className="py-2 pl-4 text-right text-slate-200">
+                        {amount ? fmtMoney(amount) : <span className="text-slate-600">—</span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CronHealthCard({ d }: { d: DashboardSummary }) {
   const s = d.soporte;
   const errorsToday = s.erroresHoy ?? 0;
@@ -396,6 +451,10 @@ export function DashboardView() {
                 <span>Registros 30d: <strong className="text-slate-200">{fmt(d.usuarios.nuevos30d)}</strong></span>
               </div>
             </div>
+          </section>
+
+          <section className="mb-6">
+            <BillingByDayTable billing={d.suscripciones.facturadoDiario} />
           </section>
 
           <section className="mb-6 grid gap-4 xl:grid-cols-2">
