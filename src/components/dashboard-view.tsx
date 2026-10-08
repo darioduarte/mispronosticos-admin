@@ -80,7 +80,15 @@ function PlatformBar({
   );
 }
 
-function TrendChart({ rows }: { rows: { mes: string; app: string; total: number }[] }) {
+function TrendChart({
+  title,
+  hint,
+  rows,
+}: {
+  title: string;
+  hint?: string;
+  rows: { mes: string; app: string; total: number }[];
+}) {
   const byMes = new Map<string, { ios: number; android: number }>();
   for (const r of rows) {
     if (!byMes.has(r.mes)) byMes.set(r.mes, { ios: 0, android: 0 });
@@ -88,33 +96,47 @@ function TrendChart({ rows }: { rows: { mes: string; app: string; total: number 
     if (r.app === 'ios') bucket.ios += r.total;
     else if (r.app === 'android') bucket.android += r.total;
   }
-  const entries = [...byMes.entries()].slice(-6);
+  const entries = [...byMes.entries()].slice(-12);
   const max = Math.max(1, ...entries.map(([, v]) => v.ios + v.android));
+  const hasData = entries.some(([, v]) => v.ios + v.android > 0);
 
   return (
     <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
-      <p className="mb-4 text-sm font-medium text-slate-200">Nuevas suscripciones (6 meses)</p>
-      {entries.length === 0 ? (
+      <p className="text-sm font-medium text-slate-200">{title}</p>
+      {hint && <p className="mb-4 mt-1 text-[11px] leading-snug text-slate-500">{hint}</p>}
+      {!hint && <div className="mb-4" />}
+      {!hasData ? (
         <p className="text-sm text-slate-500">Sin datos de tendencia.</p>
       ) : (
-        <div className="flex items-end gap-3">
-          {entries.map(([mes, v]) => {
-            const total = v.ios + v.android;
-            const h = Math.max(8, Math.round((total / max) * 120));
-            const iosH = total ? Math.round((v.ios / total) * h) : 0;
-            const androidH = h - iosH;
-            return (
-              <div key={mes} className="flex flex-1 flex-col items-center gap-1">
-                <span className="text-[10px] text-slate-500">{fmt(total)}</span>
-                <div className="flex w-full max-w-[48px] flex-col justify-end overflow-hidden rounded-md" style={{ height: 120 }}>
-                  <div className="bg-sky-500" style={{ height: iosH }} />
-                  <div className="bg-emerald-500" style={{ height: androidH }} />
+        <>
+          <div className="flex items-end gap-1.5">
+            {entries.map(([mes, v]) => {
+              const total = v.ios + v.android;
+              const h = total ? Math.max(8, Math.round((total / max) * 120)) : 0;
+              const iosH = total ? Math.round((v.ios / total) * h) : 0;
+              const androidH = h - iosH;
+              const [year, month] = mes.split('-');
+              return (
+                <div key={mes} className="flex flex-1 flex-col items-center gap-1">
+                  <span className="text-[10px] text-slate-500">{fmt(total)}</span>
+                  <div className="flex w-full max-w-[36px] flex-col justify-end overflow-hidden rounded-md" style={{ height: 120 }}>
+                    <div className="bg-sky-500" style={{ height: iosH }} />
+                    <div className="bg-emerald-500" style={{ height: androidH }} />
+                  </div>
+                  <span className="text-[10px] text-slate-500">{month}/{year.slice(2)}</span>
                 </div>
-                <span className="text-[10px] text-slate-500">{mes.slice(5)}</span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex justify-between text-[10px] text-slate-500">
+            <span>
+              <span className="inline-block h-2 w-2 rounded-full bg-sky-500" /> iOS
+            </span>
+            <span>
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Android
+            </span>
+          </div>
+        </>
       )}
     </div>
   );
@@ -347,8 +369,8 @@ export function DashboardView() {
             <ActividadPeriodoPanel initialFecha={d.suscripciones.fechaReferencia} />
           </section>
 
-          <section className="mb-6 grid gap-4 lg:grid-cols-3">
-            <div className="rounded-xl border border-white/10 bg-[#111827] p-4 lg:col-span-2">
+          <section className="mb-6">
+            <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
               <p className="mb-3 text-sm font-medium text-slate-200">Estado de suscripciones</p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {[
@@ -374,8 +396,19 @@ export function DashboardView() {
                 <span>Registros 30d: <strong className="text-slate-200">{fmt(d.usuarios.nuevos30d)}</strong></span>
               </div>
             </div>
+          </section>
 
-            <TrendChart rows={d.suscripciones.tendenciaMensual} />
+          <section className="mb-6 grid gap-4 xl:grid-cols-2">
+            <TrendChart
+              title="Nuevas suscripciones (12 meses)"
+              hint="Registros creados cada mes en iOS y Android."
+              rows={d.suscripciones.tendenciaMensual}
+            />
+            <TrendChart
+              title="Total de suscripciones (12 meses)"
+              hint="Altas del mes más renovaciones: suscripciones ya existentes actualizadas ese mes."
+              rows={d.suscripciones.tendenciaTotalMensual ?? d.suscripciones.tendenciaMensual}
+            />
           </section>
 
           <section className="mb-6 grid gap-4 lg:grid-cols-2">

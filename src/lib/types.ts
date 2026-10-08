@@ -2130,6 +2130,7 @@ export type DashboardSummary = {
     activasPorApp: DashboardPlatformCounts;
     topProductos: DashboardTopProducto[];
     tendenciaMensual: DashboardTendenciaMes[];
+    tendenciaTotalMensual?: DashboardTendenciaMes[];
   };
   trials: { activos: number; total: number };
   soporte: {
