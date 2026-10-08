@@ -457,16 +457,11 @@ export function DashboardView() {
             <BillingByDayTable billing={d.suscripciones.facturadoDiario} />
           </section>
 
-          <section className="mb-6 grid gap-4 xl:grid-cols-2">
+          <section className="mb-6">
             <TrendChart
               title="Nuevas suscripciones (12 meses)"
               hint="Registros creados cada mes en iOS y Android."
               rows={d.suscripciones.tendenciaMensual}
-            />
-            <TrendChart
-              title="Total de suscripciones (12 meses)"
-              hint="Altas del mes más renovaciones: suscripciones ya existentes actualizadas ese mes."
-              rows={d.suscripciones.tendenciaTotalMensual ?? d.suscripciones.tendenciaMensual}
             />
           </section>
 
