@@ -1603,6 +1603,22 @@ export function fetchLiveAnalysisRuns(fixtureId: number) {
   );
 }
 
+export type LiveDemoEvaluation = {
+  tipo: string;
+  resultado_clase: 'acertado' | 'fallido' | 'pendiente';
+  resultado_mensaje: string;
+};
+
+export function evaluateLiveDemoPicks(fixtureId: number, tipos: string[]) {
+  return adminFetch<{ ok: boolean; picks: LiveDemoEvaluation[] }>(
+    `/api/admin/pronosticos-ia/live-analysis/${fixtureId}/evaluar`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ tipos }),
+    },
+  );
+}
+
 export type PreMatchAnalysisTriggerResult = {
   ok: boolean;
   fixtureId?: number;

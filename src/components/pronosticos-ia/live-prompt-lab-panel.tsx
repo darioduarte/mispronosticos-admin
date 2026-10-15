@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { fetchLivePromptLabTemplate } from '@/lib/api';
+import { evaluateLiveDemoPicks, fetchLivePromptLabTemplate } from '@/lib/api';
 import {
   composeDemoRules,
   composeLiveLabPrompt,
@@ -19,6 +19,7 @@ import type { LiveAnalysisPick, LivePromptLabTemplate } from '@/lib/types';
 
 type Props = {
   runId: string;
+  fixtureId: number;
   prompt: string | null | undefined;
   picks: LiveAnalysisPick[];
 };
@@ -28,7 +29,7 @@ function browserStorage() {
   return window.localStorage;
 }
 
-export function LivePromptLabPanel({ runId, prompt, picks }: Props) {
+export function LivePromptLabPanel({ runId, fixtureId, prompt, picks }: Props) {
   const templateQuery = useQuery({
     queryKey: ['live-prompt-lab-template'],
     queryFn: () => fetchLivePromptLabTemplate(),
@@ -193,15 +194,31 @@ export function LivePromptLabPanel({ runId, prompt, picks }: Props) {
               className="mt-1 h-24 w-full resize-y rounded-lg border border-white/10 bg-[#06080c] p-3 text-xs leading-relaxed text-slate-300 placeholder:text-slate-600"
             />
           </label>
-          <DemoCompare generated={picks} pasted={note} />
+          <DemoCompare generated={picks} pasted={note} fixtureId={fixtureId} />
         </>
       )}
     </section>
   );
 }
 
-function DemoCompare({ generated, pasted }: { generated: LiveAnalysisPick[]; pasted: string }) {
+function DemoCompare({
+  generated,
+  pasted,
+  fixtureId,
+}: {
+  generated: LiveAnalysisPick[];
+  pasted: string;
+  fixtureId: number;
+}) {
   const parsed = parseDemoPicks(pasted);
+  const tipos = parsed.picks.map((pick) => pick.tipo);
+  const evaluation = useQuery({
+    queryKey: ['live-demo-eval', fixtureId, tipos.join('\n')],
+    queryFn: () => evaluateLiveDemoPicks(fixtureId, tipos),
+    enabled: tipos.length > 0,
+    staleTime: 60_000,
+  });
+  const evaluated = evaluation.data?.picks ?? [];
   return (
     <div className="mt-3 grid gap-3 md:grid-cols-2">
       <PickColumn
@@ -212,46 +229,89 @@ function DemoCompare({ generated, pasted }: { generated: LiveAnalysisPick[]; pas
           probabilidad: pick.probabilidad,
           cuota: pick.cuota_decimal,
           explicacion: pick.explicacion,
+          resultado_clase: pick.resultado_clase,
+          resultado_mensaje: pick.resultado_mensaje,
         }))}
       />
       <PickColumn
         title="Demo pegada"
         empty={parsed.error || 'Pega el JSON del sandbox para verlos aquí.'}
-        picks={parsed.picks}
+        picks={parsed.picks.map((pick, index) => ({
+          ...pick,
+          resultado_clase: evaluated[index]?.resultado_clase ?? null,
+          resultado_mensaje: evaluated[index]?.resultado_mensaje ?? null,
+        }))}
+        pending={tipos.length > 0 && evaluation.isFetching}
+        error={evaluation.isError ? 'No se pudo calcular si la demo acertó.' : null}
         accent
       />
     </div>
   );
 }
 
+function ResultBadge({ clase }: { clase?: string | null }) {
+  if (clase !== 'acertado' && clase !== 'fallido' && clase !== 'pendiente') return null;
+  const styles =
+    clase === 'acertado'
+      ? 'bg-emerald-500/20 text-emerald-300'
+      : clase === 'fallido'
+        ? 'bg-red-500/20 text-red-300'
+        : 'bg-slate-500/20 text-slate-300';
+  const label = clase === 'acertado' ? 'Ganado' : clase === 'fallido' ? 'Perdido' : 'Pendiente';
+  return <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${styles}`}>{label}</span>;
+}
+
 function PickColumn({
   title,
   empty,
   picks,
+  pending = false,
+  error = null,
   accent = false,
 }: {
   title: string;
   empty: string;
-  picks: DemoPick[];
+  picks: Array<
+    DemoPick & {
+      resultado_clase?: 'acertado' | 'fallido' | 'pendiente' | null;
+      resultado_mensaje?: string | null;
+    }
+  >;
+  pending?: boolean;
+  error?: string | null;
   accent?: boolean;
 }) {
+  const settled = picks.filter((pick) => pick.resultado_clase === 'acertado' || pick.resultado_clase === 'fallido');
+  const won = picks.filter((pick) => pick.resultado_clase === 'acertado').length;
   return (
     <div className={`rounded-lg border p-3 ${accent ? 'border-violet-400/30 bg-violet-500/5' : 'border-white/10 bg-[#0b0f14]'}`}>
       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
         {title}
         <span className="ml-2 text-slate-500">{picks.length}</span>
+        {settled.length > 0 && (
+          <span className="ml-2 normal-case tracking-normal text-slate-500">
+            {won}/{settled.length} ganados
+          </span>
+        )}
       </p>
+      {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       {picks.length === 0 ? (
         <p className="mt-2 text-xs leading-relaxed text-slate-500">{empty}</p>
       ) : (
         <ul className="mt-2 space-y-2">
           {picks.map((pick, index) => (
             <li key={`${pick.tipo}-${index}`} className="rounded-md border border-white/5 bg-[#151b24] p-2">
-              <p className="text-xs font-medium text-white">{pick.tipo}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs font-medium text-white">{pick.tipo}</p>
+                <ResultBadge clase={pending ? null : pick.resultado_clase} />
+              </div>
               <p className="mt-1 text-[11px] text-slate-400">
                 {pick.probabilidad != null ? `${pick.probabilidad}%` : 'sin probabilidad'}
                 {pick.cuota != null ? ` · cuota ${pick.cuota}` : ''}
               </p>
+              {!pending && pick.resultado_mensaje && (
+                <p className="mt-1 text-[11px] text-slate-500">{pick.resultado_mensaje}</p>
+              )}
               {pick.explicacion && (
                 <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{pick.explicacion}</p>
               )}
@@ -259,6 +319,7 @@ function PickColumn({
           ))}
         </ul>
       )}
+      {pending && <p className="mt-2 text-[11px] text-slate-500">Calculando si ganaron…</p>}
     </div>
   );
 }

@@ -351,6 +351,8 @@ export type LiveAnalysisPick = {
   categoria_pronostico: string;
   minute: number | null;
   createdAt: string;
+  resultado_clase?: 'acertado' | 'fallido' | 'pendiente' | null;
+  resultado_mensaje?: string | null;
 };
 
 export type LivePromptMeta = {

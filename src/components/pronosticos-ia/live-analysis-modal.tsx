@@ -82,7 +82,15 @@ function PromptMetaHints({ meta }: { meta: LivePromptMeta | null | undefined }) 
   );
 }
 
-function RunCard({ run, defaultOpen }: { run: LiveAnalysisRun; defaultOpen?: boolean }) {
+function RunCard({
+  run,
+  fixtureId,
+  defaultOpen,
+}: {
+  run: LiveAnalysisRun;
+  fixtureId: number;
+  defaultOpen?: boolean;
+}) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showLab, setShowLab] = useState(false);
@@ -175,7 +183,12 @@ function RunCard({ run, defaultOpen }: { run: LiveAnalysisRun; defaultOpen?: boo
             </button>
           </div>
           {showLab && (
-            <LivePromptLabPanel runId={run.id} prompt={run.prompt} picks={run.picks} />
+            <LivePromptLabPanel
+              runId={run.id}
+              prompt={run.prompt}
+              picks={run.picks}
+              fixtureId={fixtureId}
+            />
           )}
           {showPrompt && (
             <textarea
@@ -355,7 +368,7 @@ export function LiveAnalysisModal({ fixtureId, matchLabel, onClose }: Props) {
           {runs.length > 0 && (
             <div className="space-y-3">
               {runs.map((run, i) => (
-                <RunCard key={run.id} run={run} defaultOpen={i === 0} />
+                <RunCard key={run.id} run={run} fixtureId={fixtureId} defaultOpen={i === 0} />
               ))}
             </div>
           )}
