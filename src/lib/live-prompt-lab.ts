@@ -62,6 +62,62 @@ D7. Un promedio de prepartido sin número de partidos, o un promedio de goles en
 D8. El punto 7 del bloque 6 solo aplica si el equipo va perdiendo de verdad y el prompt trae su puesto en la tabla. Empate no es ir perdiendo.
 D9. El error de cuota se puede publicar como pronóstico solo si el conteo en vivo ya lo hace probable. El promedio de prepartido no alcanza.`;
 
+export type DemoPick = {
+  tipo: string;
+  probabilidad: number | null;
+  cuota: number | null;
+  explicacion: string;
+};
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return null;
+  const n = parseFloat(value.replace('%', '').replace(',', '.').trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+function asText(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (Array.isArray(value)) return value.map((item) => asText(item)).filter(Boolean).join(' ');
+  return '';
+}
+
+function pickFromItem(item: unknown): DemoPick | null {
+  if (!item || typeof item !== 'object') return null;
+  const row = item as Record<string, unknown>;
+  const tipo = asText(row.tipo || row.type);
+  if (!tipo) return null;
+  return {
+    tipo,
+    probabilidad: asNumber(row.probabilidad_real_estimada ?? row.probabilidad),
+    cuota: asNumber(row.cuota_casa ?? row.cuota_decimal ?? row.cuota),
+    explicacion: asText(row.explicacion ?? row.explicación),
+  };
+}
+
+export function parseDemoPicks(raw: string): { picks: DemoPick[]; error: string | null } {
+  const text = String(raw || '').trim();
+  if (!text) return { picks: [], error: null };
+  const start = text.search(/[\[{]/);
+  if (start < 0) return { picks: [], error: 'Pega el JSON del sandbox, con el array pronosticos.' };
+  try {
+    const parsed = JSON.parse(text.slice(start)) as unknown;
+    const list = Array.isArray(parsed)
+      ? parsed
+      : parsed && typeof parsed === 'object'
+        ? ((parsed as Record<string, unknown>).pronosticos ||
+          (parsed as Record<string, unknown>).pronósticos ||
+          (parsed as Record<string, unknown>).picks)
+        : null;
+    if (!Array.isArray(list)) {
+      return { picks: [], error: 'El JSON no trae el array pronosticos.' };
+    }
+    return { picks: list.map(pickFromItem).filter((pick): pick is DemoPick => pick != null), error: null };
+  } catch {
+    return { picks: [], error: 'Ese texto no es un JSON válido.' };
+  }
+}
+
 export function composeDemoRules(storedRules: string) {
   const stored = String(storedRules || '').trim();
   if (!stored) return LIVE_DEMO_RULES;
