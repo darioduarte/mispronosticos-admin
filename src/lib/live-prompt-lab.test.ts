@@ -5,7 +5,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  composeDemoRules,
   composeLiveLabPrompt,
+  LIVE_DEMO_VERSION,
   readLabDraft,
   splitLiveStoredPrompt,
   writeLabDraft,
@@ -35,6 +37,17 @@ describe('splitLiveStoredPrompt', () => {
     assert.match(lab, /Publica de 0 a 3/);
     assert.match(lab, /ediciones guardadas/);
     assert.doesNotMatch(lab, /Exactamente 3/);
+  });
+});
+
+describe('composeDemoRules', () => {
+  it('pone las reglas D delante del bloque 6 guardado', () => {
+    const parts = splitLiveStoredPrompt(STORED);
+    const demo = composeDemoRules(parts.rules);
+    assert.match(demo, /D1\. Publica de 0 a 3/);
+    assert.match(demo, /D4\. Antes de un más de/);
+    assert.ok(demo.indexOf('D1.') < demo.indexOf('BLOQUE 6'));
+    assert.equal(LIVE_DEMO_VERSION, 'demo-ritmo-v1');
   });
 });
 

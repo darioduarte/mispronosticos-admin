@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { fetchLivePromptLabTemplate } from '@/lib/api';
 import {
+  composeDemoRules,
   composeLiveLabPrompt,
+  LIVE_DEMO_VERSION,
   readLabDraft,
   readLabNote,
   splitLiveStoredPrompt,
@@ -38,24 +40,42 @@ export function LivePromptLabPanel({ runId, prompt }: Props) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    setRules(null);
     setNote(readLabNote(browserStorage(), runId));
     setHydrated(true);
   }, [runId]);
 
   useEffect(() => {
-    if (!template || rules != null) return;
+    if (!hydrated || rules != null) return;
     const draft = readLabDraft(browserStorage());
-    setDraftVersion(draft?.version || template.version);
-    setRules(draft?.rules || template.rules);
-  }, [template, rules]);
+    if (draft?.version === LIVE_DEMO_VERSION) {
+      setDraftVersion(draft.version);
+      setRules(draft.rules);
+      return;
+    }
+    setDraftVersion(LIVE_DEMO_VERSION);
+    setRules(composeDemoRules(parts.rules));
+  }, [hydrated, rules, parts.rules]);
 
-  const edited =
-    template != null && rules != null && rules.trim() !== template.rules.trim();
-  const staleDraft = Boolean(template && edited && draftVersion && draftVersion !== template.version);
+  const baseline =
+    draftVersion === 'minuto-original'
+      ? parts.rules
+      : template && draftVersion === template.version
+        ? template.rules
+        : composeDemoRules(parts.rules);
+  const edited = rules != null && rules.trim() !== baseline.trim();
+  const staleDraft = Boolean(
+    template &&
+      draftVersion &&
+      draftVersion !== LIVE_DEMO_VERSION &&
+      draftVersion !== 'minuto-original' &&
+      draftVersion !== template.version,
+  );
 
   const labPrompt = useMemo(() => {
-    if (!template || rules == null || !parts.context) return '';
-    return composeLiveLabPrompt(parts.context, rules, template.preamble, edited);
+    if (rules == null || !parts.context) return '';
+    const preamble = template?.preamble || 'Prompt live demo. No se publica en la app.';
+    return composeLiveLabPrompt(parts.context, rules, preamble, edited);
   }, [template, rules, parts.context, edited]);
 
   function persistRules(next: string, version: string) {
@@ -77,10 +97,10 @@ export function LivePromptLabPanel({ runId, prompt }: Props) {
 
   return (
     <section className="mb-3 rounded-lg border border-violet-500/30 bg-violet-500/5 p-3">
-      <p className="text-xs font-semibold text-violet-100">Laboratorio de este minuto</p>
+      <p className="text-xs font-semibold text-violet-100">Prompt live demo</p>
       <p className="mt-1 text-xs leading-relaxed text-slate-400">
-        El partido de arriba es el que vio el modelo en ese minuto, Champions incluida.
-        Las reglas de prueba no se publican. Copia el prompt de prueba al sandbox de OpenAI
+        Arma una copia de este minuto con las reglas D de prueba delante de los bloques 6 a 8.
+        El prompt de producción no cambia y esto no se publica en la app. Cópialo al sandbox
         y pega aquí el JSON que devuelva.
       </p>
 
@@ -92,7 +112,7 @@ export function LivePromptLabPanel({ runId, prompt }: Props) {
           {(templateQuery.error as Error).message}
         </p>
       )}
-      {template && <LabChanges template={template} />}
+      {template && draftVersion === template.version && <LabChanges template={template} />}
       {!parts.split && (
         <p className="mt-2 text-xs text-amber-200">
           Este prompt guardado no trae el bloque 6. Se puede copiar entero, pero no separar
@@ -100,7 +120,7 @@ export function LivePromptLabPanel({ runId, prompt }: Props) {
         </p>
       )}
 
-      {hydrated && template && rules != null && (
+      {hydrated && rules != null && (
         <>
           {staleDraft && (
             <p className="mt-2 text-xs text-amber-200">
@@ -122,7 +142,7 @@ export function LivePromptLabPanel({ runId, prompt }: Props) {
               onClick={() => void copyText(labPrompt, 'lab')}
               className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-40"
             >
-              {copied === 'lab' ? 'Prompt de prueba copiado' : 'Copiar prompt de prueba'}
+              {copied === 'lab' ? 'Prompt demo copiado' : 'Copiar prompt demo'}
             </button>
             <button
               type="button"
@@ -134,11 +154,28 @@ export function LivePromptLabPanel({ runId, prompt }: Props) {
             </button>
             <button
               type="button"
-              onClick={() => persistRules(template.rules, template.version)}
+              onClick={() => persistRules(composeDemoRules(parts.rules), LIVE_DEMO_VERSION)}
               className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
             >
-              Restaurar {template.version}
+              Cargar demo de ritmo
             </button>
+            <button
+              type="button"
+              disabled={!parts.rules}
+              onClick={() => persistRules(parts.rules, 'minuto-original')}
+              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5 disabled:opacity-40"
+            >
+              Reglas originales del minuto
+            </button>
+            {template && (
+              <button
+                type="button"
+                onClick={() => persistRules(template.rules, template.version)}
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
+              >
+                Restaurar {template.version}
+              </button>
+            )}
           </div>
           <label className="mt-3 block text-[11px] uppercase tracking-wide text-slate-500">
             Resultado del sandbox
