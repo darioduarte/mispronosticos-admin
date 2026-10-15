@@ -101,39 +101,56 @@ function TrendChart({
   const hasData = entries.some(([, v]) => v.ios + v.android > 0);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
+    <div className="min-w-0 rounded-xl border border-white/10 bg-[#111827] p-3 sm:p-4">
       <p className="text-sm font-medium text-slate-200">{title}</p>
-      {hint && <p className="mb-4 mt-1 text-[11px] leading-snug text-slate-500">{hint}</p>}
-      {!hint && <div className="mb-4" />}
+      {hint && <p className="mb-3 mt-1 text-[11px] leading-snug text-slate-500 sm:mb-4">{hint}</p>}
+      {!hint && <div className="mb-3 sm:mb-4" />}
       {!hasData ? (
         <p className="text-sm text-slate-500">Sin datos de tendencia.</p>
       ) : (
         <>
-          <div className="flex items-end gap-1.5">
-            {entries.map(([mes, v]) => {
-              const total = v.ios + v.android;
-              const h = total ? Math.max(8, Math.round((total / max) * 120)) : 0;
-              const iosH = total ? Math.round((v.ios / total) * h) : 0;
-              const androidH = h - iosH;
-              const [year, month] = mes.split('-');
-              return (
-                <div key={mes} className="flex flex-1 flex-col items-center gap-1">
-                  <span className="text-[10px] text-slate-500">{fmt(total)}</span>
-                  <div className="flex w-full max-w-[36px] flex-col justify-end overflow-hidden rounded-md" style={{ height: 120 }}>
-                    <div className="bg-sky-500" style={{ height: iosH }} />
-                    <div className="bg-emerald-500" style={{ height: androidH }} />
+          <div className="-mx-1 overflow-x-auto px-1 pb-1">
+            <div className="flex min-w-[34rem] items-end gap-1 sm:min-w-full sm:gap-1.5">
+              {entries.map(([mes, v]) => {
+                const total = v.ios + v.android;
+                let iosPct = max ? (v.ios / max) * 100 : 0;
+                let androidPct = max ? (v.android / max) * 100 : 0;
+                const stacked = iosPct + androidPct;
+                if (total > 0 && stacked > 0 && stacked < 8) {
+                  const scale = 8 / stacked;
+                  iosPct *= scale;
+                  androidPct *= scale;
+                }
+                const [year, month] = mes.split('-');
+                return (
+                  <div key={mes} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                    <span className="text-[9px] tabular-nums leading-none text-slate-500 sm:text-[10px]">
+                      {fmt(total)}
+                    </span>
+                    <div
+                      className="flex h-24 w-full max-w-10 flex-col justify-end overflow-hidden rounded-md sm:h-32"
+                      title={`iOS ${fmt(v.ios)} · Android ${fmt(v.android)}`}
+                    >
+                      <div className="bg-sky-500" style={{ height: `${iosPct}%` }} />
+                      <div className="bg-emerald-500" style={{ height: `${androidPct}%` }} />
+                    </div>
+                    <span className="whitespace-nowrap text-[9px] text-slate-500 sm:text-[10px]">
+                      <span className="sm:hidden">{month}</span>
+                      <span className="hidden sm:inline">{month}/{year.slice(2)}</span>
+                    </span>
                   </div>
-                  <span className="text-[10px] text-slate-500">{month}/{year.slice(2)}</span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-          <div className="mt-3 flex justify-between text-[10px] text-slate-500">
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
             <span>
-              <span className="inline-block h-2 w-2 rounded-full bg-sky-500" /> iOS
+              <span className="mr-1 inline-block h-2 w-2 rounded-full bg-sky-500" />
+              iOS
             </span>
             <span>
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Android
+              <span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />
+              Android
             </span>
           </div>
         </>
@@ -453,16 +470,21 @@ export function DashboardView() {
             </div>
           </section>
 
-          <section className="mb-6">
-            <BillingByDayTable billing={d.suscripciones.facturadoDiario} />
-          </section>
-
-          <section className="mb-6">
+          <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
             <TrendChart
               title="Nuevas suscripciones (12 meses)"
               hint="Registros creados cada mes en iOS y Android."
               rows={d.suscripciones.tendenciaMensual}
             />
+            <TrendChart
+              title="Compras y renovaciones (12 meses)"
+              hint="Altas del mes más renovaciones de Android y cobros de renovación de iOS."
+              rows={d.suscripciones.tendenciaTotalMensual || []}
+            />
+          </section>
+
+          <section className="mb-6">
+            <BillingByDayTable billing={d.suscripciones.facturadoDiario} />
           </section>
 
           <section className="mb-6 grid gap-4 lg:grid-cols-2">
