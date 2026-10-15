@@ -364,6 +364,17 @@ export type LivePromptMeta = {
   warnings?: string[];
 };
 
+export type LivePromptLabTemplate = {
+  success: boolean;
+  version: string;
+  title: string;
+  preamble: string;
+  changes: string[];
+  rules: string;
+  note: string;
+  error?: string;
+};
+
 export type LiveAnalysisRun = {
   id: string;
   windowKey: string;
