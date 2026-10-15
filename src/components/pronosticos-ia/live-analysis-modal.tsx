@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { LivePromptLabPanel } from '@/components/pronosticos-ia/live-prompt-lab-panel';
 import { fetchLiveAnalysisRuns, triggerLiveAnalysisManual } from '@/lib/api';
 import type { LiveAnalysisRun, LivePromptMeta } from '@/lib/types';
 
@@ -84,6 +85,7 @@ function PromptMetaHints({ meta }: { meta: LivePromptMeta | null | undefined }) 
 function RunCard({ run, defaultOpen }: { run: LiveAnalysisRun; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [showLab, setShowLab] = useState(false);
   const [copied, setCopied] = useState(false);
   const score =
     run.scoreHome != null && run.scoreAway != null
@@ -161,9 +163,18 @@ function RunCard({ run, defaultOpen }: { run: LiveAnalysisRun; defaultOpen?: boo
               onClick={() => void copyPrompt()}
               className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5 disabled:opacity-40"
             >
-              {copied ? 'Copiado' : 'Copiar prompt'}
+              {copied ? 'Copiado' : 'Copiar prompt original'}
+            </button>
+            <button
+              type="button"
+              disabled={!run.prompt}
+              onClick={() => setShowLab((value) => !value)}
+              className="rounded-lg border border-violet-400/40 px-3 py-1.5 text-xs text-violet-100 hover:bg-violet-500/10 disabled:opacity-40"
+            >
+              {showLab ? 'Ocultar laboratorio' : 'Laboratorio de prueba'}
             </button>
           </div>
+          {showLab && <LivePromptLabPanel runId={run.id} prompt={run.prompt} />}
           {showPrompt && (
             <textarea
               readOnly
@@ -264,7 +275,7 @@ export function LiveAnalysisModal({ fixtureId, matchLabel, onClose }: Props) {
       role="presentation"
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#151b24] shadow-2xl"
+        className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#151b24] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-labelledby="live-analysis-title"
@@ -311,6 +322,9 @@ export function LiveAnalysisModal({ fixtureId, matchLabel, onClose }: Props) {
               {data.totalRuns} ejecución(es) · {data.totalPicks} pick(s)
             </span>
           )}
+          <p className="w-full text-xs text-slate-500">
+            Cada ejecución guarda el prompt de ese minuto. El laboratorio arma una copia de prueba y no publica en la app.
+          </p>
         </div>
 
         {statusMsg && (

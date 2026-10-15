@@ -18,6 +18,7 @@ import type {
   PromptResponse,
   LiveOddsResponse,
   LiveAnalysisRunsResponse,
+  LivePromptLabTemplate,
   PreMatchAnalysis,
   PreMatchAnalysisResponse,
   PreMatchPlanResponse,
@@ -708,6 +709,10 @@ export function fetchExperimentalPrompt(fixtureId: number) {
     method: 'POST',
     body: JSON.stringify({ fixtureId }),
   });
+}
+
+export function fetchLivePromptLabTemplate() {
+  return adminFetch<LivePromptLabTemplate>('/api/admin/pronosticos-ia/prompt/live-lab/template');
 }
 
 export function fetchLivePrompt(fixtureId: number) {
