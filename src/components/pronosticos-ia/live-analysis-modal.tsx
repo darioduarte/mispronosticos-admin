@@ -171,7 +171,7 @@ function RunCard({ run, defaultOpen }: { run: LiveAnalysisRun; defaultOpen?: boo
               onClick={() => setShowLab((value) => !value)}
               className="rounded-lg border border-violet-400/40 px-3 py-1.5 text-xs text-violet-100 hover:bg-violet-500/10 disabled:opacity-40"
             >
-              {showLab ? 'Ocultar laboratorio' : 'Laboratorio de prueba'}
+              {showLab ? 'Ocultar prompt live demo' : 'Prompt live demo'}
             </button>
           </div>
           {showLab && <LivePromptLabPanel runId={run.id} prompt={run.prompt} />}
