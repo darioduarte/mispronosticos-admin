@@ -174,7 +174,9 @@ function RunCard({ run, defaultOpen }: { run: LiveAnalysisRun; defaultOpen?: boo
               {showLab ? 'Ocultar prompt live demo' : 'Prompt live demo'}
             </button>
           </div>
-          {showLab && <LivePromptLabPanel runId={run.id} prompt={run.prompt} />}
+          {showLab && (
+            <LivePromptLabPanel runId={run.id} prompt={run.prompt} picks={run.picks} />
+          )}
           {showPrompt && (
             <textarea
               readOnly

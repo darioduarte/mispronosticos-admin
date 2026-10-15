@@ -7,17 +7,20 @@ import {
   composeDemoRules,
   composeLiveLabPrompt,
   LIVE_DEMO_VERSION,
+  parseDemoPicks,
   readLabDraft,
   readLabNote,
   splitLiveStoredPrompt,
   writeLabDraft,
   writeLabNote,
+  type DemoPick,
 } from '@/lib/live-prompt-lab';
-import type { LivePromptLabTemplate } from '@/lib/types';
+import type { LiveAnalysisPick, LivePromptLabTemplate } from '@/lib/types';
 
 type Props = {
   runId: string;
   prompt: string | null | undefined;
+  picks: LiveAnalysisPick[];
 };
 
 function browserStorage() {
@@ -25,7 +28,7 @@ function browserStorage() {
   return window.localStorage;
 }
 
-export function LivePromptLabPanel({ runId, prompt }: Props) {
+export function LivePromptLabPanel({ runId, prompt, picks }: Props) {
   const templateQuery = useQuery({
     queryKey: ['live-prompt-lab-template'],
     queryFn: () => fetchLivePromptLabTemplate(),
@@ -186,13 +189,77 @@ export function LivePromptLabPanel({ runId, prompt }: Props) {
                 setNote(next);
                 writeLabNote(browserStorage(), runId, next);
               }}
-              placeholder="Pega el JSON del sandbox y una línea de si te parece mejor o peor que los picks de arriba."
+              placeholder="Pega aquí el JSON completo que devolvió el sandbox."
               className="mt-1 h-24 w-full resize-y rounded-lg border border-white/10 bg-[#06080c] p-3 text-xs leading-relaxed text-slate-300 placeholder:text-slate-600"
             />
           </label>
+          <DemoCompare generated={picks} pasted={note} />
         </>
       )}
     </section>
+  );
+}
+
+function DemoCompare({ generated, pasted }: { generated: LiveAnalysisPick[]; pasted: string }) {
+  const parsed = parseDemoPicks(pasted);
+  return (
+    <div className="mt-3 grid gap-3 md:grid-cols-2">
+      <PickColumn
+        title="Generados en la app"
+        empty="Este minuto no publicó pronósticos."
+        picks={generated.map((pick) => ({
+          tipo: pick.tipo,
+          probabilidad: pick.probabilidad,
+          cuota: pick.cuota_decimal,
+          explicacion: pick.explicacion,
+        }))}
+      />
+      <PickColumn
+        title="Demo pegada"
+        empty={parsed.error || 'Pega el JSON del sandbox para verlos aquí.'}
+        picks={parsed.picks}
+        accent
+      />
+    </div>
+  );
+}
+
+function PickColumn({
+  title,
+  empty,
+  picks,
+  accent = false,
+}: {
+  title: string;
+  empty: string;
+  picks: DemoPick[];
+  accent?: boolean;
+}) {
+  return (
+    <div className={`rounded-lg border p-3 ${accent ? 'border-violet-400/30 bg-violet-500/5' : 'border-white/10 bg-[#0b0f14]'}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        {title}
+        <span className="ml-2 text-slate-500">{picks.length}</span>
+      </p>
+      {picks.length === 0 ? (
+        <p className="mt-2 text-xs leading-relaxed text-slate-500">{empty}</p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {picks.map((pick, index) => (
+            <li key={`${pick.tipo}-${index}`} className="rounded-md border border-white/5 bg-[#151b24] p-2">
+              <p className="text-xs font-medium text-white">{pick.tipo}</p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                {pick.probabilidad != null ? `${pick.probabilidad}%` : 'sin probabilidad'}
+                {pick.cuota != null ? ` · cuota ${pick.cuota}` : ''}
+              </p>
+              {pick.explicacion && (
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{pick.explicacion}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

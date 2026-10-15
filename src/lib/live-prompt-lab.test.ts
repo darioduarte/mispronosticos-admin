@@ -8,6 +8,7 @@ import {
   composeDemoRules,
   composeLiveLabPrompt,
   LIVE_DEMO_VERSION,
+  parseDemoPicks,
   readLabDraft,
   splitLiveStoredPrompt,
   writeLabDraft,
@@ -48,6 +49,19 @@ describe('composeDemoRules', () => {
     assert.match(demo, /D4\. Antes de un más de/);
     assert.ok(demo.indexOf('D1.') < demo.indexOf('BLOQUE 6'));
     assert.equal(LIVE_DEMO_VERSION, 'demo-ritmo-v1');
+  });
+});
+
+describe('parseDemoPicks', () => {
+  it('lee los pronósticos del JSON pegado', () => {
+    const parsed = parseDemoPicks(`texto previo
+{"pronosticos":[{"tipo":"Goles más de 2.5","probabilidad_real_estimada":"70%","cuota_casa":"1,25","explicacion":["Un gol más."]}]}`);
+    assert.equal(parsed.error, null);
+    assert.equal(parsed.picks.length, 1);
+    assert.equal(parsed.picks[0].tipo, 'Goles más de 2.5');
+    assert.equal(parsed.picks[0].probabilidad, 70);
+    assert.equal(parsed.picks[0].cuota, 1.25);
+    assert.equal(parsed.picks[0].explicacion, 'Un gol más.');
   });
 });
 
