@@ -124,14 +124,14 @@ export function LivePromptLabPanel({ runId, prompt }: Props) {
         <>
           {staleDraft && (
             <p className="mt-2 text-xs text-amber-200">
-              El borrador del navegador es de {draftVersion}. La plantilla actual es {template.version}.
+              El borrador del navegador es de {draftVersion}. La plantilla actual es {template?.version}.
             </p>
           )}
           <label className="mt-3 block text-[11px] uppercase tracking-wide text-slate-500">
             Reglas de prueba
             <textarea
               value={rules}
-              onChange={(event) => persistRules(event.target.value, template.version)}
+              onChange={(event) => persistRules(event.target.value, draftVersion || LIVE_DEMO_VERSION)}
               className="mt-1 h-40 w-full resize-y rounded-lg border border-white/10 bg-[#06080c] p-3 font-mono text-[11px] leading-relaxed text-slate-300"
             />
           </label>
