@@ -47,20 +47,21 @@ export function composeLiveLabPrompt(
   return `${ctx}\n\n${tail}`;
 }
 
-export const LIVE_DEMO_VERSION = 'demo-ritmo-v1';
+export const LIVE_DEMO_VERSION = 'demo-ritmo-v2';
 
 export const LIVE_DEMO_RULES = `DEMO DE PRUEBA — no reemplaza el prompt de producción.
-Aplica estas reglas D encima de los bloques 6 a 8. Si una D contradice una R, manda la D.
+Aplica estas reglas D encima de los bloques 6 a 8. Si una D contradice una R, manda la D. R1 y R6 quedan anuladas.
 
-D1. Publica de 0 a 3 pronósticos. Si un candidato no pasa estas reglas, omítelo. No rellenes para llegar a 3.
-D2. No publiques cuota menor a 1.20. La doble oportunidad solo entra si su cuota es al menos 1.20 y el equipo ya va ganando o el marcador y los remates de los últimos 15 minutos la sostienen. Un favorito que acaba de empatar no basta.
+D1. Publica de 0 a 3 pronósticos. R1 no aplica: no hace falta llegar a 3. Si un candidato no pasa estas reglas, omítelo. Un array vacío es válido. No dejes objetos vacíos para completar la plantilla del bloque 7.
+D2. No publiques cuota menor a 1.20. R6 no aplica: no uses doble oportunidad solo porque hay un favorito. Solo entra si su cuota es al menos 1.20 y el equipo ya va ganando, o el marcador y los remates de los últimos 15 minutos la sostienen. Un favorito que empata, o que acaba de empatar, no basta.
 D3. Un pick de una fase anterior se repite solo si el tramo más reciente lo confirma. Un gol en los últimos 15 minutos anula la historia escrita antes de ese gol.
-D4. Antes de un más de o un menos de, calcula: conteo actual, cuántos faltan para la línea y el ritmo del último tramo (del descanso al minuto actual, o del minuto 28 al 45). Si el ritmo que hace falta es más rápido que el del último tramo, no publiques ese más de.
-D5. Córners y remates: usa el bloque de evolución. Si del 45 al minuto actual casi no aumentaron, no proyectes el ritmo del primer tiempo ni el promedio de prepartido.
-D6. Tarjetas: si ya hay 4 o más y en los últimos 15 minutos entraron 2 o más, no publiques el menos de una línea que solo admite una o dos tarjetas más.
-D7. Un promedio de prepartido sin número de partidos, o un promedio de goles en 0, es dato ausente. No lo uses para un pronóstico. Los últimos partidos con estadísticas mandan sobre ese promedio.
-D8. El punto 7 del bloque 6 solo aplica si el equipo va perdiendo de verdad y el prompt trae su puesto en la tabla. Empate no es ir perdiendo.
-D9. El error de cuota se puede publicar como pronóstico solo si el conteo en vivo ya lo hace probable. El promedio de prepartido no alcanza.`;
+D4. Antes de un más de, calcula el conteo actual, cuántos faltan para la línea y el ritmo del último tramo (del descanso al minuto actual, o del minuto 28 al 45). Si el ritmo que hace falta es más rápido que el del último tramo, no publiques ese más de.
+D5. No aprietes una línea que el conteo ya cubre solo para buscar una cuota más alta. Si el menos de 3.5 ya queda holgado con el marcador y el ritmo, no lo cambies por un menos de 2.5. Publica la línea más amplia que el partido ya sostiene, salvo que el último tramo haga la línea corta igual de segura.
+D6. Córners y remates: usa el bloque de evolución. Si del 45 al minuto actual casi no aumentaron, no proyectes el ritmo del primer tiempo ni el promedio de prepartido.
+D7. Tarjetas: no publiques un menos de si ya hay 4 o más y en los últimos 15 minutos entraron 2 o más, cuando esa línea solo admite una o dos tarjetas más. Tampoco lo publiques si el promedio de amarillas del árbitro, con número de partidos, queda por encima de la línea. Cero tarjetas a los 28 minutos no gana a un árbitro que promedia 4.5 en 6 partidos.
+D8. Un promedio de prepartido sin número de partidos, o un promedio de goles en 0, es dato ausente. No lo cites ni lo uses para elegir el pronóstico. Los últimos partidos que sí traen estadísticas mandan.
+D9. El punto 7 del bloque 6 solo aplica si el equipo va perdiendo de verdad y el prompt trae su puesto en la tabla. Empate no es ir perdiendo.
+D10. El error de cuota se puede publicar como pronóstico solo si el conteo en vivo ya lo hace probable. El promedio de prepartido no alcanza.`;
 
 export type DemoPick = {
   tipo: string;
