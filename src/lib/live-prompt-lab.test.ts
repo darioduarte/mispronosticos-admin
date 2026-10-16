@@ -46,9 +46,11 @@ describe('composeDemoRules', () => {
     const parts = splitLiveStoredPrompt(STORED);
     const demo = composeDemoRules(parts.rules);
     assert.match(demo, /D1\. Publica de 0 a 3/);
-    assert.match(demo, /D4\. Antes de un más de/);
+    assert.match(demo, /R1 no aplica/);
+    assert.match(demo, /D5\. No aprietes una línea/);
+    assert.match(demo, /promedio de amarillas del árbitro/);
     assert.ok(demo.indexOf('D1.') < demo.indexOf('BLOQUE 6'));
-    assert.equal(LIVE_DEMO_VERSION, 'demo-ritmo-v1');
+    assert.equal(LIVE_DEMO_VERSION, 'demo-ritmo-v2');
   });
 });
 
