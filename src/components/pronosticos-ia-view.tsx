@@ -46,6 +46,10 @@ import { todayBogota } from '@/lib/dates';
 import type { PronosticoIaRow } from '@/lib/types';
 import type { PickLabel, ScoredPick } from '@/lib/pick-selection-engine';
 
+/** Apagado: el walk-forward recorre todo el rango y no se usa en la revisión. */
+const SELECTION_ENGINE_ENABLED = false as boolean;
+const PAGE_SIZE = 50;
+
 const DEFAULT_FILTERS: PronosticosIaFilters = {
   search: '',
   categorias: null,
@@ -134,6 +138,7 @@ export function PronosticosIaView() {
   const [exportCopied, setExportCopied] = useState(false);
   const [selectionFilter, setSelectionFilter] = useState<'all' | PickLabel | 'bank'>('all');
   const [selectionOpen, setSelectionOpen] = useState(true);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (urlDesde) {
@@ -161,13 +166,13 @@ export function PronosticosIaView() {
   }, [query.data?.data, filters, sortMode]);
 
   const allRows = query.data?.data;
-  const selection = useMemo(
-    () => scorePronosticoRows(filtered, allRows ?? []),
-    [filtered, allRows],
-  );
+  const selection = useMemo(() => {
+    if (!SELECTION_ENGINE_ENABLED) return null;
+    return scorePronosticoRows(filtered, allRows ?? []);
+  }, [filtered, allRows]);
 
   const displayed = useMemo(() => {
-    if (selectionFilter === 'all') return filtered;
+    if (!selection || selectionFilter === 'all') return filtered;
     if (selectionFilter === 'bank') {
       const ids = new Set(selection.result.selected.map((s) => s.id));
       return filtered.filter((r) => ids.has(String(r.pronostico_id)));
@@ -177,6 +182,16 @@ export function PronosticosIaView() {
       return s?.label === selectionFilter;
     });
   }, [filtered, selection, selectionFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(displayed.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageRows = displayed.slice(pageStart, pageStart + PAGE_SIZE);
+
+  function goToPage(next: number) {
+    setPage(next);
+    document.getElementById('pronosticos-ia-list')?.scrollIntoView({ block: 'start' });
+  }
 
   const meta = query.data?.meta;
 
@@ -228,6 +243,7 @@ export function PronosticosIaView() {
 
   function patchFilter(patch: Partial<PronosticosIaFilters>) {
     setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
   }
 
   async function handleClearCacheFixture(row: PronosticoIaRow) {
@@ -310,6 +326,7 @@ export function PronosticosIaView() {
           onSubmit={(e) => {
             e.preventDefault();
             setApplied({ desde, hasta });
+            setPage(1);
           }}
         >
           <DateField label="Desde" value={desde} onChange={setDesde} />
@@ -389,22 +406,30 @@ export function PronosticosIaView() {
               { value: 'normal', label: 'Normal' },
             ]}
           />
-          <SelectFilter
-            label="Motor"
-            value={selectionFilter}
-            onChange={(v) => setSelectionFilter(v as 'all' | PickLabel | 'bank')}
-            options={[
-              { value: 'all', label: 'Todos (orden)' },
-              { value: 'bank', label: `Bank (${selection.result.selected.length})` },
-              { value: 'seleccionable', label: 'Seleccionables' },
-              { value: 'dudoso', label: 'Dudosos' },
-              { value: 'descartar', label: 'Descartar' },
-            ]}
-          />
+          {SELECTION_ENGINE_ENABLED && (
+            <SelectFilter
+              label="Motor"
+              value={selectionFilter}
+              onChange={(v) => {
+                setSelectionFilter(v as 'all' | PickLabel | 'bank');
+                setPage(1);
+              }}
+              options={[
+                { value: 'all', label: 'Todos (orden)' },
+                { value: 'bank', label: `Bank (${selection?.result.selected.length ?? 0})` },
+                { value: 'seleccionable', label: 'Seleccionables' },
+                { value: 'dudoso', label: 'Dudosos' },
+                { value: 'descartar', label: 'Descartar' },
+              ]}
+            />
+          )}
           <SelectFilter
             label="Orden"
             value={sortMode}
-            onChange={(v) => setSortMode(v as SortMode)}
+            onChange={(v) => {
+              setSortMode(v as SortMode);
+              setPage(1);
+            }}
             options={[
               { value: 'valor_desc', label: 'Valor (prob+cuota)' },
               { value: 'fecha_asc', label: 'Fecha, hora y min ↑' },
@@ -428,7 +453,9 @@ export function PronosticosIaView() {
           <SmallText label="Cuota mín" value={filters.minCuota} onChange={(v) => patchFilter({ minCuota: v })} />
           <SmallText label="Cuota máx" value={filters.maxCuota} onChange={(v) => patchFilter({ maxCuota: v })} />
           <span className="col-span-2 self-end text-sm text-slate-500 sm:col-span-1">
-            {displayed.length}/{filtered.length} filas
+            {displayed.length === 0
+              ? '0 filas'
+              : `${pageStart + 1}–${pageStart + pageRows.length} de ${displayed.length}`}
           </span>
           <button
             type="button"
@@ -436,6 +463,7 @@ export function PronosticosIaView() {
               setFilters(DEFAULT_FILTERS);
               setSortMode('valor_desc');
               setSelectionFilter('all');
+              setPage(1);
             }}
             className="col-span-2 self-end rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-slate-200 sm:col-span-1"
           >
@@ -444,17 +472,19 @@ export function PronosticosIaView() {
         </div>
       </section>
 
-      <div className="mb-3 flex justify-end">
-        <button
-          type="button"
-          onClick={() => setSelectionOpen((v) => !v)}
-          className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200"
-        >
-          {selectionOpen ? 'Ocultar motor' : 'Mostrar motor'}
-        </button>
-      </div>
+      {SELECTION_ENGINE_ENABLED && (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setSelectionOpen((v) => !v)}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200"
+          >
+            {selectionOpen ? 'Ocultar motor' : 'Mostrar motor'}
+          </button>
+        </div>
+      )}
 
-      {selectionOpen && (
+      {SELECTION_ENGINE_ENABLED && selection && selectionOpen && (
         <PickSelectionPanel
           rows={filtered}
           result={selection.result}
@@ -473,13 +503,25 @@ export function PronosticosIaView() {
         />
       )}
 
+      <ListPager
+        id="pronosticos-ia-list"
+        page={safePage}
+        totalPages={totalPages}
+        total={displayed.length}
+        onPage={goToPage}
+      />
+
       {/* Vista móvil: tarjetas */}
       <div className="space-y-3 md:hidden">
-        {displayed.map((row) => (
+        {pageRows.map((row) => (
           <PronosticoMobileCard
             key={row.pronostico_id}
             row={row}
-            scored={selection.byId.get(String(row.pronostico_id))}
+            scored={
+              SELECTION_ENGINE_ENABLED
+                ? selection?.byId.get(String(row.pronostico_id))
+                : undefined
+            }
             cuotaBusy={cuotaBusy}
             cacheFixtureBusy={cacheFixtureBusy}
             onFetchCuota={handleFetchCuota}
@@ -519,7 +561,7 @@ export function PronosticosIaView() {
         <table className="w-full min-w-[1280px] text-left text-sm">
           <thead className="border-b border-white/10 bg-[#0c1017] text-xs uppercase tracking-wide text-slate-400">
             <tr>
-              <th className="px-3 py-3">Motor</th>
+              {SELECTION_ENGINE_ENABLED && <th className="px-3 py-3">Motor</th>}
               <th className="px-3 py-3">Fecha</th>
               <th className="px-3 py-3">Partido</th>
               <th className="px-3 py-3">Liga</th>
@@ -529,7 +571,7 @@ export function PronosticosIaView() {
               <th className="px-3 py-3">Línea</th>
               <th className="px-3 py-3">Equipo</th>
               <th className="px-3 py-3">Prob.</th>
-              <th className="px-3 py-3">p_cal</th>
+              {SELECTION_ENGINE_ENABLED && <th className="px-3 py-3">p_cal</th>}
               <th className="px-3 py-3">Marcador</th>
               <th className="px-3 py-3">Eval.</th>
               <th className="px-3 py-3">Estado</th>
@@ -538,13 +580,16 @@ export function PronosticosIaView() {
             </tr>
           </thead>
           <tbody>
-            {displayed.map((row) => {
-              const scored = selection.byId.get(String(row.pronostico_id));
+            {pageRows.map((row) => {
+              const scored = SELECTION_ENGINE_ENABLED
+                ? selection?.byId.get(String(row.pronostico_id))
+                : undefined;
               return (
               <tr
                 key={row.pronostico_id}
                 className="border-b border-white/5 align-top hover:bg-indigo-500/5"
               >
+                {SELECTION_ENGINE_ENABLED && (
                 <td className="whitespace-nowrap px-3 py-2">
                   {scored ? (
                     <div className="space-y-1">
@@ -563,6 +608,7 @@ export function PronosticosIaView() {
                     <span className="text-slate-600">—</span>
                   )}
                 </td>
+                )}
                 <td className="whitespace-nowrap px-3 py-2 text-slate-400">
                   {formatFixtureFechaHora(row)}
                 </td>
@@ -598,6 +644,7 @@ export function PronosticosIaView() {
                 <td className="px-3 py-2 text-slate-400">{row.linea_normalizada ?? '—'}</td>
                 <td className="px-3 py-2 text-slate-400">{row.equipo_normalizado ?? '—'}</td>
                 <td className="px-3 py-2 text-slate-400">{row.probabilidad ?? '—'}</td>
+                {SELECTION_ENGINE_ENABLED && (
                 <td className="px-3 py-2 text-slate-300">
                   {scored ? (
                     <span title={`p_modelo ${(scored.pModelo * 100).toFixed(1)}% · n_eff=${scored.nEff}`}>
@@ -607,6 +654,7 @@ export function PronosticosIaView() {
                     '—'
                   )}
                 </td>
+                )}
                 <td className="whitespace-nowrap px-3 py-2 text-slate-300">
                   {row.goalshome != null && row.goalsaway != null
                     ? `${row.goalshome} - ${row.goalsaway}`
@@ -660,7 +708,7 @@ export function PronosticosIaView() {
             })}
             {!query.isLoading && displayed.length === 0 && (
               <tr>
-                <td colSpan={16} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={SELECTION_ENGINE_ENABLED ? 16 : 14} className="px-4 py-8 text-center text-slate-500">
                   Sin pronósticos para los filtros seleccionados.
                 </td>
               </tr>
@@ -668,6 +716,14 @@ export function PronosticosIaView() {
           </tbody>
         </table>
       </div>
+
+      <ListPager
+        page={safePage}
+        totalPages={totalPages}
+        total={displayed.length}
+        onPage={goToPage}
+        className="mt-3"
+      />
 
       <p className="mt-4 text-xs text-slate-600">
         Labs OpenRouter y filtros cruzados con perfiles del HBS legacy quedaron fuera al
@@ -912,6 +968,54 @@ function PronosticoMobileCard({
         className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3"
       />
     </article>
+  );
+}
+
+function ListPager({
+  id,
+  page,
+  totalPages,
+  total,
+  onPage,
+  className = 'mb-3',
+}: {
+  id?: string;
+  page: number;
+  totalPages: number;
+  total: number;
+  onPage: (page: number) => void;
+  className?: string;
+}) {
+  if (total === 0) return null;
+  const from = (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(total, page * PAGE_SIZE);
+  return (
+    <div id={id} className={`flex flex-wrap items-center justify-between gap-3 ${className}`}>
+      <p className="text-xs text-slate-500">
+        Mostrando {from}–{to} de {total}. Los indicadores siguen usando todo el rango filtrado.
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => onPage(page - 1)}
+          className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-slate-300 disabled:opacity-40"
+        >
+          Anterior
+        </button>
+        <span className="text-sm text-slate-400">
+          {page} / {totalPages}
+        </span>
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={() => onPage(Math.min(totalPages, page + 1))}
+          className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-slate-300 disabled:opacity-40"
+        >
+          Siguiente
+        </button>
+      </div>
+    </div>
   );
 }
 
