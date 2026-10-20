@@ -14,6 +14,7 @@ import {
   computePronosticosIaStats,
   filterPronosticosRows,
   formatCategoriaLabel,
+  selectCategoriasHastaPuesto,
   formatFixtureFechaHora,
   formatWilson,
   isPickValor,
@@ -165,6 +166,16 @@ describe('filterPronosticosRows', () => {
       categoria_normalizada: 'ambos_marcan',
     }),
   ];
+
+  it('selectCategoriasHastaPuesto toma los primeros puestos del ranking', () => {
+    const ranked = ['goles_over', 'ambos_marcan', 'corners_over', 'goles_under'];
+    assert.deepEqual(selectCategoriasHastaPuesto(ranked, 10), ranked);
+    assert.deepEqual(selectCategoriasHastaPuesto(ranked, 2), ['goles_over', 'ambos_marcan']);
+    assert.deepEqual(selectCategoriasHastaPuesto(ranked, 1), ['goles_over']);
+    assert.deepEqual(selectCategoriasHastaPuesto(ranked, 99), ranked);
+    assert.deepEqual(selectCategoriasHastaPuesto(ranked, 0), []);
+    assert.deepEqual(selectCategoriasHastaPuesto(['a', 'a', 'b'], 2), ['a', 'b']);
+  });
 
   it('categorias null=todas, []=ninguna, lista=subset', () => {
     assert.equal(filterPronosticosRows(rows, defaultFilters()).length, 3);
