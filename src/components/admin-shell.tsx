@@ -99,7 +99,11 @@ function NavLinks({
     <>
       {NAV_GROUPS.map((group) => (
         <div key={group.id} className="mb-4">
-          <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          <p
+            className={`mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider ${
+              group.id === 'analisis-expertos' ? 'text-[#F2C94C]' : 'text-slate-500'
+            }`}
+          >
             {group.label}
           </p>
           <div className="space-y-0.5">
@@ -110,9 +114,9 @@ function NavLinks({
                   key={item.href}
                   href={item.href}
                   onClick={onNavigate}
-                  className={`block rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  className={`block rounded-2xl px-3 py-2 text-sm font-medium transition ${
                     active
-                      ? 'bg-indigo-600/25 text-indigo-200'
+                      ? 'bg-[#4CDEA8] text-[#052e16]'
                       : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                   }`}
                 >
@@ -160,10 +164,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0b0f14] text-slate-100">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-white/10 bg-[#111827] md:flex">
-        <div className="border-b border-white/10 px-4 py-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">
+    <div className="flex min-h-screen bg-[#0B1120] text-slate-100">
+      <aside className="hidden w-60 shrink-0 flex-col bg-[#111827] md:flex">
+        <div className="px-4 py-5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#4CDEA8]">
             Mis Pronósticos
           </p>
           <p className="mt-1 text-sm font-medium text-slate-300">Panel admin</p>
@@ -171,14 +175,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 overflow-y-auto p-3">
           <NavLinks pathname={pathname} />
         </nav>
-        <div className="border-t border-white/10 p-4">
+        <div className="p-4">
           {user && (
             <div className="mb-3 truncate text-xs text-slate-500">{user.email}</div>
           )}
           <button
             type="button"
             onClick={logout}
-            className="w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-400 transition hover:border-white/20 hover:text-slate-200"
+            className="w-full rounded-2xl bg-[#1F2937] px-3 py-2 text-sm text-slate-300 transition hover:text-white"
           >
             Cerrar sesión
           </button>
@@ -186,13 +190,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-[#111827]/95 px-4 py-3 backdrop-blur md:hidden">
+        <header className="sticky top-0 z-30 flex items-center gap-3 bg-[#111827]/95 px-4 py-3 backdrop-blur md:hidden">
           <button
             type="button"
             aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 text-slate-300 transition hover:bg-white/5"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#1F2937] text-slate-300 transition hover:text-white"
           >
             {menuOpen ? (
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -228,9 +232,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               className="absolute inset-0 bg-black/60"
               onClick={() => setMenuOpen(false)}
             />
-            <aside className="absolute inset-y-0 left-0 flex w-[min(100%,18rem)] flex-col border-r border-white/10 bg-[#111827] shadow-2xl">
-              <div className="border-b border-white/10 px-4 py-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">
+            <aside className="absolute inset-y-0 left-0 flex w-[min(100%,18rem)] flex-col bg-[#111827] shadow-2xl">
+              <div className="px-4 py-5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#4CDEA8]">
                   Mis Pronósticos
                 </p>
                 <p className="mt-1 text-sm font-medium text-slate-300">Panel admin</p>
@@ -238,14 +242,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <nav className="flex-1 space-y-1 overflow-y-auto p-3">
                 <NavLinks pathname={pathname} onNavigate={() => setMenuOpen(false)} />
               </nav>
-              <div className="border-t border-white/10 p-4">
+              <div className="p-4">
                 {user && (
                   <div className="mb-3 truncate text-xs text-slate-500">{user.email}</div>
                 )}
                 <button
                   type="button"
                   onClick={logout}
-                  className="w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-400 transition hover:border-white/20 hover:text-slate-200"
+                  className="w-full rounded-2xl bg-[#1F2937] px-3 py-2 text-sm text-slate-300 transition hover:text-white"
                 >
                   Cerrar sesión
                 </button>

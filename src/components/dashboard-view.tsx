@@ -26,17 +26,17 @@ function KpiCard({
   hint?: string;
   accent?: 'indigo' | 'emerald' | 'sky' | 'amber' | 'rose';
 }) {
-  const colors = {
-    indigo: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-200',
-    emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
-    sky: 'border-sky-500/30 bg-sky-500/10 text-sky-200',
-    amber: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
-    rose: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+  const valueColor = {
+    indigo: 'text-[#4CDEA8]',
+    emerald: 'text-[#4CDEA8]',
+    sky: 'text-sky-300',
+    amber: 'text-[#F2C94C]',
+    rose: 'text-rose-400',
   };
   return (
-    <div className={`rounded-xl border p-5 ${colors[accent]}`}>
-      <p className="text-xs font-medium uppercase tracking-wide opacity-80">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-white">{value}</p>
+    <div className="rounded-[20px] bg-[#111827] p-5">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-2 text-3xl font-bold ${valueColor[accent]}`}>{value}</p>
       {hint && <p className="mt-2 text-xs opacity-70">{hint}</p>}
     </div>
   );
@@ -57,7 +57,7 @@ function PlatformBar({
   const iosPct = pct(ios, total);
   const androidPct = pct(android, total);
   return (
-    <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
+    <div className="rounded-[20px] bg-[#111827] p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-slate-200">{label}</p>
         <p className="text-sm text-slate-400">
@@ -101,7 +101,7 @@ function TrendChart({
   const hasData = entries.some(([, v]) => v.ios + v.android > 0);
 
   return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-[#111827] p-3 sm:p-4">
+    <div className="min-w-0 rounded-[20px] bg-[#111827] p-3 sm:p-4">
       <p className="text-sm font-medium text-slate-200">{title}</p>
       {hint && <p className="mb-3 mt-1 text-[11px] leading-snug text-slate-500 sm:mb-4">{hint}</p>}
       {!hint && <div className="mb-3 sm:mb-4" />}
@@ -171,7 +171,7 @@ function BillingByDayTable({
   const dias = [...(billing?.dias || [])].reverse();
   const monedas = billing?.monedas || [];
   return (
-    <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
+    <div className="rounded-[20px] bg-[#111827] p-4">
       <p className="text-sm font-medium text-slate-200">Facturado por día (30 días)</p>
       <p className="mb-4 mt-1 text-[11px] leading-snug text-slate-500">
         {billing?.nota
@@ -249,8 +249,8 @@ function CronHealthCard({ d }: { d: DashboardSummary }) {
 
   return (
     <section
-      className={`mb-6 rounded-xl border p-4 ${
-        hot ? 'border-rose-500/40 bg-rose-500/10' : 'border-white/10 bg-[#111827]'
+      className={`mb-6 rounded-[20px] p-4 ${
+        hot ? 'bg-rose-500/10' : 'bg-[#111827]'
       }`}
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -343,7 +343,7 @@ export function DashboardView() {
         </div>
         <Link
           href="/suscripciones"
-          className="rounded-lg border border-white/10 px-4 py-2 text-sm text-indigo-300 hover:bg-indigo-600/10"
+          className="rounded-2xl bg-[#4CDEA8] px-4 py-2 text-sm font-semibold text-[#052e16] hover:bg-[#6ee7b7]"
         >
           Ver suscripciones →
         </Link>
@@ -351,7 +351,7 @@ export function DashboardView() {
 
       {query.isLoading && <p className="text-slate-400">Cargando indicadores…</p>}
       {query.isError && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           <p>
             {query.error instanceof ApiError
               ? query.error.message
@@ -368,6 +368,7 @@ export function DashboardView() {
           )}
         </div>
       )}
+
 
       {d && (
         <>
@@ -442,7 +443,7 @@ export function DashboardView() {
           </section>
 
           <section className="mb-6">
-            <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
+            <div className="rounded-[20px] bg-[#111827] p-4">
               <p className="mb-3 text-sm font-medium text-slate-200">Estado de suscripciones</p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {[
@@ -488,7 +489,7 @@ export function DashboardView() {
           </section>
 
           <section className="mb-6 grid gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
+            <div className="rounded-[20px] bg-[#111827] p-4">
               <p className="mb-3 text-sm font-medium text-slate-200">Top planes</p>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -515,7 +516,7 @@ export function DashboardView() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-xl border border-white/10 bg-[#111827] p-4">
+              <div className="rounded-[20px] bg-[#111827] p-4">
                 <p className="mb-3 text-sm font-medium text-slate-200">Trials y soporte</p>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>

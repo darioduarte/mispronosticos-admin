@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0b0f14;
-  --foreground: #e5e7eb;
+  --background: #0b1120;
+  --foreground: #f9fafb;
+  --card: #111827;
+  --card-alt: #1f2937;
+  --accent: #4cdea8;
+  --accent-ink: #052e16;
+  --gold: #f2c94c;
+  --gold-ink: #1c1404;
 }
 
 @theme inline {
@@ -20,4 +26,47 @@ body {
 
 input[type='date']::-webkit-calendar-picker-indicator {
   filter: invert(0.7);
+}
+
+/* Acento único: los botones primarios siguen llamándose indigo en el código. */
+.bg-indigo-600 {
+  background-color: var(--accent) !important;
+  color: var(--accent-ink) !important;
+}
+
+.bg-indigo-600:hover,
+.hover\:bg-indigo-500:hover {
+  background-color: #6ee7b7 !important;
+  color: var(--accent-ink) !important;
+}
+
+.text-indigo-100,
+.text-indigo-200,
+.text-indigo-300,
+.text-indigo-400 {
+  color: var(--accent);
+}
+
+.bg-indigo-600\/25,
+.bg-indigo-600\/20,
+.bg-indigo-500\/10,
+.bg-indigo-500\/20 {
+  background-color: rgba(76, 222, 168, 0.16);
+}
+
+.focus\:border-indigo-500:focus {
+  border-color: var(--accent);
+}
+
+.rounded-xl,
+.rounded-2xl {
+  border-radius: 20px;
+}
+
+.bg-\[\#0b0f14\] {
+  background-color: var(--background);
+}
+
+.bg-\[\#151b24\] {
+  background-color: var(--card);
 }
