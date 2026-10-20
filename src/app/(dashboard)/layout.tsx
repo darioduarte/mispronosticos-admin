@@ -23,7 +23,7 @@ export default function DashboardLayout({
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0b0f14] text-slate-400">
+      <div className="flex min-h-screen items-center justify-center bg-[#0B1120] text-slate-400">
         Verificando sesión…
       </div>
     );

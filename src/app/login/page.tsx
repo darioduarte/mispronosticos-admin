@@ -18,10 +18,10 @@ export default function LoginPage() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0b0f14] px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#151b24] p-8 shadow-2xl">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0B1120] px-4">
+      <div className="w-full max-w-md rounded-[20px] bg-[#111827] p-8">
         <div className="mb-8 text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#4CDEA8]">
             Mis Pronósticos
           </p>
           <h1 className="mt-2 text-2xl font-bold text-white">Panel administrativo</h1>
