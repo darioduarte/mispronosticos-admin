@@ -31,6 +31,7 @@ import {
 } from '@/lib/api';
 
 import {
+  computePronosticosIaStats,
   filterPronosticosRows,
   formatCategoriaLabel,
   formatFixtureFechaHora,
@@ -164,6 +165,47 @@ export function PronosticosIaView() {
     const f = filterPronosticosRows(rows, filters);
     return sortPronosticosRows(f, sortMode);
   }, [query.data?.data, filters, sortMode]);
+
+  const {
+    search: rankSearch,
+    torneo: rankTorneo,
+    resultado: rankResultado,
+    pickScope: rankPickScope,
+    probMin: rankProbMin,
+    probMax: rankProbMax,
+    minCuota: rankMinCuota,
+    maxCuota: rankMaxCuota,
+  } = filters;
+  const categoryRankFilters = useMemo(
+    () => ({
+      search: rankSearch,
+      categorias: null,
+      torneo: rankTorneo,
+      resultado: rankResultado,
+      pickScope: rankPickScope,
+      probMin: rankProbMin,
+      probMax: rankProbMax,
+      minCuota: rankMinCuota,
+      maxCuota: rankMaxCuota,
+    }),
+    [
+      rankSearch,
+      rankTorneo,
+      rankResultado,
+      rankPickScope,
+      rankProbMin,
+      rankProbMax,
+      rankMinCuota,
+      rankMaxCuota,
+    ],
+  );
+
+  const rankedCategorias = useMemo(() => {
+    const rows = query.data?.data ?? [];
+    const base = filterPronosticosRows(rows, categoryRankFilters);
+    if (base.length === 0) return [];
+    return computePronosticosIaStats(base, statsOpts).categorias.map((c) => c.label);
+  }, [query.data?.data, categoryRankFilters, statsOpts]);
 
   const allRows = query.data?.data;
   const selection = useMemo(() => {
@@ -445,6 +487,7 @@ export function PronosticosIaView() {
         <CategoriaChecklist
           options={categoriaOptions}
           selected={filters.categorias}
+          ranked={rankedCategorias}
           onChange={(categorias) => patchFilter({ categorias })}
         />
         <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">

@@ -226,6 +226,21 @@ function aggToSegment(
   };
 }
 
+/** Primeros `puesto` tipos, en el orden del ranking por categoría. */
+export function selectCategoriasHastaPuesto(ranked: string[], puesto: number): string[] {
+  const n = Math.floor(puesto);
+  if (!Number.isFinite(n) || n < 1) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const key of ranked) {
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+    if (out.length >= n) break;
+  }
+  return out;
+}
+
 export function filterPronosticosRows(
   rows: PronosticoIaRow[],
   f: PronosticosIaFilters,
@@ -910,7 +925,7 @@ function inferOpenMinute(row: PronosticoIaRow): number {
   const k = String((row as { windowKey?: string | null }).windowKey || '').toLowerCase();
   if (k.includes('min30') || k === '30') return 30;
   if (k.includes('ht') || k.includes('half') || k.includes('descanso')) return 45;
-  if (k.includes('min60') || k === '60') return 60;
+  if (k.includes('min60') || k === '60') return 65;
   if (k.includes('min75') || k === '75') return 75;
   if (k.includes('min80') || k === '80') return 80;
   return 45;
