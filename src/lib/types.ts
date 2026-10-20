@@ -1735,7 +1735,7 @@ export type ArbitroDisciplineHistoryResponse = RefereeHistoryResponse & {
   aliases?: string[];
 };
 
-export type SuscripcionStatus = 'activa' | 'cancelada' | 'expirada' | 'pendiente';
+export type SuscripcionStatus = 'activa' | 'cancelada' | 'expirada' | 'pendiente' | 'sin_renovar';
 
 export type SuscripcionRow = {
   id: string;
@@ -1754,6 +1754,8 @@ export type SuscripcionRow = {
   fake: boolean;
   isActive: boolean;
   status: SuscripcionStatus;
+  plan?: string | null;
+  planLabel?: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -1767,6 +1769,7 @@ export type SuscripcionesMeta = {
   search: string | null;
   app: string;
   estado: string;
+  plan?: string;
 };
 
 export type SuscripcionesResponse = {

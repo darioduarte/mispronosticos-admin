@@ -1238,6 +1238,7 @@ export function fetchSuscripciones(params: {
   search?: string;
   app?: string;
   estado?: string;
+  plan?: string;
   limit?: number;
   offset?: number;
 }) {
@@ -1246,6 +1247,7 @@ export function fetchSuscripciones(params: {
   if (params.search) qs.set('search', params.search);
   if (params.app && params.app !== 'todas') qs.set('app', params.app);
   if (params.estado && params.estado !== 'todas') qs.set('estado', params.estado);
+  if (params.plan && params.plan !== 'todas') qs.set('plan', params.plan);
   if (params.limit) qs.set('limit', String(params.limit));
   if (params.offset) qs.set('offset', String(params.offset));
   return adminFetch<SuscripcionesResponse>(`/api/admin/suscripciones?${qs}`);
