@@ -5,87 +5,33 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { clearSession, getStoredUser } from '@/lib/auth';
 import { AdminToastHost } from '@/components/admin-toast-host';
+import {
+  activeNavGroupId,
+  filterNavGroups,
+  isActivePath,
+  NAV_GROUPS,
+} from '@/lib/admin-nav';
 
-type NavItem = { href: string; label: string };
-type NavGroup = { id: string; label: string; items: NavItem[] };
+const OPEN_GROUPS_KEY = 'admin-nav-open-groups';
 
-const NAV_GROUPS: NavGroup[] = [
-  {
-    id: 'general',
-    label: 'General',
-    items: [
-      { href: '/dashboard', label: 'Dashboard' },
-      { href: '/monitoreo', label: 'Monitoreo' },
-      { href: '/notificaciones', label: 'Notificaciones' },
-    ],
-  },
-  {
-    id: 'operacion-vivo',
-    label: 'Operación en vivo',
-    items: [
-      { href: '/control-analisis-vivo', label: 'Control de análisis en vivo' },
-      { href: '/control-crons', label: 'Control de crons' },
-      { href: '/parametros-en-vivo', label: 'Parámetros en vivo' },
-    ],
-  },
-  {
-    id: 'datos',
-    label: 'Datos y partidos',
-    items: [
-      { href: '/partidos', label: 'Partidos' },
-      { href: '/historias', label: 'Historias' },
-      { href: '/ligas', label: 'Ligas' },
-      { href: '/estadisticas-ligas-destacadas', label: 'Estadísticas ligas destacadas' },
-      { href: '/arbitros', label: 'Árbitros' },
-    ],
-  },
-  {
-    id: 'ia',
-    label: 'Pronósticos IA',
-    items: [
-      { href: '/pronosticos-ia', label: 'Pronósticos IA' },
-      { href: '/pronosticos-ia-vivo', label: 'Pronósticos IA vivo' },
-      { href: '/errores-cuota-ia', label: 'Errores de cuota' },
-      { href: '/predictions-table', label: 'Tabla predicciones' },
-    ],
-  },
-  {
-    id: 'analisis-expertos',
-    label: 'Análisis de expertos',
-    items: [
-      { href: '/analisis-expertos/pronosticos', label: 'Pronósticos' },
-      { href: '/analisis-expertos/estados', label: 'Estados de pronóstico' },
-      { href: '/analisis-expertos/deportes', label: 'Deportes' },
-      { href: '/analisis-expertos/campeonatos', label: 'Campeonatos' },
-      { href: '/analisis-expertos/noticias', label: 'Noticias' },
-    ],
-  },
-  {
-    id: 'negocio',
-    label: 'Negocio',
-    items: [
-      { href: '/suscripciones', label: 'Suscripciones' },
-      { href: '/trials', label: 'Trials' },
-      { href: '/promociones', label: 'Vendedores y códigos' },
-      { href: '/documentos-legales', label: 'Documentos legales' },
-      { href: '/sugerencias', label: 'Sugerencias' },
-    ],
-  },
-  {
-    id: 'errores',
-    label: 'Errores y pagos',
-    items: [
-      { href: '/errores', label: 'Errores' },
-      { href: '/errores-pago', label: 'Errores de pago' },
-      { href: '/webhooks-pago', label: 'Webhooks de pago' },
-    ],
-  },
-];
+function defaultOpenGroups(pathname: string) {
+  const active = activeNavGroupId(NAV_GROUPS, pathname);
+  return active ? [active] : [];
+}
 
-function isActivePath(pathname: string, href: string) {
-  if (pathname === href) return true;
-  if (href !== '/' && pathname.startsWith(`${href}/`)) return true;
-  return false;
+function readOpenGroups(pathname: string) {
+  const fallback = defaultOpenGroups(pathname);
+  try {
+    const raw = window.localStorage.getItem(OPEN_GROUPS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!Array.isArray(parsed)) return fallback;
+    const stored = parsed.filter((id): id is string => typeof id === 'string');
+    const active = activeNavGroupId(NAV_GROUPS, pathname);
+    if (active && !stored.includes(active)) stored.push(active);
+    return stored;
+  } catch {
+    return fallback;
+  }
 }
 
 function NavLinks({
@@ -95,38 +41,115 @@ function NavLinks({
   pathname: string;
   onNavigate?: () => void;
 }) {
+  const [query, setQuery] = useState('');
+  const [hydrated, setHydrated] = useState(false);
+  const [openIds, setOpenIds] = useState<string[]>(() => defaultOpenGroups(pathname));
+  const searching = query.trim().length > 0;
+  const groups = useMemo(() => filterNavGroups(NAV_GROUPS, query), [query]);
+
+  useEffect(() => {
+    setOpenIds(readOpenGroups(pathname));
+    setHydrated(true);
+    // Solo al montar: después la ruta abre su grupo sin pisar lo que el usuario cerró.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const active = activeNavGroupId(NAV_GROUPS, pathname);
+    if (!active) return;
+    setOpenIds((current) => (current.includes(active) ? current : [...current, active]));
+  }, [hydrated, pathname]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify(openIds));
+    } catch {
+      /* el menú sigue funcionando si el navegador bloquea el almacenamiento */
+    }
+  }, [hydrated, openIds]);
+
+  function toggleGroup(id: string) {
+    setOpenIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
+  }
+
   return (
     <>
-      {NAV_GROUPS.map((group) => (
-        <div key={group.id} className="mb-4">
-          <p
-            className={`mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider ${
-              group.id === 'analisis-expertos' ? 'text-[#F2C94C]' : 'text-slate-500'
-            }`}
-          >
-            {group.label}
-          </p>
-          <div className="space-y-0.5">
-            {group.items.map((item) => {
-              const active = isActivePath(pathname, item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={`block rounded-2xl px-3 py-2 text-sm font-medium transition ${
-                    active
-                      ? 'bg-[#4CDEA8] text-[#052e16]'
-                      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-                  }`}
+      <label className="mb-3 block">
+        <span className="sr-only">Buscar opción del menú</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Buscar opción"
+          className="w-full rounded-2xl bg-[#1F2937] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+        />
+      </label>
+      {groups.length === 0 ? (
+        <p className="px-3 py-2 text-sm text-slate-500">Sin resultados</p>
+      ) : (
+        groups.map((group) => {
+          const open = searching || openIds.includes(group.id);
+          const headingClass =
+            group.id === 'analisis-expertos' ? 'text-[#F2C94C]' : 'text-slate-500';
+          return (
+            <div key={group.id} className="mb-2">
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={() => {
+                  if (!searching) toggleGroup(group.id);
+                }}
+                className={`flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-left ${headingClass}`}
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-wider">
+                  {group.label}
+                </span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  className={`shrink-0 transition ${open ? 'rotate-180' : ''}`}
                 >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+                  <path
+                    d="M6 9l6 6 6-6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              {open ? (
+                <div className="space-y-0.5 pb-1">
+                  {group.items.map((item) => {
+                    const active = isActivePath(pathname, item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={onNavigate}
+                        className={`block rounded-2xl px-3 py-2 text-sm font-medium transition ${
+                          active
+                            ? 'bg-[#4CDEA8] text-[#052e16]'
+                            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          );
+        })
+      )}
     </>
   );
 }
