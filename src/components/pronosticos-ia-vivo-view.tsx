@@ -36,7 +36,7 @@ import type { PronosticoIaRow, PronosticoIaVivoRow } from '@/lib/types';
 const DEFAULT_FILTERS: PronosticosIaFilters = {
   search: '',
   categorias: null,
-  torneo: '',
+  torneos: null,
   resultado: 'all',
   pickScope: 'all',
   probMin: 0,
@@ -223,7 +223,7 @@ export function PronosticosIaVivoView() {
             Pronósticos IA vivo
           </h1>
           <p className="mt-1 text-sm leading-relaxed text-slate-400">
-            Picks de análisis en vivo por fase (min30 / HT / min60 / manual).
+            Picks de análisis en vivo por fase (30' / HT / 65' / manual).
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -299,8 +299,8 @@ export function PronosticosIaVivoView() {
           />
           <SelectFilter
             label="Torneo"
-            value={filters.torneo}
-            onChange={(v) => patchFilter({ torneo: v })}
+            value={filters.torneos === null ? '' : (filters.torneos[0] ?? '')}
+            onChange={(v) => patchFilter({ torneos: v ? [v] : null })}
             options={[
               { value: '', label: 'Todos' },
               ...(meta?.torneos ?? []).map((t) => ({ value: t.key, label: t.key })),

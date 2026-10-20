@@ -44,7 +44,8 @@ export type ResultFilter = 'all' | 'acertado' | 'fallido' | 'pendiente';
 export type PronosticosIaFilters = {
   search: string;
   categorias: string[] | null;
-  torneo: string;
+  /** `null` = todos; `[]` = ninguno; lista = solo esos torneos. */
+  torneos: string[] | null;
   resultado: ResultFilter;
   pickScope: PickScope;
   probMin: number;
@@ -254,7 +255,10 @@ export function filterPronosticosRows(
       if (f.categorias.length === 0) return false;
       if (!f.categorias.includes(categoriaKey(row))) return false;
     }
-    if (f.torneo && torneoKey(row) !== f.torneo) return false;
+    if (f.torneos !== null) {
+      if (f.torneos.length === 0) return false;
+      if (!f.torneos.includes(torneoKey(row))) return false;
+    }
     if (f.resultado !== 'all' && row.resultado_clase !== f.resultado) return false;
 
     if (f.pickScope === 'valor' && !isPickValor(row)) return false;
