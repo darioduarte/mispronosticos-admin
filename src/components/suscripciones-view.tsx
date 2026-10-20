@@ -13,18 +13,34 @@ const ESTADOS = [
   { value: 'cancelada', label: 'Canceladas' },
 ];
 
+const PLANES = [
+  { value: 'todas', label: 'Todos los planes' },
+  { value: 'pago_unico', label: 'Pago único' },
+  { value: 'semanal', label: 'Semanal' },
+  { value: 'mensual', label: 'Mensual' },
+];
+
+const STATUS_LABELS: Record<string, string> = {
+  activa: 'Activa',
+  cancelada: 'Cancelada',
+  expirada: 'Expirada',
+  pendiente: 'Pendiente',
+  sin_renovar: 'Sin renovar',
+};
+
 function StatusBadge({ row }: { row: SuscripcionRow }) {
   const colors: Record<string, string> = {
     activa: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
     cancelada: 'bg-red-500/15 text-red-300 border-red-500/30',
     expirada: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
     pendiente: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+    sin_renovar: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
   };
   return (
     <span
       className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${colors[row.status] || 'border-white/10 text-slate-400'}`}
     >
-      {row.status}
+      {STATUS_LABELS[row.status] || row.status}
     </span>
   );
 }
@@ -35,11 +51,13 @@ export function SuscripcionesView() {
   const [search, setSearch] = useState('');
   const [app, setApp] = useState('todas');
   const [estado, setEstado] = useState('todas');
+  const [plan, setPlan] = useState('todas');
   const [applied, setApplied] = useState({
     email: '',
     search: '',
     app: 'todas',
     estado: 'todas',
+    plan: 'todas',
   });
   const [modal, setModal] = useState<{ mode: 'create' | 'edit'; row: SuscripcionRow | null } | null>(
     null,
@@ -59,6 +77,7 @@ export function SuscripcionesView() {
         search: applied.search || undefined,
         app: applied.app,
         estado: applied.estado,
+        plan: applied.plan,
         limit: 100,
       }),
   });
@@ -86,6 +105,7 @@ export function SuscripcionesView() {
       search: search.trim(),
       app,
       estado,
+      plan,
     });
   }
 
@@ -112,7 +132,7 @@ export function SuscripcionesView() {
       </header>
 
       <section className="mb-4 rounded-xl border border-white/10 bg-[#111827] p-4">
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-slate-400">Email exacto</span>
             <input
@@ -143,6 +163,20 @@ export function SuscripcionesView() {
               <option value="todas">Todas</option>
               <option value="android">Android</option>
               <option value="ios">iOS</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">Plan</span>
+            <select
+              value={plan}
+              onChange={(e) => setPlan(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-sm text-slate-200"
+            >
+              {PLANES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="block">
@@ -224,7 +258,12 @@ export function SuscripcionesView() {
                     </td>
                     <td className="px-4 py-3 text-slate-300">
                       {row.productId || '—'}
-                      {row.fake && (
+                      {row.planLabel && (
+                        <span className="ml-2 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] text-indigo-200">
+                          {row.planLabel}
+                        </span>
+                      )}
+                      {row.fake && row.plan !== 'pago_unico' && (
                         <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-300">
                           fake
                         </span>
