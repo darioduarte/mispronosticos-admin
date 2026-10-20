@@ -64,7 +64,7 @@ function row(
 const defaultFilters = (): PronosticosIaFilters => ({
   search: '',
   categorias: null,
-  torneo: '',
+  torneos: null,
   resultado: 'all',
   pickScope: 'all',
   probMin: 0,
@@ -189,6 +189,17 @@ describe('filterPronosticosRows', () => {
         categorias: ['goles_under'],
       }).map((r) => r.pronostico_id),
       ['a'],
+    );
+    assert.deepEqual(
+      filterPronosticosRows(rows, {
+        ...defaultFilters(),
+        torneos: ['England · Premier'],
+      }).map((r) => r.pronostico_id),
+      ['b'],
+    );
+    assert.equal(
+      filterPronosticosRows(rows, { ...defaultFilters(), torneos: [] }).length,
+      0,
     );
   });
 

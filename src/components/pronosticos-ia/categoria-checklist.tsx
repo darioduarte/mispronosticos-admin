@@ -4,15 +4,28 @@ import { useState } from 'react';
 import { formatCategoriaLabel, selectCategoriasHastaPuesto } from '@/lib/pronosticos-ia-stats';
 
 type Props = {
+  title?: string;
+  hint?: string;
+  idPrefix?: string;
+  formatLabel?: (value: string) => string;
   options: string[];
   /** `null` = todas seleccionadas; `[]` = ninguna; lista = selección parcial. */
   selected: string[] | null;
   onChange: (next: string[] | null) => void;
-  /** Orden del ranking por categoría (mejor primero). */
+  /** Orden del ranking (mejor primero). */
   ranked?: string[];
 };
 
-export function CategoriaChecklist({ options, selected, onChange, ranked }: Props) {
+export function CategoriaChecklist({
+  title = 'Tipo de apuesta',
+  hint = 'El puesto sigue el ranking por categoría del rango (mismo orden que los indicadores), sin contar el filtro de tipo que ya tengas marcado.',
+  idPrefix = 'cat-check',
+  formatLabel = formatCategoriaLabel,
+  options,
+  selected,
+  onChange,
+  ranked,
+}: Props) {
   const [puesto, setPuesto] = useState('10');
   if (options.length === 0) return null;
 
@@ -55,7 +68,7 @@ export function CategoriaChecklist({ options, selected, onChange, ranked }: Prop
     <div className="rounded-lg border border-white/10 bg-[#0b0f14] p-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium text-slate-300">Tipo de apuesta</p>
+          <p className="text-xs font-medium text-slate-300">{title}</p>
           <p className="text-[11px] text-slate-500">{summary}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -105,15 +118,12 @@ export function CategoriaChecklist({ options, selected, onChange, ranked }: Prop
         </div>
       </div>
       {ranked && ranked.length > 0 && (
-        <p className="mb-2 text-[11px] text-slate-500">
-          El puesto sigue el ranking por categoría del rango (mismo orden que los indicadores), sin
-          contar el filtro de tipo que ya tengas marcado.
-        </p>
+        <p className="mb-2 text-[11px] text-slate-500">{hint}</p>
       )}
       <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-        {ordered.map((cat) => {
+        {ordered.map((cat, index) => {
           const checked = selectedSet.has(cat);
-          const id = `cat-check-${cat}`;
+          const id = `${idPrefix}-${index}-${cat.replace(/[^a-zA-Z0-9_-]+/g, '-')}`;
           const rank = rankOf.get(cat);
           return (
             <label
@@ -133,7 +143,7 @@ export function CategoriaChecklist({ options, selected, onChange, ranked }: Prop
               {rank != null && (
                 <span className="w-5 shrink-0 text-[10px] tabular-nums text-slate-500">{rank}</span>
               )}
-              <span className="truncate">{formatCategoriaLabel(cat)}</span>
+              <span className="truncate">{formatLabel(cat)}</span>
             </label>
           );
         })}

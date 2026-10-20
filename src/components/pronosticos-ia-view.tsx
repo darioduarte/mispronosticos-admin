@@ -34,6 +34,7 @@ import {
   computePronosticosIaStats,
   filterPronosticosRows,
   formatCategoriaLabel,
+  torneoKey,
   formatFixtureFechaHora,
   buildPronosticosAnalisisExportMarkdown,
   sortPronosticosRows,
@@ -54,7 +55,7 @@ const PAGE_SIZE = 50;
 const DEFAULT_FILTERS: PronosticosIaFilters = {
   search: '',
   categorias: null,
-  torneo: '',
+  torneos: null,
   resultado: 'all',
   pickScope: 'all',
   probMin: 0,
@@ -168,7 +169,8 @@ export function PronosticosIaView() {
 
   const {
     search: rankSearch,
-    torneo: rankTorneo,
+    categorias: rankCategorias,
+    torneos: rankTorneos,
     resultado: rankResultado,
     pickScope: rankPickScope,
     probMin: rankProbMin,
@@ -180,7 +182,7 @@ export function PronosticosIaView() {
     () => ({
       search: rankSearch,
       categorias: null,
-      torneo: rankTorneo,
+      torneos: rankTorneos,
       resultado: rankResultado,
       pickScope: rankPickScope,
       probMin: rankProbMin,
@@ -190,7 +192,31 @@ export function PronosticosIaView() {
     }),
     [
       rankSearch,
-      rankTorneo,
+      rankTorneos,
+      rankResultado,
+      rankPickScope,
+      rankProbMin,
+      rankProbMax,
+      rankMinCuota,
+      rankMaxCuota,
+    ],
+  );
+
+  const tournamentRankFilters = useMemo(
+    () => ({
+      search: rankSearch,
+      categorias: rankCategorias,
+      torneos: null,
+      resultado: rankResultado,
+      pickScope: rankPickScope,
+      probMin: rankProbMin,
+      probMax: rankProbMax,
+      minCuota: rankMinCuota,
+      maxCuota: rankMaxCuota,
+    }),
+    [
+      rankSearch,
+      rankCategorias,
       rankResultado,
       rankPickScope,
       rankProbMin,
@@ -206,6 +232,13 @@ export function PronosticosIaView() {
     if (base.length === 0) return [];
     return computePronosticosIaStats(base, statsOpts).categorias.map((c) => c.label);
   }, [query.data?.data, categoryRankFilters, statsOpts]);
+
+  const rankedTorneos = useMemo(() => {
+    const rows = query.data?.data ?? [];
+    const base = filterPronosticosRows(rows, tournamentRankFilters);
+    if (base.length === 0) return [];
+    return computePronosticosIaStats(base, statsOpts).torneos.map((t) => t.label);
+  }, [query.data?.data, tournamentRankFilters, statsOpts]);
 
   const allRows = query.data?.data;
   const selection = useMemo(() => {
@@ -261,6 +294,15 @@ export function PronosticosIaView() {
       a.localeCompare(b, 'es'),
     );
   }, [meta?.categorias, query.data?.data]);
+
+  const torneoOptions = useMemo(() => {
+    const keys = new Set<string>();
+    for (const torneo of meta?.torneos ?? []) keys.add(torneo.key);
+    for (const key of rankedTorneos) keys.add(key);
+    if (keys.size > 0) return [...keys];
+    const rows = query.data?.data ?? [];
+    return [...new Set(rows.map((row) => torneoKey(row)))];
+  }, [meta?.torneos, rankedTorneos, query.data?.data]);
 
   async function handleFetchCuota(row: PronosticoIaRow) {
     setCuotaBusy(row.pronostico_id);
@@ -422,12 +464,6 @@ export function PronosticosIaView() {
             className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-sm text-slate-200 sm:min-w-[180px] sm:flex-1"
           />
           <SelectFilter
-            label="Torneo"
-            value={filters.torneo}
-            onChange={(v) => patchFilter({ torneo: v })}
-            options={[{ value: '', label: 'Todos' }, ...(meta?.torneos ?? []).map((t) => ({ value: t.key, label: t.key }))]}
-          />
-          <SelectFilter
             label="Resultado"
             value={filters.resultado}
             onChange={(v) => patchFilter({ resultado: v as ResultFilter })}
@@ -489,6 +525,16 @@ export function PronosticosIaView() {
           selected={filters.categorias}
           ranked={rankedCategorias}
           onChange={(categorias) => patchFilter({ categorias })}
+        />
+        <CategoriaChecklist
+          title="Torneo"
+          idPrefix="torneo-check"
+          formatLabel={(value) => value}
+          hint="El puesto sigue el ranking por torneo del rango (mismo orden que los indicadores), sin contar los torneos que ya tengas marcados."
+          options={torneoOptions}
+          selected={filters.torneos}
+          ranked={rankedTorneos}
+          onChange={(torneos) => patchFilter({ torneos })}
         />
         <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
           <SmallNumber label="Prob. mín %" value={filters.probMin} onChange={(v) => patchFilter({ probMin: v })} />
