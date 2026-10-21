@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
   ApiError,
+  createExpertCampeonato,
   createExpertPronostico,
   fetchExpertCatalogos,
   fetchExpertPronostico,
@@ -11,7 +12,13 @@ import {
   fetchExpertFixtures,
   updateExpertPronostico,
 } from '@/lib/api';
-import type { ExpertFixtureHit, ExpertPronosticoRow, ExpertPronosticoSavePayload } from '@/lib/types';
+import { applyExpertFixtureSelection } from '@/lib/expert-fixture-form';
+import type {
+  ExpertCatalogosResponse,
+  ExpertFixtureHit,
+  ExpertPronosticoRow,
+  ExpertPronosticoSavePayload,
+} from '@/lib/types';
 
 const TIPO_ANUNCIO = ['INTERSTITIAL', 'REWARDED', 'PREMIUM'];
 const PAGE_SIZE = 25;
@@ -79,6 +86,9 @@ export function AnalisisExpertosPronosticosView() {
   const [fixtureQuery, setFixtureQuery] = useState('');
   const [fixtureHits, setFixtureHits] = useState<ExpertFixtureHit[]>([]);
   const [fixtureSearchError, setFixtureSearchError] = useState<string | null>(null);
+  const [fixtureFillNote, setFixtureFillNote] = useState<string | null>(null);
+  const [fixtureBusy, setFixtureBusy] = useState(false);
+  const [limitFixtureDate, setLimitFixtureDate] = useState(false);
 
   const offset = (page - 1) * PAGE_SIZE;
 
@@ -145,6 +155,7 @@ export function AnalisisExpertosPronosticosView() {
     setFixtureHits([]);
     setFixtureQuery('');
     setFixtureSearchError(null);
+    setFixtureFillNote(null);
     setEditingId(id);
     setShowForm(true);
     try {
@@ -165,6 +176,8 @@ export function AnalisisExpertosPronosticosView() {
     setFixtureHits([]);
     setFixtureQuery('');
     setFixtureSearchError(null);
+    setFixtureFillNote(null);
+    setLimitFixtureDate(false);
     setShowForm(true);
   }
 
@@ -176,13 +189,63 @@ export function AnalisisExpertosPronosticosView() {
     }
     setFixtureSearchError(null);
     try {
-      const date = form.fechaEvento ? form.fechaEvento.slice(0, 10) : undefined;
+      const date = limitFixtureDate && form.fechaEvento ? form.fechaEvento.slice(0, 10) : undefined;
       const res = await fetchExpertFixtures({ q, date });
       setFixtureHits(res.data || []);
       if (!res.data?.length) setFixtureSearchError('No hay partidos con ese dato');
     } catch (err) {
       setFixtureSearchError(err instanceof ApiError ? err.message : 'No se pudo buscar');
     }
+  }
+
+  async function selectFixture(hit: ExpertFixtureHit) {
+    if (!catalogos) {
+      setFixtureSearchError('Espera a que carguen los catálogos');
+      return;
+    }
+    const draft = applyExpertFixtureSelection(form, hit, catalogos);
+    let idCampeonato = draft.patch.idCampeonato;
+    let note = draft.note;
+    if (draft.missingCampeonato) {
+      setFixtureBusy(true);
+      try {
+        const created = await createExpertCampeonato(draft.missingCampeonato);
+        const campeonato = {
+          ...created.data,
+          idDeporte: created.data.idDeporte || draft.missingCampeonato.idDeporte,
+        };
+        idCampeonato = campeonato.id;
+        note = `Campeonato nuevo: ${campeonato.nombre}. Revisa el resto y guarda.`;
+        queryClient.setQueryData<ExpertCatalogosResponse>(['expert-catalogos'], (current) => {
+          if (!current?.data) return current;
+          const already = current.data.campeonatos.some((item) => item.id === campeonato.id);
+          if (already) return current;
+          return {
+            ...current,
+            data: {
+              ...current.data,
+              campeonatos: [...current.data.campeonatos, campeonato].sort((a, b) =>
+                a.nombre.localeCompare(b.nombre, 'es'),
+              ),
+            },
+          };
+        });
+      } catch (err) {
+        setFixtureSearchError(err instanceof ApiError ? err.message : 'No se pudo crear el campeonato');
+        note = `No hay campeonato «${draft.missingCampeonato.nombre}». Elige uno en la lista.`;
+      } finally {
+        setFixtureBusy(false);
+      }
+    }
+    setForm((current) => ({
+      ...current,
+      ...draft.patch,
+      ...(idCampeonato ? { idCampeonato } : {}),
+    }));
+    setFixtureFillNote(note);
+    setFixtureHits([]);
+    setFixtureQuery('');
+    if (idCampeonato || !draft.missingCampeonato) setFixtureSearchError(null);
   }
 
   const from = total === 0 ? 0 : offset + 1;
@@ -404,6 +467,90 @@ export function AnalisisExpertosPronosticosView() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm sm:col-span-2">
+                <span className="mb-1 block text-slate-400">Buscar partido</span>
+                <div className="flex gap-2">
+                  <input
+                    className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2"
+                    placeholder="Equipo, liga o id del partido"
+                    value={fixtureQuery}
+                    onChange={(e) => setFixtureQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        searchFixtures();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={searchFixtures}
+                    disabled={fixtureBusy}
+                    className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-200 hover:bg-white/5 disabled:opacity-50"
+                  >
+                    {fixtureBusy ? '…' : 'Buscar'}
+                  </button>
+                </div>
+                <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                  <input
+                    type="checkbox"
+                    checked={limitFixtureDate}
+                    onChange={(e) => setLimitFixtureDate(e.target.checked)}
+                  />
+                  Solo la fecha del formulario
+                </label>
+                {form.fixtureId ? (
+                  <p className="mt-2 text-xs text-teal-300">
+                    Vinculado al partido {form.fixtureId}
+                    <button
+                      type="button"
+                      className="ml-2 text-slate-400 underline"
+                      onClick={() => {
+                        setForm((f) => ({ ...f, fixtureId: '' }));
+                        setFixtureFillNote(null);
+                      }}
+                    >
+                      Quitar
+                    </button>
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Al elegir un partido se completan equipos, fútbol, campeonato, fecha y marcador.
+                  </p>
+                )}
+                {fixtureFillNote ? (
+                  <p className="mt-1 text-xs text-teal-200">{fixtureFillNote}</p>
+                ) : null}
+                {fixtureSearchError ? (
+                  <p className="mt-1 text-xs text-amber-300">{fixtureSearchError}</p>
+                ) : null}
+                {fixtureHits.length > 0 ? (
+                  <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-white/10">
+                    {fixtureHits.map((hit) => (
+                      <li key={hit.fixtureid}>
+                        <button
+                          type="button"
+                          disabled={fixtureBusy}
+                          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-white/5 disabled:opacity-50"
+                          onClick={() => selectFixture(hit)}
+                        >
+                          <span className="font-medium">
+                            {hit.teamshomename} vs {hit.teamsawayname}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-slate-500">
+                            {[hit.leaguecatalogname || hit.leaguename, hit.leaguecatalogcountry || hit.leaguecountry].filter(Boolean).join(' · ') || 'Sin liga'}
+                            {' · '}
+                            {hit.fixturestatusshort || '—'}
+                            {hit.fixturedate ? ` · ${String(hit.fixturedate).replace('T', ' ').slice(0, 16)}` : ''}
+                            {' · '}
+                            {hit.fixtureid}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </label>
               <label className="block text-sm">
                 <span className="mb-1 block text-slate-400">Deporte</span>
                 <select
@@ -453,76 +600,6 @@ export function AnalisisExpertosPronosticosView() {
                 />
               </label>
               <label className="block text-sm sm:col-span-2">
-                <span className="mb-1 block text-slate-400">Partido real</span>
-                <div className="flex gap-2">
-                  <input
-                    className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2"
-                    placeholder="Equipo o id"
-                    value={fixtureQuery}
-                    onChange={(e) => setFixtureQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        searchFixtures();
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={searchFixtures}
-                    className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-200 hover:bg-white/5"
-                  >
-                    Buscar
-                  </button>
-                </div>
-                {form.fixtureId ? (
-                  <p className="mt-2 text-xs text-teal-300">
-                    Vinculado al partido {form.fixtureId}
-                    <button
-                      type="button"
-                      className="ml-2 text-slate-400 underline"
-                      onClick={() => setForm((f) => ({ ...f, fixtureId: '' }))}
-                    >
-                      Quitar
-                    </button>
-                  </p>
-                ) : (
-                  <p className="mt-2 text-xs text-slate-500">
-                    Si lo vinculas, la app muestra el marcador y cierra el pendiente al terminar.
-                  </p>
-                )}
-                {fixtureSearchError ? (
-                  <p className="mt-1 text-xs text-amber-300">{fixtureSearchError}</p>
-                ) : null}
-                {fixtureHits.length > 0 ? (
-                  <ul className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-white/10">
-                    {fixtureHits.map((hit) => (
-                      <li key={hit.fixtureid}>
-                        <button
-                          type="button"
-                          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-white/5"
-                          onClick={() => {
-                            setForm((f) => ({
-                              ...f,
-                              fixtureId: hit.fixtureid,
-                              local: hit.teamshomename || f.local,
-                              visitante: hit.teamsawayname || f.visitante || '',
-                            }));
-                            setFixtureHits([]);
-                            setFixtureQuery('');
-                          }}
-                        >
-                          {hit.teamshomename} vs {hit.teamsawayname}
-                          <span className="ml-2 text-xs text-slate-500">
-                            {hit.fixturestatusshort || '—'} · {hit.fixtureid}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </label>
-              <label className="block text-sm sm:col-span-2">
                 <span className="mb-1 block text-slate-400">Tipo de apuesta</span>
                 <input
                   className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2"
@@ -534,6 +611,7 @@ export function AnalisisExpertosPronosticosView() {
                 <span className="mb-1 block text-slate-400">Explicación</span>
                 <textarea
                   className="min-h-24 w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2"
+                  placeholder="Texto de la explicación"
                   value={form.explicacion || ''}
                   onChange={(e) => setForm((f) => ({ ...f, explicacion: e.target.value }))}
                 />
