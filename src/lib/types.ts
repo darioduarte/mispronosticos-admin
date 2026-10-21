@@ -2676,6 +2676,37 @@ export type PromoCodeRow = {
   expiresAt?: string | null;
 };
 
+export type PromoSellerSalesSummary = {
+  salesCount: number;
+  pendingCount: number;
+  cancelledCount: number;
+  convertedCount: number;
+};
+
+export type PromoSellerSaleRow = {
+  id: string;
+  kind: 'sale' | 'attempt' | string;
+  code?: string | null;
+  platform?: string | null;
+  productId?: string | null;
+  status: string;
+  at?: string | null;
+  commissionRate?: number | string | null;
+  amount?: number | string | null;
+  currency?: string | null;
+  linked?: boolean;
+};
+
+export type PromoSellerSalesResponse = {
+  success: boolean;
+  data: {
+    seller: PromoSellerRow;
+    summary: PromoSellerSalesSummary;
+    sales: PromoSellerSaleRow[];
+    attempts: PromoSellerSaleRow[];
+  };
+};
+
 export type PromoSellerRow = {
   id: string;
   name: string;
@@ -2686,6 +2717,7 @@ export type PromoSellerRow = {
   commissionRate?: number | string | null;
   status: 'active' | 'inactive' | string;
   promoCodes?: PromoCodeRow[];
+  sales?: PromoSellerSalesSummary;
 };
 
 export type PromoOverviewResponse = {
