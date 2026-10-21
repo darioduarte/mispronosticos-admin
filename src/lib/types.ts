@@ -2590,10 +2590,24 @@ export type ExpertFixtureHit = {
   fixtureid: number;
   teamshomename?: string | null;
   teamsawayname?: string | null;
-  goalshome?: number | null;
-  goalsaway?: number | null;
+  teamshomelogo?: string | null;
+  teamsawaylogo?: string | null;
+  goalshome?: number | string | null;
+  goalsaway?: number | string | null;
   fixturestatusshort?: string | null;
+  fixturestatuselapsed?: number | null;
   fixturedate?: string | null;
+  leagueid?: number | null;
+  leaguename?: string | null;
+  leaguecountry?: string | null;
+  leaguelogo?: string | null;
+  leagueround?: string | null;
+  leaguecatalogname?: string | null;
+  leaguecatalogcountry?: string | null;
+  previousIdCampeonato?: string | null;
+  previousIdDeporte?: string | null;
+  leagueSuggestedIdCampeonato?: string | null;
+  leagueSuggestedIdDeporte?: string | null;
 };
 
 export type ExpertNoticiaRow = {
