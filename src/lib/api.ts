@@ -118,6 +118,7 @@ import type {
   ExpertFixtureHit,
   PromoOverviewResponse,
   PromoSellerRow,
+  PromoSellerSalesResponse,
   PromoCampaignRow,
   PromoCodeRow,
   LegalDocumentsResponse,
@@ -2035,6 +2036,12 @@ const PROMO = '/api/admin/promociones';
 
 export function fetchPromoOverview() {
   return adminFetch<PromoOverviewResponse>(PROMO);
+}
+
+export function fetchPromoSellerSales(sellerId: string) {
+  return adminFetch<PromoSellerSalesResponse>(
+    `${PROMO}/sellers/${encodeURIComponent(sellerId)}/sales`,
+  );
 }
 
 export function upsertPromoSeller(payload: Partial<PromoSellerRow> & { sellerEmail?: string }) {
