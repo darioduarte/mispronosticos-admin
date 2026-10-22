@@ -25,6 +25,12 @@ function norm(value: string | null | undefined) {
     .trim();
 }
 
+export function splitTeamName(value?: string | null) {
+  const words = String(value || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 1) return { primary: words[0] || '', secondary: '' };
+  return { primary: words[0], secondary: words.slice(1).join(' ') };
+}
+
 export function toFixtureDatetimeLocal(value?: string | null) {
   if (!value) return '';
   const raw = String(value).trim();
