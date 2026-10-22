@@ -472,7 +472,7 @@ export function AnalisisExpertosPronosticosView() {
                 <div className="flex gap-2">
                   <input
                     className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2"
-                    placeholder="Equipo, liga o id del partido"
+                    placeholder="Equipo o liga de esta semana, o el id del partido"
                     value={fixtureQuery}
                     onChange={(e) => setFixtureQuery(e.target.value)}
                     onKeyDown={(e) => {
@@ -515,7 +515,7 @@ export function AnalisisExpertosPronosticosView() {
                   </p>
                 ) : (
                   <p className="mt-2 text-xs text-slate-500">
-                    Al elegir un partido se completan equipos, fútbol, campeonato, fecha y marcador.
+                    Busca entre los partidos de los últimos 7 días y los próximos 7, el más cercano a ahora primero. Al elegirlo se completan equipos, fútbol, campeonato, fecha y marcador.
                   </p>
                 )}
                 {fixtureFillNote ? (
