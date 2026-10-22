@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { applyExpertFixtureSelection, toFixtureDatetimeLocal } from './expert-fixture-form';
+import { applyExpertFixtureSelection, splitTeamName, toFixtureDatetimeLocal } from './expert-fixture-form';
 import type { ExpertPronosticoSavePayload } from './types';
 
 const catalogs = {
@@ -156,6 +156,18 @@ describe('applyExpertFixtureSelection', () => {
     });
     assert.equal(tied.patch.idCampeonato, undefined);
     assert.deepEqual(tied.missingCampeonato, { nombre: 'Serie A', idDeporte: 'fut' });
+  });
+});
+
+describe('splitTeamName', () => {
+  it('deja una sola palabra en el primer renglón', () => {
+    assert.deepEqual(splitTeamName('Millonarios'), { primary: 'Millonarios', secondary: '' });
+    assert.deepEqual(splitTeamName('  '), { primary: '', secondary: '' });
+  });
+
+  it('pasa el resto del nombre al segundo renglón', () => {
+    assert.deepEqual(splitTeamName('Santa Fe'), { primary: 'Santa', secondary: 'Fe' });
+    assert.deepEqual(splitTeamName('Atlético de Madrid'), { primary: 'Atlético', secondary: 'de Madrid' });
   });
 });
 

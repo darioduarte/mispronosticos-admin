@@ -12,7 +12,7 @@ import {
   fetchExpertFixtures,
   updateExpertPronostico,
 } from '@/lib/api';
-import { applyExpertFixtureSelection } from '@/lib/expert-fixture-form';
+import { applyExpertFixtureSelection, splitTeamName } from '@/lib/expert-fixture-form';
 import type {
   ExpertCatalogosResponse,
   ExpertFixtureHit,
@@ -22,6 +22,25 @@ import type {
 
 const TIPO_ANUNCIO = ['INTERSTITIAL', 'REWARDED', 'PREMIUM'];
 const PAGE_SIZE = 25;
+
+function TeamMark({ name, logo }: { name?: string | null; logo?: string | null }) {
+  const { primary, secondary } = splitTeamName(name);
+  return (
+    <span className="flex w-24 shrink-0 flex-col items-center text-center">
+      {logo ? (
+        <img src={logo} alt="" className="mb-1 h-9 w-9 object-contain" />
+      ) : (
+        <span className="mb-1 h-9 w-9 rounded-full bg-white/10" aria-hidden />
+      )}
+      <span className="block w-full text-xs font-semibold leading-4 text-slate-100">
+        {primary || '—'}
+      </span>
+      <span className={`block w-full text-xs leading-4 ${secondary ? 'text-slate-400' : 'invisible'}`}>
+        {secondary || '·'}
+      </span>
+    </span>
+  );
+}
 
 const emptyForm: ExpertPronosticoSavePayload = {
   local: '',
@@ -525,19 +544,21 @@ export function AnalisisExpertosPronosticosView() {
                   <p className="mt-1 text-xs text-amber-300">{fixtureSearchError}</p>
                 ) : null}
                 {fixtureHits.length > 0 ? (
-                  <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-white/10">
+                  <ul className="mt-2 max-h-96 overflow-y-auto rounded-lg border border-white/10">
                     {fixtureHits.map((hit) => (
                       <li key={hit.fixtureid}>
                         <button
                           type="button"
                           disabled={fixtureBusy}
-                          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-white/5 disabled:opacity-50"
+                          className="w-full px-3 py-3 text-slate-200 hover:bg-white/5 disabled:opacity-50"
                           onClick={() => selectFixture(hit)}
                         >
-                          <span className="font-medium">
-                            {hit.teamshomename} vs {hit.teamsawayname}
+                          <span className="flex items-start justify-center gap-4">
+                            <TeamMark name={hit.teamshomename} logo={hit.teamshomelogo} />
+                            <span className="pt-3 text-xs font-medium text-slate-500">vs</span>
+                            <TeamMark name={hit.teamsawayname} logo={hit.teamsawaylogo} />
                           </span>
-                          <span className="mt-0.5 block text-xs text-slate-500">
+                          <span className="mt-1 block text-center text-xs text-slate-500">
                             {[hit.leaguecatalogname || hit.leaguename, hit.leaguecatalogcountry || hit.leaguecountry].filter(Boolean).join(' · ') || 'Sin liga'}
                             {' · '}
                             {hit.fixturestatusshort || '—'}
