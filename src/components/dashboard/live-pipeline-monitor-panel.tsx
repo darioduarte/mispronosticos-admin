@@ -1,13 +1,14 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   fetchLivePipelineMonitor,
   reconcileLivePipeline,
   triggerLiveAnalysisManual,
 } from '@/lib/api';
 import { toastError, toastSuccess } from '@/lib/admin-toast';
+import { liveMonitorPanelMode } from '@/lib/live-pipeline-monitor-state';
 import type { LivePipelineFixtureRow } from '@/lib/types';
 
 function attentionCls(a: string) {
@@ -112,7 +113,9 @@ export function LivePipelineMonitorPanel() {
   const query = useQuery({
     queryKey: ['live-pipeline-monitor'],
     queryFn: fetchLivePipelineMonitor,
-    refetchInterval: 8_000,
+    retry: 6,
+    retryDelay: (attempt) => Math.min(4_000, 700 * 2 ** attempt),
+    refetchInterval: (q) => (q.state.status === 'error' ? 4_000 : 8_000),
   });
 
   const triggerMut = useMutation({
@@ -137,6 +140,19 @@ export function LivePipelineMonitorPanel() {
   });
 
   const data = query.data;
+  const errorSinceRef = useRef<number | null>(null);
+  if (data?.success) {
+    errorSinceRef.current = null;
+  } else if (query.isError && errorSinceRef.current == null) {
+    errorSinceRef.current = query.errorUpdatedAt || Date.now();
+  }
+  const mode = liveMonitorPanelMode({
+    status: query.status,
+    fetchStatus: query.fetchStatus,
+    hasSuccessData: Boolean(data?.success),
+    errorSince: errorSinceRef.current,
+    now: Date.now(),
+  });
   const fixtures = useMemo(() => {
     const list = data?.fixtures || [];
     if (filter === 'all') return list;
@@ -144,17 +160,25 @@ export function LivePipelineMonitorPanel() {
     return list.filter((f) => f.attention === filter);
   }, [data?.fixtures, filter]);
 
-  if (query.isLoading) {
+  if (!data?.success) {
+    if (mode === 'reconnecting') {
+      return (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+          El radar se reconecta solo después del despliegue. No hace falta recargar.
+        </p>
+      );
+    }
+    if (mode === 'outage') {
+      const detail = query.error instanceof Error ? query.error.message : '';
+      return (
+        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          No se pudo cargar el pipeline Luna
+          {detail ? `: ${detail}` : '.'} Verifica{' '}
+          <code className="text-xs">/api/admin/pronosticos-ia/live-pipeline/monitor</code>.
+        </p>
+      );
+    }
     return <p className="text-sm text-slate-500">Cargando radar de análisis en vivo…</p>;
-  }
-
-  if (query.isError || !data?.success) {
-    return (
-      <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-        No se pudo cargar el pipeline Luna. Verifica{' '}
-        <code className="text-xs">/api/admin/pronosticos-ia/live-pipeline/monitor</code>.
-      </p>
-    );
   }
 
   const pipe = data.pipeline;
@@ -162,6 +186,11 @@ export function LivePipelineMonitorPanel() {
 
   return (
     <div className="space-y-4 rounded-xl border border-white/10 bg-[#111827] p-4">
+      {mode === 'reconnecting' ? (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          Reconectando el radar tras el despliegue. Los partidos de abajo siguen siendo la última lectura.
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-100">Radar análisis en vivo (Luna)</h2>
