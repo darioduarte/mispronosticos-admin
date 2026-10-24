@@ -114,8 +114,8 @@ export function PreMatchRangeProgressModal({
             )}
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Primero arma el cache frío de prompts (H2H/stats) y luego llama a la IA. Puedes salir
-            de esta página: el proceso sigue en el servidor.
+            Por cada partido arma el caché y pide el análisis. Mientras OpenAI responde,
+            arma el caché del siguiente. Puedes salir de esta página: el proceso sigue en el servidor.
             {progress.llmProvider ? ` · proveedor: ${progress.llmProvider}` : ''}
           </p>
         </div>
