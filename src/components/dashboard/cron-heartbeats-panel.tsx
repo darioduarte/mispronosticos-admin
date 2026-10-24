@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchCronHeartbeats, rerunCronJob } from '@/lib/api';
+import { AiPrematchCronProgressModal, AiPrematchStageRail } from '@/components/dashboard/ai-prematch-cron-progress';
 import { toastError, toastSuccess } from '@/lib/admin-toast';
 import type { CronHeartbeatRow, CronSlotStatus, CronTier } from '@/lib/types';
 
@@ -144,25 +145,35 @@ function CronTable({
   );
 }
 
+const PREMATCH_CRON_KEYS = new Set([
+  'ai_analysis_7pm',
+  'ai_analysis_catchup_740pm',
+  'ai_verify_repair_9pm',
+  'ai_verify_repair_11pm',
+]);
+
 export function CronHeartbeatsPanel() {
   const qc = useQueryClient();
   const [tierFilter, setTierFilter] = useState<TierFilter>('all');
   const [onlyAttention, setOnlyAttention] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [launchAtMs, setLaunchAtMs] = useState<number | null>(null);
 
   const query = useQuery({
     queryKey: ['cron-heartbeats'],
     queryFn: fetchCronHeartbeats,
-    refetchInterval: 15_000,
+    refetchInterval: progressOpen ? 2_000 : 15_000,
   });
 
   const rerunMut = useMutation({
     mutationFn: (payload: { jobKey: string; force?: boolean }) =>
       rerunCronJob(payload.jobKey, { force: payload.force }),
-    onSuccess: (res) => {
+    onSuccess: (res, payload) => {
       toastSuccess(
         'Relanzar cron',
         res.message || (res.dispatched ? 'Encolado en el worker' : 'Relanzado'),
       );
+      if (payload.jobKey === 'ai_analysis_7pm') setProgressOpen(true);
       void qc.invalidateQueries({ queryKey: ['cron-heartbeats'] });
     },
     onError: (err) => toastError('Reiniciar cron', err),
@@ -183,6 +194,10 @@ export function CronHeartbeatsPanel() {
             : `El cron «${job.label}» ya corrió hoy. ¿Volver a lanzarlo?`
           : `¿Relanzar «${job.label}» ahora en el worker?`;
     if (!window.confirm(msg)) return;
+    if (PREMATCH_CRON_KEYS.has(job.jobKey)) {
+      setLaunchAtMs(Date.now());
+      setProgressOpen(true);
+    }
     rerunMut.mutate({ jobKey: job.jobKey, force });
   }
 
@@ -223,6 +238,9 @@ export function CronHeartbeatsPanel() {
     process?.progress && process.progress.total
       ? `${process.progress.current ?? 0}/${process.progress.total}`
       : null;
+
+  const processUpdatedMs = process?.lastUpdatedAt ? new Date(process.lastUpdatedAt).getTime() : 0;
+  const waitingForLaunch = launchAtMs != null && processUpdatedMs < launchAtMs - 1500;
 
   if (query.isLoading) {
     return <p className="text-sm text-slate-500">Cargando heartbeats de crons…</p>;
@@ -268,6 +286,16 @@ export function CronHeartbeatsPanel() {
                 {process?.targetDate ? ` (${process.targetDate})` : ''}
               </p>
             </div>
+            <div className="flex flex-wrap gap-2">
+            {process?.status === 'processing' || progressOpen ? (
+              <button
+                type="button"
+                onClick={() => setProgressOpen(true)}
+                className="rounded-lg border border-indigo-400/40 bg-indigo-500/15 px-3 py-2 text-sm font-medium text-indigo-100 hover:bg-indigo-500/25"
+              >
+                Ver progreso
+              </button>
+            ) : null}
             <button
               type="button"
               disabled={rerunMut.isPending}
@@ -284,6 +312,11 @@ export function CronHeartbeatsPanel() {
                   ? 'Liberar y relanzar IA'
                   : rerunButtonLabel(String(aiStatus), true)}
             </button>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <AiPrematchStageRail process={process} />
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -314,19 +347,38 @@ export function CronHeartbeatsPanel() {
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Proceso GPT</p>
               <p className={`text-sm font-medium ${statusCls(process?.status)}`}>
                 {process?.status || 'sin registro'}
+                {process?.phase ? ` · ${process.phase}` : ''}
               </p>
               <p className="text-[11px] text-slate-500">
                 {progressText
                   ? `${progressText}${progressPct != null ? ` (${progressPct}%)` : ''}`
-                  : '—'}
+                  : process?.processed != null || process?.errors != null
+                    ? `GPT ${process.processed ?? 0} · errores ${process.errors ?? 0} · omitidos ${process.skipped ?? 0}`
+                    : '—'}
                 {process?.lastUpdatedAt
                   ? ` · último avance ${formatWhen(process.lastUpdatedAt)}`
                   : ''}
                 {processStale ? ' · colgado' : ''}
               </p>
+              {process?.prepare ? (
+                <p className="text-[11px] text-slate-500">
+                  Promedios {process.prepare.averagesCount ?? '—'}/{process.prepare.fixturesCount ?? '—'}
+                  {process.prepare.averagesRepaired
+                    ? ` · reparados ${process.prepare.averagesRepaired}`
+                    : ''}
+                  {process.prepare.warmRemaining != null
+                    ? ` · contexto pendiente ${process.prepare.warmRemaining}`
+                    : ''}
+                </p>
+              ) : null}
             </div>
           </div>
 
+          {process?.status === 'failed' && (process.errorMessage || process.message) ? (
+            <p className="mt-3 text-xs text-red-300/90">
+              {process.errorMessage || process.message}
+            </p>
+          ) : null}
           {featured.lastError ? (
             <p className="mt-3 text-xs text-red-300/90">{featured.lastError}</p>
           ) : null}
@@ -419,6 +471,14 @@ export function CronHeartbeatsPanel() {
           />
         )}
       </section>
+      {progressOpen ? (
+        <AiPrematchCronProgressModal
+          process={process}
+          label={featured?.label || 'Análisis IA prepartido'}
+          waitingForLaunch={waitingForLaunch}
+          onClose={() => setProgressOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
