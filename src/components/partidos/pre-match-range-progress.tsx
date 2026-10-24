@@ -50,7 +50,8 @@ export function PreMatchRangeProgressModal({
   const busy =
     progress.phase === 'planning' ||
     progress.phase === 'warming' ||
-    progress.phase === 'generating';
+    progress.phase === 'generating' ||
+    progress.phase === 'paused_batch';
 
   useEffect(() => {
     if (!busy) return;
@@ -83,7 +84,7 @@ export function PreMatchRangeProgressModal({
             : progress.phase === 'cancelled'
               ? 'Cancelado'
               : progress.phase === 'paused_batch'
-                ? 'Lote pausado'
+                ? 'Sigue en el worker'
                 : '—';
 
   return (
@@ -134,7 +135,7 @@ export function PreMatchRangeProgressModal({
                         : progress.phase === 'generating'
                           ? 'Prompt y envío'
                           : progress.phase === 'paused_batch'
-                            ? 'Lote pausado'
+                            ? 'Sigue en el worker'
                             : progress.phase === 'done'
                               ? 'Completado'
                               : progress.phase === 'cancelled'
@@ -337,7 +338,7 @@ function PhaseBadge({
         : phase === 'generating'
           ? 'En curso'
           : phase === 'paused_batch'
-            ? 'Lote pausado'
+            ? 'En curso'
             : phase === 'done'
               ? 'Listo'
               : phase === 'cancelled'
@@ -345,10 +346,8 @@ function PhaseBadge({
                 : 'Error';
   const cls = isPausing
     ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
-    : phase === 'planning' || phase === 'warming' || phase === 'generating'
+    : phase === 'planning' || phase === 'warming' || phase === 'generating' || phase === 'paused_batch'
       ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-200'
-      : phase === 'paused_batch'
-        ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
         : phase === 'done'
           ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
           : phase === 'cancelled'
