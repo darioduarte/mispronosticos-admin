@@ -18,6 +18,11 @@ import {
   PreMatchRangeProgressModal,
   type PreMatchRangeProgressState,
 } from '@/components/partidos/pre-match-range-progress';
+import {
+  isPreMatchJobWatching,
+  preMatchJobBanner,
+  showPreMatchProgressChip,
+} from '@/lib/prematch-range-job';
 import { RefereeModal } from '@/components/partidos/referee-modal';
 import {
   SyncRangeProgressModal,
@@ -100,7 +105,7 @@ const DEFAULT_PREMATCH_PAUSE_MS = 15000;
 const PREMATCH_JOB_DISMISSED_KEY = 'partidos.preMatchRangeJob.dismissedId';
 
 function isPreMatchJobActive(phase: PreMatchRangeJob['phase'] | undefined) {
-  return phase === 'planning' || phase === 'warming' || phase === 'generating';
+  return isPreMatchJobWatching(phase);
 }
 
 function jobToPreMatchProgress(job: PreMatchRangeJob): PreMatchRangeProgressState {
@@ -1518,17 +1523,17 @@ export function PartidosView() {
         </p>
       </header>
 
-      {preMatchJob && !preMatchModalOpen && preMatchDismissedId !== preMatchJob.jobId && (
+      {preMatchJob &&
+        showPreMatchProgressChip(
+          preMatchJob.phase,
+          preMatchModalOpen,
+          preMatchDismissedId,
+          preMatchJob.jobId,
+        ) && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3">
           <div>
             <p className="text-sm font-medium text-indigo-100">
-              {isPreMatchJobActive(preMatchJob.phase)
-                ? 'Análisis IA prepartido en segundo plano'
-                : preMatchJob.phase === 'done'
-                  ? 'Análisis IA prepartido finalizado'
-                  : preMatchJob.phase === 'error'
-                    ? 'Análisis IA prepartido con error'
-                    : 'Análisis IA prepartido cancelado'}
+              {preMatchJobBanner(preMatchJob.phase)}
             </p>
             <p className="mt-0.5 text-xs text-indigo-200/70">
               {preMatchJob.desde} → {preMatchJob.hasta}
@@ -1773,7 +1778,13 @@ export function PartidosView() {
             >
               {preMatchBusy ? 'Generando IA en segundo plano…' : 'Generar IA prepartido (rango)'}
             </button>
-            {preMatchJob && !preMatchModalOpen && preMatchDismissedId !== preMatchJob.jobId && (
+            {preMatchJob &&
+              showPreMatchProgressChip(
+                preMatchJob.phase,
+                preMatchModalOpen,
+                preMatchDismissedId,
+                preMatchJob.jobId,
+              ) && (
               <button
                 type="button"
                 onClick={() => setPreMatchModalOpen(true)}
