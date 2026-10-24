@@ -24,6 +24,11 @@ export function preMatchJobBanner(phase: PrematchRangePhase | undefined) {
   return 'Análisis IA prepartido cancelado';
 }
 
+/** Mientras el rango sigue, la ventana vuelve a abrirse aunque se haya minimizado. */
+export function shouldAutoOpenPreMatchModal(phase: PrematchRangePhase | undefined) {
+  return isPreMatchJobWatching(phase);
+}
+
 export function showPreMatchProgressChip(
   phase: PrematchRangePhase | undefined,
   modalOpen: boolean,
