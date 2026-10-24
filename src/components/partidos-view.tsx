@@ -21,6 +21,7 @@ import {
 import {
   isPreMatchJobWatching,
   preMatchJobBanner,
+  shouldAutoOpenPreMatchModal,
   showPreMatchProgressChip,
 } from '@/lib/prematch-range-job';
 import { RefereeModal } from '@/components/partidos/referee-modal';
@@ -317,19 +318,20 @@ export function PartidosView() {
   }, []);
 
   useEffect(() => {
-    if (!preMatchJob || !isPreMatchJobActive(preMatchJob.phase)) return;
     const id = window.setInterval(() => {
       void (async () => {
         try {
           const data = await fetchPreMatchRangeJob();
-          applyPreMatchJob(data.job, false);
+          applyPreMatchJob(data.job, shouldAutoOpenPreMatchModal(data.job?.phase));
         } catch {
           /* poll silencioso */
         }
       })();
     }, 2000);
     return () => window.clearInterval(id);
-  }, [preMatchJob?.jobId, preMatchJob?.phase]);
+    // El rango puede aparecer después de abrir Partidos; si sigue activo, la ventana vuelve.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- poll fijo cada 2s
+  }, []);
 
   useEffect(() => {
     if (!preMatchJob) return;

@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   isPreMatchJobWatching,
   preMatchJobBanner,
+  shouldAutoOpenPreMatchModal,
   showPreMatchProgressChip,
 } from './prematch-range-job';
 
@@ -13,6 +14,13 @@ describe('ventana del rango prepartido', () => {
     assert.equal(isPreMatchJobWatching('done'), false);
     assert.equal(preMatchJobBanner('paused_batch'), 'Análisis IA prepartido en segundo plano');
     assert.equal(preMatchJobBanner('cancelled'), 'Análisis IA prepartido cancelado');
+  });
+
+  it('el rango en curso vuelve a abrir la ventana', () => {
+    assert.equal(shouldAutoOpenPreMatchModal('generating'), true);
+    assert.equal(shouldAutoOpenPreMatchModal('paused_batch'), true);
+    assert.equal(shouldAutoOpenPreMatchModal('done'), false);
+    assert.equal(shouldAutoOpenPreMatchModal('cancelled'), false);
   });
 
   it('cerrar un lote pausado no esconde el acceso al progreso', () => {
