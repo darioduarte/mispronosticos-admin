@@ -114,8 +114,8 @@ export function PreMatchRangeProgressModal({
             )}
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Por cada partido arma el caché y pide el análisis. Mientras OpenAI responde,
-            arma el caché del siguiente. Puedes salir de esta página: el proceso sigue en el servidor.
+            Un partido a la vez: arma su prompt, lo envía y guarda el análisis. Después sigue el
+            siguiente. Puedes salir de esta página: el proceso sigue en el servidor.
             {progress.llmProvider ? ` · proveedor: ${progress.llmProvider}` : ''}
           </p>
         </div>
@@ -132,7 +132,7 @@ export function PreMatchRangeProgressModal({
                       : progress.phase === 'warming'
                         ? 'Armando cache de prompts'
                         : progress.phase === 'generating'
-                          ? 'Generando con IA'
+                          ? 'Prompt y envío'
                           : progress.phase === 'paused_batch'
                             ? 'Lote pausado'
                             : progress.phase === 'done'

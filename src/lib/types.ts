@@ -673,6 +673,22 @@ export type AiPrematchProcessStatus = {
   errors?: number | null;
   total?: number | null;
   source?: string | null;
+  phase?: string | null;
+  step?: string | null;
+  runStartedAt?: string | null;
+  message?: string | null;
+  errorMessage?: string | null;
+  prepare?: {
+    fixturesCount?: number;
+    averagesCount?: number;
+    averagesSummary?: string | null;
+    averagesRepaired?: number;
+    averagesFailed?: number;
+    warmRemaining?: number | null;
+    warmHits?: number;
+    warmBuilt?: number;
+    warmFailed?: number;
+  } | null;
   minutesSinceUpdate?: number | null;
   stale?: boolean;
   error?: string;
@@ -2113,6 +2129,46 @@ export type DashboardActividadResponse = {
   success: boolean;
   generatedAt: string;
   actividad: DashboardActividadHoy;
+  error?: string;
+};
+
+export type ProviderUsageTotals = {
+  apiFootball: number;
+  flb: number;
+  erroresApiFootball: number;
+  erroresFlb: number;
+};
+
+export type ProviderUsageDay = {
+  fecha: string;
+  apiFootball: number;
+  flb: number;
+  erroresApiFootball: number;
+  erroresFlb: number;
+};
+
+export type ProviderUsageEndpoint = {
+  provider: 'api_football' | 'flb';
+  endpoint: string;
+  peticiones: number;
+  errores: number;
+};
+
+export type ProviderRequestsReport = {
+  success: boolean;
+  available: boolean;
+  timezone: string;
+  today: string;
+  month: string;
+  desde: string;
+  hasta: string;
+  generatedAt: string;
+  message?: string;
+  hoy: ProviderUsageTotals;
+  mes: ProviderUsageTotals;
+  diario: ProviderUsageDay[];
+  endpointsHoy: ProviderUsageEndpoint[];
+  endpointsMes: ProviderUsageEndpoint[];
   error?: string;
 };
 
