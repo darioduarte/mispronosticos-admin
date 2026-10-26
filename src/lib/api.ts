@@ -99,6 +99,7 @@ import type {
   CronHeartbeatsResponse,
   CronRerunResponse,
   LivePipelineMonitorResponse,
+  PrematchPipelineMonitorResponse,
   RuntimeSettingsSnapshot,
   StoriesListResponse,
   StoryDetailResponse,
@@ -1460,6 +1461,13 @@ export function rerunCronJob(jobKey: string, options: { force?: boolean; targetD
 export function fetchLivePipelineMonitor() {
   return adminFetch<LivePipelineMonitorResponse>(
     '/api/admin/pronosticos-ia/live-pipeline/monitor',
+  );
+}
+
+export function fetchPrematchPipelineMonitor(date: string) {
+  const qs = new URLSearchParams({ date });
+  return adminFetch<PrematchPipelineMonitorResponse>(
+    `/api/admin/pronosticos-ia/prematch-pipeline/monitor?${qs}`,
   );
 }
 

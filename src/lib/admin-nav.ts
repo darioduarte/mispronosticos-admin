@@ -16,6 +16,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Operación en vivo',
     items: [
       { href: '/control-analisis-vivo', label: 'Control de análisis en vivo' },
+      { href: '/control-analisis-prepartido', label: 'Control de análisis prepartido' },
       { href: '/control-crons', label: 'Control de crons' },
       { href: '/parametros-en-vivo', label: 'Parámetros en vivo' },
     ],

@@ -623,6 +623,96 @@ export type LivePipelineMonitorResponse = {
   error?: string;
 };
 
+export type PrematchCheckState = 'ok' | 'pending' | 'missing';
+
+export type PrematchPipelineCheck = {
+  key: string;
+  label: string;
+  severity: 'critical' | 'warn' | string;
+  state: PrematchCheckState;
+  detail: string;
+};
+
+export type PrematchPipelineFixture = {
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  leagueId?: string | null;
+  kickoff?: string | null;
+  status: string;
+  referee?: string | null;
+  injuries: number;
+  oddsRows: number;
+  h2hBetween?: number | null;
+  homeHistory?: number | null;
+  awayHistory?: number | null;
+  checks: PrematchPipelineCheck[];
+  attention: 'critical' | 'warn' | 'ok';
+  reason: string;
+  detail: string;
+};
+
+export type PrematchPipelineStage = {
+  jobKey: string;
+  label: string;
+  at: string;
+  todaySlotStatus?: string | null;
+  lastStatus?: string | null;
+  lastSuccessAt?: string | null;
+  lastStartedAt?: string | null;
+  lastError?: string | null;
+};
+
+export type PrematchPipelineMonitorResponse = {
+  success: boolean;
+  generatedAt?: string;
+  timezone?: string;
+  date?: string;
+  today?: string;
+  tomorrow?: string;
+  relation?: 'today' | 'tomorrow' | 'past' | 'future' | string;
+  phase?: { key: string; label: string };
+  note?: string | null;
+  storiesCount?: number;
+  counts?: {
+    total: number;
+    active?: number;
+    critical?: number;
+    warn?: number;
+    ok?: number;
+    withAverages?: number;
+    withAnalysis?: number;
+    withPrompt?: number;
+    withReferee?: number;
+    withH2h?: number;
+    withColdCache?: number;
+  };
+  stages?: PrematchPipelineStage[];
+  analysisRun?: {
+    status?: string | null;
+    phase?: string | null;
+    step?: string | null;
+    message?: string | null;
+    progress?: { current?: number; total?: number; percentage?: number } | null;
+    processed?: number | null;
+    skipped?: number | null;
+    errors?: number | null;
+    source?: string | null;
+    runner?: string | null;
+    startedAt?: string | null;
+    completedAt?: string | null;
+    errorMessage?: string | null;
+    prepare?: {
+      fixturesCount?: number;
+      averagesCount?: number;
+      averagesSummary?: string | null;
+    } | null;
+  };
+  fixtures?: PrematchPipelineFixture[];
+  error?: string;
+};
+
 export type CronSlotStatus =
   | 'pending'
   | 'waiting'
