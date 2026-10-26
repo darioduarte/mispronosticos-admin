@@ -29,6 +29,14 @@ describe('filterNavGroups', () => {
   it('no devuelve grupos sin coincidencias', () => {
     assert.deepEqual(filterNavGroups(NAV_GROUPS, 'zzzz-no-existe'), []);
   });
+
+  it('encuentra el control prepartido junto al de análisis en vivo', () => {
+    const found = filterNavGroups(NAV_GROUPS, 'prepartido');
+    assert.deepEqual(
+      found.map((group) => group.items.map((item) => item.href)),
+      [['/control-analisis-prepartido']],
+    );
+  });
 });
 
 describe('activeNavGroupId', () => {
