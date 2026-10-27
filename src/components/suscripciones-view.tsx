@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { StorePaymentSyncPanel } from '@/components/suscripciones/store-payment-sync-panel';
 import { SuscripcionModal } from '@/components/suscripciones/suscripcion-modal';
 import { fetchSuscripcionProductos, fetchSuscripciones } from '@/lib/api';
 import type { SuscripcionRow } from '@/lib/types';
@@ -130,6 +131,8 @@ export function SuscripcionesView() {
           + Nueva suscripción
         </button>
       </header>
+
+      <StorePaymentSyncPanel />
 
       <section className="mb-4 rounded-xl border border-white/10 bg-[#111827] p-4">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">

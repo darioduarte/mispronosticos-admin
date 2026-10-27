@@ -2176,6 +2176,57 @@ export type RenewalSyncPayload = {
   allowCreate?: boolean;
 };
 
+export type StorePaymentSyncAction =
+  | 'would_create'
+  | 'created'
+  | 'would_extend'
+  | 'extended'
+  | 'unchanged'
+  | 'sin_usuario'
+  | 'conflicto_usuario'
+  | 'skip'
+  | 'error';
+
+export type StorePaymentSyncItem = {
+  action: StorePaymentSyncAction;
+  store: 'android' | 'ios';
+  reason: string;
+  orderId: string | null;
+  productId: string | null;
+  userId: string | null;
+  userEmail: string | null;
+  userName: string | null;
+  start: string | null;
+  end: string | null;
+  linkedBy: 'cuenta_tienda' | 'suscripcion_existente' | null;
+  acknowledged: boolean;
+};
+
+export type StorePaymentSyncResponse = {
+  success: boolean;
+  dryRun: boolean;
+  date: string;
+  timezone: string;
+  window: { start: string; end: string };
+  scanned: { google: number; prepaid: number; apple: number };
+  truncated: boolean;
+  summary: {
+    wouldCreate: number;
+    created: number;
+    wouldExtend: number;
+    extended: number;
+    unchanged: number;
+    sinUsuario: number;
+    conflicto: number;
+    skipped: number;
+    errors: number;
+    acknowledged: number;
+  };
+  items: StorePaymentSyncItem[];
+  nota: string;
+  error?: string;
+};
+
 export type DashboardPlatformCounts = {
   ios: number;
   android: number;

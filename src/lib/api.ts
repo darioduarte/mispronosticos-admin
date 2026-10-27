@@ -71,6 +71,7 @@ import type {
   PaymentWebhookActionResponse,
   RenewalSyncPayload,
   RenewalSyncResponse,
+  StorePaymentSyncResponse,
   DashboardSummary,
   DashboardActividadResponse,
   LigaDetailResponse,
@@ -1370,6 +1371,16 @@ export function resolvePaymentError(
       body: JSON.stringify(payload),
     },
   );
+}
+
+export function syncStorePaymentsByDate(payload: { date: string; dryRun?: boolean }) {
+  return adminFetch<StorePaymentSyncResponse>('/api/admin/suscripciones/sync-store-day', {
+    method: 'POST',
+    body: JSON.stringify({
+      date: payload.date,
+      dryRun: payload.dryRun !== false,
+    }),
+  });
 }
 
 export function syncSuscripcionRenewals(payload: RenewalSyncPayload = {}) {
