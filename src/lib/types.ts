@@ -1885,6 +1885,39 @@ export type SuscripcionesResponse = {
   error?: string;
 };
 
+export type SuscripcionRenovacionFila = {
+  id: string;
+  current: boolean;
+  role: 'alta' | 'renovacion';
+  orderId: string | null;
+  productId: string | null;
+  start: string | null;
+  end: string | null;
+  isCancelled: boolean;
+};
+
+export type SuscripcionRenovacionAviso = {
+  at: string | null;
+  store: 'android' | 'ios';
+  label: string;
+  status: string | null;
+  orderId: string | null;
+};
+
+export type SuscripcionRenovacionesResponse = {
+  success: boolean;
+  id: string;
+  userEmail: string | null;
+  userName: string | null;
+  productId: string | null;
+  app: string | null;
+  rows: SuscripcionRenovacionFila[];
+  avisos: SuscripcionRenovacionAviso[];
+  truncated: boolean;
+  nota: string;
+  error?: string;
+};
+
 export type SuscripcionProductosResponse = {
   success: boolean;
   data: { android: string[]; ios: string[] };

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { StorePaymentSyncPanel } from '@/components/suscripciones/store-payment-sync-panel';
 import { SuscripcionModal } from '@/components/suscripciones/suscripcion-modal';
+import { SuscripcionRenovacionesModal } from '@/components/suscripciones/suscripcion-renovaciones-modal';
 import { fetchSuscripcionProductos, fetchSuscripciones } from '@/lib/api';
 import type { SuscripcionRow } from '@/lib/types';
 
@@ -60,6 +61,7 @@ export function SuscripcionesView() {
     estado: 'todas',
     plan: 'todas',
   });
+  const [history, setHistory] = useState<SuscripcionRow | null>(null);
   const [modal, setModal] = useState<{ mode: 'create' | 'edit'; row: SuscripcionRow | null } | null>(
     null,
   );
@@ -254,7 +256,11 @@ export function SuscripcionesView() {
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-white/[0.02]">
+                  <tr
+                    key={row.id}
+                    onClick={() => setHistory(row)}
+                    className="cursor-pointer hover:bg-white/[0.04]"
+                  >
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-200">{row.userEmail || '—'}</div>
                       <div className="text-xs text-slate-500">{row.userName || row.userId}</div>
@@ -282,7 +288,10 @@ export function SuscripcionesView() {
                     <td className="px-4 py-3">
                       <button
                         type="button"
-                        onClick={() => setModal({ mode: 'edit', row })}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setModal({ mode: 'edit', row });
+                        }}
                         className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-indigo-300 hover:bg-indigo-600/10"
                       >
                         Editar
@@ -296,6 +305,7 @@ export function SuscripcionesView() {
         </div>
       )}
 
+      <SuscripcionRenovacionesModal row={history} onClose={() => setHistory(null)} />
       <SuscripcionModal
         open={!!modal}
         mode={modal?.mode ?? 'create'}
