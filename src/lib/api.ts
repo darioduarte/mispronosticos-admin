@@ -1373,12 +1373,19 @@ export function resolvePaymentError(
   );
 }
 
-export function syncStorePaymentsByDate(payload: { date: string; dryRun?: boolean }) {
+export function syncStorePaymentsByDate(payload: {
+  date: string;
+  dryRun?: boolean;
+  scope?: 'all' | 'create' | 'renew';
+  selection?: { store: 'android' | 'ios'; orderId: string }[];
+}) {
   return adminFetch<StorePaymentSyncResponse>('/api/admin/suscripciones/sync-store-day', {
     method: 'POST',
     body: JSON.stringify({
       date: payload.date,
       dryRun: payload.dryRun !== false,
+      ...(payload.scope ? { scope: payload.scope } : {}),
+      ...(payload.selection ? { selection: payload.selection } : {}),
     }),
   });
 }
