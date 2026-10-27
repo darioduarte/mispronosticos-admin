@@ -56,6 +56,7 @@ import type {
   SyncStatsPlanResponse,
   SyncStatsResponse,
   SuscripcionesResponse,
+  SuscripcionRenovacionesResponse,
   SuscripcionProductosResponse,
   SuscripcionSavePayload,
   SuscripcionMutationResponse,
@@ -1255,6 +1256,13 @@ export function fetchSuscripciones(params: {
   if (params.offset) qs.set('offset', String(params.offset));
   return adminFetch<SuscripcionesResponse>(`/api/admin/suscripciones?${qs}`);
 }
+
+export function fetchSuscripcionRenovaciones(id: string) {
+  return adminFetch<SuscripcionRenovacionesResponse>(
+    `/api/admin/suscripciones/${encodeURIComponent(id)}/renovaciones`,
+  );
+}
+
 
 export function createSuscripcion(payload: SuscripcionSavePayload) {
   return adminFetch<SuscripcionMutationResponse>('/api/admin/suscripciones', {
