@@ -2202,9 +2202,12 @@ export type StorePaymentSyncItem = {
   acknowledged: boolean;
 };
 
+export type StorePaymentSyncScope = 'all' | 'create' | 'renew';
+
 export type StorePaymentSyncResponse = {
   success: boolean;
   dryRun: boolean;
+  scope?: StorePaymentSyncScope;
   date: string;
   timezone: string;
   window: { start: string; end: string };
