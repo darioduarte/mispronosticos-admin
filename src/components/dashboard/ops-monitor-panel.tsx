@@ -30,6 +30,19 @@ function OnOffBadge({ on }: { on: boolean }) {
   );
 }
 
+function msLabel(ms: number | null | undefined) {
+  if (ms == null) return '—';
+  if (ms >= 1000) return `${(ms / 1000).toFixed(1)} s`;
+  return `${ms} ms`;
+}
+
+function pathTone(row: NonNullable<OpsSnapshot['clientPaths']>[number]) {
+  if (!row.samples) return 'text-slate-500';
+  if (row.slowCount > 0 || (row.p95Ms ?? 0) >= row.slowMs) return 'text-red-300';
+  if ((row.p95Ms ?? 0) >= 800) return 'text-amber-300';
+  return 'text-emerald-300';
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-white/10 bg-[#111827] p-4">
@@ -192,6 +205,63 @@ export function OpsMonitorPanel() {
           )}
         </div>
       )}
+
+      <Section title="Latencia por pantalla · últimos 15 min">
+        <p className="mb-3 text-xs text-slate-500">
+          Tiempo del servidor al armar la respuesta. Lenta = más de 1,5 s. Si una fila se pone roja
+          mientras un cron sigue en curso, el cuello es MySQL compartido, no la CPU del API.
+        </p>
+        {!data.clientPaths?.length ? (
+          <p className="text-sm text-slate-500">
+            El backend todavía no envía esta latencia. Aparece al desplegar la medición.
+          </p>
+        ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-[10px] uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="py-1 pr-3 font-medium">Pantalla</th>
+                <th className="py-1 pr-3 font-medium">Última</th>
+                <th className="py-1 pr-3 font-medium">p95</th>
+                <th className="py-1 pr-3 font-medium">Lentas</th>
+                <th className="py-1 pr-3 font-medium">Caché ocupada</th>
+                <th className="py-1 font-medium">Errores</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.clientPaths || []).map((row) => (
+                <tr key={row.id} className="border-t border-white/5">
+                  <td className="py-2 pr-3 text-slate-200">
+                    {row.label}
+                    <span className="ml-2 text-[10px] text-slate-500">{row.samples} lecturas</span>
+                  </td>
+                  <td className={`py-2 pr-3 ${pathTone(row)}`}>{msLabel(row.lastMs)}</td>
+                  <td className={`py-2 pr-3 ${pathTone(row)}`}>{msLabel(row.p95Ms)}</td>
+                  <td className="py-2 pr-3 text-slate-300">
+                    {row.slowCount}
+                    {row.lastSlowMs != null && (
+                      <span className="ml-1 text-[10px] text-slate-500">
+                        última {msLabel(row.lastSlowMs)}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 pr-3 text-slate-300">{row.staleCount}</td>
+                  <td className="py-2 text-slate-300">{row.errorCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        )}
+        {Object.keys(data.jobsRunning || {}).length > 0 && (
+          <p className="mt-3 text-xs text-amber-300">
+            Trabajos en curso:{' '}
+            {Object.entries(data.jobsRunning || {})
+              .map(([name, job]) => `${name} (${msLabel(job.runningMs)})`)
+              .join(' · ')}
+          </p>
+        )}
+      </Section>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {kpis.map((k) => (

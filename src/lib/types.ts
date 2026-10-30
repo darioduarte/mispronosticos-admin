@@ -2538,6 +2538,21 @@ export type OpsSnapshot = {
   };
   slowJobsRanked?: { name: string; lastMs: number; lastRunAt?: string | null; skipped?: boolean; ok?: boolean }[];
   recommendations?: string[];
+  clientPaths?: {
+    id: string;
+    label: string;
+    windowMin: number;
+    slowMs: number;
+    samples: number;
+    lastMs: number | null;
+    p95Ms: number | null;
+    slowCount: number;
+    staleCount: number;
+    errorCount: number;
+    cacheCount: number;
+    lastSlowAt: string | null;
+    lastSlowMs: number | null;
+  }[];
   clientImpact?: {
     summary?: string;
     note?: string;
