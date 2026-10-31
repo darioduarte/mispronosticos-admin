@@ -1852,6 +1852,7 @@ export type SuscripcionRow = {
   productId: string | null;
   environment: string | null;
   orig_tx_id: string | null;
+  orderId?: string | null;
   startDate: string | null;
   endDate: string | null;
   startDateDisplay: string | null;

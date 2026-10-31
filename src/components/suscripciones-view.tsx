@@ -154,7 +154,7 @@ export function SuscripcionesView() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="email, nombre, userId, token…"
+              placeholder="email, nombre, userId, token, GPA…"
               className="w-full rounded-lg border border-white/10 bg-[#0b0f14] px-3 py-2 text-sm text-slate-200"
             />
           </label>
@@ -264,6 +264,9 @@ export function SuscripcionesView() {
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-200">{row.userEmail || '—'}</div>
                       <div className="text-xs text-slate-500">{row.userName || row.userId}</div>
+                      {row.orderId ? (
+                        <div className="text-xs text-slate-500">{row.orderId}</div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-slate-300">
                       {row.productId || '—'}
