@@ -3005,6 +3005,89 @@ export type LegalDocumentsResponse = {
   };
 };
 
+export type AverageSide = 'local' | 'visitante' | 'ambos' | 'cualquiera';
+export type AverageOp = 'gte' | 'lte' | 'gt' | 'lt';
+
+export type AverageFilter = {
+  metric: string;
+  side: AverageSide;
+  op: AverageOp;
+  value: number;
+};
+
+export type AveragePair = {
+  local: number | null;
+  visitante: number | null;
+};
+
+export type AverageMetric = {
+  key: string;
+  label: string;
+};
+
+export type AverageMatch = {
+  fixtureid: number | string;
+  fixturedate: string | null;
+  fechaDisplay: string;
+  liga: string;
+  pais: string;
+  local: string;
+  visitante: string;
+  estado: string;
+  marcador: string;
+  promedios: Record<string, AveragePair>;
+};
+
+export type AverageFilterResponse = {
+  success: boolean;
+  fecha: string;
+  total: number;
+  totalDia?: number;
+  metricas: AverageMetric[];
+  data: AverageMatch[];
+  error?: string;
+};
+
+export type PreviousRedPlayer = {
+  nombre: string;
+  minuto: string | null;
+};
+
+export type PreviousRedSide = {
+  fixtureid: number | string;
+  fechaDisplay: string;
+  rival: string;
+  condicion: 'local' | 'visitante';
+  marcador: string;
+  liga: string;
+  rojas: number;
+  jugadores: PreviousRedPlayer[];
+  fuente: 'events' | 'stats' | 'none';
+};
+
+export type PreviousRedMatch = {
+  fixtureid: number | string;
+  fixturedate: string | null;
+  fechaDisplay: string;
+  liga: string;
+  pais: string;
+  local: string;
+  visitante: string;
+  estado: string;
+  marcador: string;
+  localPrevio: PreviousRedSide;
+  visitantePrevio: PreviousRedSide;
+};
+
+export type PreviousRedCardsResponse = {
+  success: boolean;
+  fecha: string;
+  revisados: number;
+  total: number;
+  data: PreviousRedMatch[];
+  error?: string;
+};
+
 export type SellerTermsAuditAcceptance = {
   id?: string;
   acceptedAt?: string | null;
