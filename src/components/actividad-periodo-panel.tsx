@@ -26,6 +26,33 @@ function shiftDays(isoDate: string, days: number) {
   return dt.toISOString().slice(0, 10);
 }
 
+function PlatformCells({
+  ios,
+  android,
+  total,
+  emphasize = false,
+}: {
+  ios: number | null;
+  android: number | null;
+  total: number;
+  emphasize?: boolean;
+}) {
+  const weight = emphasize ? 'font-semibold' : 'font-medium';
+  return (
+    <>
+      <td className={`py-2.5 text-right tabular-nums ${weight} ${ios == null ? 'text-slate-600' : 'text-sky-400'}`}>
+        {ios == null ? '—' : fmt(ios)}
+      </td>
+      <td className={`py-2.5 text-right tabular-nums ${weight} ${android == null ? 'text-slate-600' : 'text-emerald-400'}`}>
+        {android == null ? '—' : fmt(android)}
+      </td>
+      <td className={`py-2.5 text-right tabular-nums ${emphasize ? 'font-semibold text-white' : 'text-slate-200'}`}>
+        {fmt(total)}
+      </td>
+    </>
+  );
+}
+
 function ActividadTable({ actividad }: { actividad: DashboardActividadHoy }) {
   const totalLabel = actividad.esUnDia === false ? 'Total período' : 'Total día';
   const title =
@@ -39,21 +66,21 @@ function ActividadTable({ actividad }: { actividad: DashboardActividadHoy }) {
       ios: actividad.compras.ios,
       android: actividad.compras.android,
       total: actividad.compras.total,
-      cls: 'text-emerald-300',
+      emphasize: false,
     },
     {
       label: 'Renovaciones',
       ios: actividad.renovaciones.ios,
       android: actividad.renovaciones.android,
       total: actividad.renovaciones.total,
-      cls: 'text-sky-300',
+      emphasize: false,
     },
     {
       label: totalLabel,
       ios: actividad.total.ios,
       android: actividad.total.android,
       total: actividad.total.all,
-      cls: 'text-white font-semibold',
+      emphasize: true,
     },
   ];
 
@@ -84,10 +111,15 @@ function ActividadTable({ actividad }: { actividad: DashboardActividadHoy }) {
           <tbody className="divide-y divide-white/5">
             {rows.map((row) => (
               <tr key={row.label}>
-                <td className="py-2.5 text-slate-300">{row.label}</td>
-                <td className={`py-2.5 text-right ${row.cls}`}>{fmt(row.ios)}</td>
-                <td className={`py-2.5 text-right ${row.cls}`}>{fmt(row.android)}</td>
-                <td className={`py-2.5 text-right ${row.cls}`}>{fmt(row.total)}</td>
+                <td className={`py-2.5 text-slate-300 ${row.emphasize ? 'font-semibold text-white' : ''}`}>
+                  {row.label}
+                </td>
+                <PlatformCells
+                  ios={row.ios}
+                  android={row.android}
+                  total={row.total}
+                  emphasize={row.emphasize}
+                />
               </tr>
             ))}
           </tbody>
@@ -112,15 +144,13 @@ function UsuariosPeriodoTable({ actividad }: { actividad: DashboardActividadHoy 
       android: registros.android,
       total: registros.total,
       extra: registros.otro ? ` · otros ${fmt(registros.otro)}` : '',
-      cls: 'text-amber-300',
     },
     {
       label: 'Inicios de sesión',
-      ios: null,
-      android: null,
+      ios: null as number | null,
+      android: null as number | null,
       total: actividad.iniciosSesion ?? 0,
       extra: '',
-      cls: 'text-slate-200',
     },
   ];
 
@@ -155,13 +185,7 @@ function UsuariosPeriodoTable({ actividad }: { actividad: DashboardActividadHoy 
                   {row.label}
                   {row.extra ? <span className="text-xs text-slate-500">{row.extra}</span> : null}
                 </td>
-                <td className={`py-2.5 text-right ${row.cls}`}>
-                  {row.ios == null ? '—' : fmt(row.ios)}
-                </td>
-                <td className={`py-2.5 text-right ${row.cls}`}>
-                  {row.android == null ? '—' : fmt(row.android)}
-                </td>
-                <td className={`py-2.5 text-right ${row.cls}`}>{fmt(row.total)}</td>
+                <PlatformCells ios={row.ios} android={row.android} total={row.total} />
               </tr>
             ))}
           </tbody>
