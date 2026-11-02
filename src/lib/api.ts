@@ -127,6 +127,8 @@ import type {
   LegalDocumentsResponse,
   LegalDocumentRow,
   SellerTermsAuditResponse,
+  PreviousRedCardsResponse,
+  AverageFilterResponse,
 } from './types';
 import type { ConnectionProbe, LoginDiagnostic } from './login-diagnostics';
 
@@ -2151,4 +2153,14 @@ export function fetchSellerTermsAudit(params?: {
   if (params?.limit != null) qs.set('limit', String(params.limit));
   const suffix = qs.toString() ? `?${qs}` : '';
   return adminFetch<SellerTermsAuditResponse>(`${LEGAL}/audit/seller-terms${suffix}`);
+}
+
+export function fetchRojasPrevias(fecha: string) {
+  const qs = new URLSearchParams({ fecha });
+  return adminFetch<PreviousRedCardsResponse>(`/api/admin/rojas-previas?${qs}`);
+}
+
+export function fetchFiltroPromedios(fecha: string) {
+  const qs = new URLSearchParams({ fecha });
+  return adminFetch<AverageFilterResponse>(`/api/admin/filtro-promedios?${qs}`);
 }

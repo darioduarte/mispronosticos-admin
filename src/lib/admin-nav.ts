@@ -26,6 +26,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Datos y partidos',
     items: [
       { href: '/partidos', label: 'Partidos' },
+      { href: '/rojas-previas', label: 'Rojas partido anterior' },
+      { href: '/filtro-promedios', label: 'Filtro de promedios' },
       { href: '/historias', label: 'Historias' },
       { href: '/ligas', label: 'Ligas' },
       { href: '/estadisticas-ligas-destacadas', label: 'Estadísticas ligas destacadas' },
