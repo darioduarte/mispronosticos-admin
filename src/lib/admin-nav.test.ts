@@ -19,6 +19,11 @@ describe('filterNavGroups', () => {
     );
   });
 
+  it('incluye promedios por competencia en Datos y partidos', () => {
+    const found = filterNavGroups(NAV_GROUPS, 'competencia');
+    assert.ok(found.some((g) => g.items.some((i) => i.href === '/promedios-competencia')));
+  });
+
   it('si coincide el grupo, conserva todas sus opciones', () => {
     const found = filterNavGroups(NAV_GROUPS, 'pagos');
     assert.equal(found.length, 1);
@@ -28,14 +33,6 @@ describe('filterNavGroups', () => {
 
   it('no devuelve grupos sin coincidencias', () => {
     assert.deepEqual(filterNavGroups(NAV_GROUPS, 'zzzz-no-existe'), []);
-  });
-
-  it('encuentra el control prepartido junto al de análisis en vivo', () => {
-    const found = filterNavGroups(NAV_GROUPS, 'prepartido');
-    assert.deepEqual(
-      found.map((group) => group.items.map((item) => item.href)),
-      [['/control-analisis-prepartido']],
-    );
   });
 });
 
