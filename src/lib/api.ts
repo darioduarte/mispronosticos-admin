@@ -919,8 +919,13 @@ export function fetchPartidoPromedios(fixtureId: number) {
   );
 }
 
-export function fetchPartidoPromediosMuestra(fixtureId: number, metric: string) {
+export function fetchPartidoPromediosMuestra(
+  fixtureId: number,
+  metric: string,
+  options: { scope?: 'normal' | 'competition' } = {},
+) {
   const qs = new URLSearchParams({ metric });
+  if (options.scope) qs.set('scope', options.scope);
   return adminFetch<PromediosMuestraResponse>(
     `/api/admin/partidos/fixtures/${fixtureId}/promedios/muestra?${qs}`,
   );
@@ -1134,6 +1139,7 @@ export function fetchLigas(params: {
   outstanding?: string;
   active?: string;
   lock?: string;
+  competitionAverages?: string;
   limit?: number;
   offset?: number;
 }) {
@@ -1143,6 +1149,7 @@ export function fetchLigas(params: {
   if (params.outstanding) qs.set('outstanding', params.outstanding);
   if (params.active) qs.set('active', params.active);
   if (params.lock) qs.set('lock', params.lock);
+  if (params.competitionAverages) qs.set('competitionAverages', params.competitionAverages);
   if (params.limit) qs.set('limit', String(params.limit));
   if (params.offset) qs.set('offset', String(params.offset));
   return adminFetch<LigasResponse>(`/api/admin/ligas?${qs}`);

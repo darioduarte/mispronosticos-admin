@@ -1296,6 +1296,22 @@ export type PromedioMetricRow = {
   aligned: boolean;
 };
 
+export type PromediosCompetitionBlock = {
+  enabled: boolean;
+  hasStored?: boolean;
+  leagueid?: string | null;
+  sampleCountHome?: number | null;
+  sampleCountAway?: number | null;
+  storedAt?: string | null;
+  metrics?: PromedioMetricRow[];
+  metricCount?: number;
+  fuente?: {
+    resumen: string;
+    tablas: string[];
+    muestraRegla: string;
+  };
+};
+
 export type PromediosSummaryResponse = {
   success: boolean;
   found?: boolean;
@@ -1307,11 +1323,13 @@ export type PromediosSummaryResponse = {
     teamshomeid: number;
     teamsawayid: number;
     liga?: string;
+    leagueid?: string | null;
   };
   procedure?: string;
   storedAt?: string | null;
   hasStored?: boolean;
   metrics?: PromedioMetricRow[];
+  competition?: PromediosCompetitionBlock;
   fuente?: {
     resumen: string;
     tablas: string[];
@@ -1461,6 +1479,14 @@ export type PromediosRecalculateResponse = {
   created?: boolean;
   date?: string;
   metricsCount?: number;
+  competition?: {
+    written?: boolean;
+    skipped?: boolean;
+    sampleCountHome?: number | null;
+    sampleCountAway?: number | null;
+    metricsCount?: number;
+    error?: string;
+  };
   integrity?: {
     fixturesTouched?: string[];
     removedTeams?: number;
@@ -1476,7 +1502,8 @@ export type PromediosRecalcPlanFixture = {
   homeTeam: string;
   awayTeam: string;
   league: string;
-  reason: 'sin_registro' | 'metricas_desactualizadas';
+  reason: 'sin_registro' | 'metricas_desactualizadas' | 'sin_competition';
+  competitionEnabled?: boolean;
 };
 
 export type PromediosRecalcPlanResponse = {
@@ -1555,6 +1582,7 @@ export type LigaRow = {
   outstanding: boolean;
   trusPrediction: boolean;
   lock: boolean;
+  competitionAverages: boolean;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -1592,6 +1620,7 @@ export type LigasResponse = {
       outstanding: number;
       active: number;
       locked: number;
+      competitionAverages?: number;
     };
   };
   error?: string;
@@ -1604,7 +1633,7 @@ export type LigaDetailResponse = {
 };
 
 export type LigaPatchPayload = Partial<
-  Pick<LigaRow, 'active' | 'outstanding' | 'trusPrediction' | 'lock'>
+  Pick<LigaRow, 'active' | 'outstanding' | 'trusPrediction' | 'lock' | 'competitionAverages'>
 >;
 
 export type LigaPatchResponse = {

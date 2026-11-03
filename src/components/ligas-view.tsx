@@ -11,6 +11,7 @@ type FilterState = {
   outstanding: string;
   active: string;
   lock: string;
+  competitionAverages: string;
 };
 
 const DEFAULT_FILTERS: FilterState = {
@@ -19,6 +20,7 @@ const DEFAULT_FILTERS: FilterState = {
   outstanding: '',
   active: '',
   lock: '',
+  competitionAverages: '',
 };
 
 export function LigasView() {
@@ -38,6 +40,7 @@ export function LigasView() {
         outstanding: applied.outstanding || undefined,
         active: applied.active || undefined,
         lock: applied.lock || undefined,
+        competitionAverages: applied.competitionAverages || undefined,
         limit: 200,
       }),
   });
@@ -104,7 +107,7 @@ export function LigasView() {
       </header>
 
       <section className="mb-6 rounded-xl border border-white/10 bg-[#111827] p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-7">
           <input
             type="search"
             placeholder="Buscar nombre, país o ID…"
@@ -139,6 +142,11 @@ export function LigasView() {
             value={filters.lock}
             onChange={(v) => setFilters((f) => ({ ...f, lock: v }))}
           />
+          <FilterSelect
+            label="Prom. competencia"
+            value={filters.competitionAverages}
+            onChange={(v) => setFilters((f) => ({ ...f, competitionAverages: v }))}
+          />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
@@ -158,6 +166,7 @@ export function LigasView() {
           <Pill>Destacadas: {meta.summary.outstanding}</Pill>
           <Pill>Activas: {meta.summary.active}</Pill>
           <Pill>Bloqueadas: {meta.summary.locked}</Pill>
+          <Pill>Prom. competencia: {meta.summary.competitionAverages ?? 0}</Pill>
           <Pill>Mostrando: {filteredCount} / {meta.total}</Pill>
         </div>
       )}
@@ -177,6 +186,7 @@ export function LigasView() {
                 <th className="px-3 py-3 text-center">Destacada</th>
                 <th className="px-3 py-3 text-center">Confiable IA</th>
                 <th className="px-3 py-3 text-center">Bloqueada</th>
+                <th className="px-3 py-3 text-center">Prom. competencia</th>
                 <th className="px-3 py-3 text-right">Acciones</th>
               </tr>
             </thead>
@@ -236,6 +246,14 @@ export function LigasView() {
                       title="lock — excluye la liga de consultas automáticas"
                     />
                   </td>
+                  <td className="px-3 py-2 text-center">
+                    <Toggle
+                      checked={Boolean(row.competitionAverages)}
+                      disabled={busyId === row.id}
+                      onChange={(v) => handleToggle(row, 'competitionAverages', v)}
+                      title="competitionAverages — promedios scoped al mismo torneo (spec 123)"
+                    />
+                  </td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-2">
                       <button
@@ -259,7 +277,7 @@ export function LigasView() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-3 py-10 text-center text-slate-500">
+                  <td colSpan={8} className="px-3 py-10 text-center text-slate-500">
                     Sin ligas para los filtros seleccionados.
                   </td>
                 </tr>
@@ -296,6 +314,10 @@ export function LigasView() {
           <li>
             <strong className="text-slate-300">Bloqueada</strong> — excluida de consultas
             automáticas aunque siga en BD (lock).
+          </li>
+          <li>
+            <strong className="text-slate-300">Prom. competencia</strong> — calcula también
+            promedios solo con partidos de ese torneo (competitionAverages).
           </li>
         </ul>
       </section>

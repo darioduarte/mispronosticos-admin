@@ -73,6 +73,7 @@ function mergeMetrics(apiMetrics: PromedioMetricRow[] | undefined): PromedioMetr
 export function PromediosModal({ fixtureId, matchLabel, onClose }: Props) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('resumen');
+  const [profile, setProfile] = useState<'normal' | 'competition'>('normal');
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
   const [recalcBusy, setRecalcBusy] = useState(false);
   const [recalcMsg, setRecalcMsg] = useState('');
@@ -83,16 +84,25 @@ export function PromediosModal({ fixtureId, matchLabel, onClose }: Props) {
     queryFn: () => fetchPartidoPromedios(fixtureId),
   });
 
+  const competition = summaryQuery.data?.competition;
+  const competitionEnabled = Boolean(competition?.enabled);
+  const activeProfile =
+    profile === 'competition' && competitionEnabled ? 'competition' : 'normal';
+
   const metrics = useMemo(
-    () => mergeMetrics(summaryQuery.data?.metrics),
-    [summaryQuery.data?.metrics],
+    () =>
+      mergeMetrics(
+        activeProfile === 'competition' ? competition?.metrics : summaryQuery.data?.metrics,
+      ),
+    [activeProfile, competition?.metrics, summaryQuery.data?.metrics],
   );
   const homeMetrics = useMemo(() => metrics.filter((m) => m.side === 'home'), [metrics]);
   const awayMetrics = useMemo(() => metrics.filter((m) => m.side === 'away'), [metrics]);
 
   const muestraQuery = useQuery({
-    queryKey: ['partido-promedios-muestra', fixtureId, selectedMetric],
-    queryFn: () => fetchPartidoPromediosMuestra(fixtureId, selectedMetric!),
+    queryKey: ['partido-promedios-muestra', fixtureId, selectedMetric, activeProfile],
+    queryFn: () =>
+      fetchPartidoPromediosMuestra(fixtureId, selectedMetric!, { scope: activeProfile }),
     enabled: tab === 'muestra' && Boolean(selectedMetric),
   });
 
@@ -113,9 +123,16 @@ export function PromediosModal({ fixtureId, matchLabel, onClose }: Props) {
         return;
       }
       const parts = [
-        result.created ? 'Registro creado' : 'Registro actualizado',
+        result.created ? 'NORMAL creado' : 'NORMAL actualizado',
         `${result.metricsCount ?? 0} métricas`,
       ];
+      if (result.competition?.written) {
+        parts.push(
+          `COMPETITION home=${result.competition.sampleCountHome ?? 0}/away=${result.competition.sampleCountAway ?? 0}`,
+        );
+      } else if (result.competition && !result.competition.skipped) {
+        parts.push(`COMPETITION: ${result.competition.error || 'no escrito'}`);
+      }
       if (result.integrity?.removedTeams || result.integrity?.removedData) {
         parts.push(
           `limpieza: ${result.integrity.removedTeams ?? 0} ST + ${result.integrity.removedData ?? 0} STD dup`,
@@ -165,6 +182,25 @@ export function PromediosModal({ fixtureId, matchLabel, onClose }: Props) {
                   Origen
                 </TabBtn>
               </div>
+              {competitionEnabled && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <TabBtn
+                    active={activeProfile === 'normal'}
+                    onClick={() => setProfile('normal')}
+                  >
+                    NORMAL
+                  </TabBtn>
+                  <TabBtn
+                    active={activeProfile === 'competition'}
+                    onClick={() => setProfile('competition')}
+                  >
+                    COMPETITION
+                    {competition?.sampleCountHome != null || competition?.sampleCountAway != null
+                      ? ` (${competition?.sampleCountHome ?? 0}+${competition?.sampleCountAway ?? 0})`
+                      : ''}
+                  </TabBtn>
+                </div>
+              )}
             </div>
             <div className="flex shrink-0 flex-col items-end gap-2">
               <button
@@ -205,8 +241,19 @@ export function PromediosModal({ fixtureId, matchLabel, onClose }: Props) {
             <ResumenTab
               local={summaryQuery.data.fixture?.local ?? 'Local'}
               visitante={summaryQuery.data.fixture?.visitante ?? 'Visitante'}
-              hasStored={summaryQuery.data.hasStored}
-              storedAt={summaryQuery.data.storedAt}
+              hasStored={
+                activeProfile === 'competition'
+                  ? competition?.hasStored
+                  : summaryQuery.data.hasStored
+              }
+              storedAt={
+                activeProfile === 'competition'
+                  ? competition?.storedAt
+                  : summaryQuery.data.storedAt
+              }
+              profile={activeProfile}
+              sampleCountHome={competition?.sampleCountHome}
+              sampleCountAway={competition?.sampleCountAway}
               homeMetrics={homeMetrics}
               awayMetrics={awayMetrics}
               onOpenMuestra={openMuestra}
@@ -220,11 +267,23 @@ export function PromediosModal({ fixtureId, matchLabel, onClose }: Props) {
               selectedMetric={selectedMetric}
               onSelectMetric={setSelectedMetric}
               query={muestraQuery}
+              profile={activeProfile}
             />
           )}
 
-          {summaryQuery.data?.fuente && tab === 'origen' && (
-            <OrigenTab fuente={summaryQuery.data.fuente} fixture={summaryQuery.data.fixture} />
+          {tab === 'origen' && summaryQuery.data && (
+            <OrigenTab
+              fuente={
+                (activeProfile === 'competition' && competition?.fuente
+                  ? competition.fuente
+                  : summaryQuery.data.fuente) || {
+                  resumen: 'Sin datos de origen.',
+                  tablas: [],
+                  muestraRegla: '',
+                }
+              }
+              fixture={summaryQuery.data.fixture}
+            />
           )}
         </div>
       </div>
@@ -237,6 +296,9 @@ function ResumenTab({
   visitante,
   hasStored,
   storedAt,
+  profile,
+  sampleCountHome,
+  sampleCountAway,
   homeMetrics,
   awayMetrics,
   onOpenMuestra,
@@ -245,16 +307,29 @@ function ResumenTab({
   visitante: string;
   hasStored?: boolean;
   storedAt?: string | null;
+  profile: 'normal' | 'competition';
+  sampleCountHome?: number | null;
+  sampleCountAway?: number | null;
   homeMetrics: PromedioMetricRow[];
   awayMetrics: PromedioMetricRow[];
   onOpenMuestra: (key: string) => void;
 }) {
+  const tableName =
+    profile === 'competition'
+      ? 'PredictionAverageCompetitionFixture'
+      : 'PredictionAverageLastFixture';
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-white/10 bg-[#0c1017] px-4 py-3 text-sm text-slate-400">
         <span className="text-slate-300">Guardado</span> = fila en{' '}
-        <code className="text-violet-300">PredictionAverageLastFixture</code>.
-        Usa «Recalcular y guardar» para refrescar con el motor bulk optimizado.
+        <code className="text-violet-300">{tableName}</code>
+        {profile === 'competition' ? ' (solo partidos del mismo torneo).' : '.'} Usa «Recalcular y
+        guardar» para refrescar NORMAL y, si aplica, COMPETITION.
+        {profile === 'competition' && (
+          <span className="ml-2 text-xs text-sky-300">
+            Muestra válida: local {sampleCountHome ?? '—'} · visitante {sampleCountAway ?? '—'}
+          </span>
+        )}
         {hasStored && storedAt && (
           <span className="ml-2 text-xs text-slate-500">
             Última persistencia: {new Date(storedAt).toLocaleString('es-CO')}
@@ -334,12 +409,14 @@ function MuestraTab({
   selectedMetric,
   onSelectMetric,
   query,
+  profile,
 }: {
   fixtureId: number;
   metrics: PromedioMetricRow[];
   selectedMetric: string | null;
   onSelectMetric: (key: string | null) => void;
   query: ReturnType<typeof useQuery>;
+  profile: 'normal' | 'competition';
 }) {
   const queryClient = useQueryClient();
   const [statsSyncBusy, setStatsSyncBusy] = useState<number | 'bulk' | null>(null);
@@ -394,6 +471,10 @@ function MuestraTab({
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-slate-500">
+        Alcance de muestra:{' '}
+        <span className="text-violet-300">{profile === 'competition' ? 'COMPETITION' : 'NORMAL'}</span>
+      </p>
       <label className="block text-sm text-slate-400">
         Métrica
         <select
