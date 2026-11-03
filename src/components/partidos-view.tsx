@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
 import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react';
 import { PartidoStatsModal } from '@/components/partidos/stats-modal';
 import { PromediosModal } from '@/components/partidos/promedios-modal';
@@ -33,6 +32,12 @@ import { PreMatchAnalysisModal } from '@/components/partidos/pre-match-analysis-
 import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import { PrematchOddsModal } from '@/components/pronosticos-ia/prematch-odds-modal';
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
+import { PrematchPromptsModal } from '@/components/pronosticos-ia/prematch-prompts-modal';
+import { LiveAnalysisModal } from '@/components/pronosticos-ia/live-analysis-modal';
+import { MelbetModal } from '@/components/pronosticos-ia/melbet-modal';
+import { OddsReferenciaModal } from '@/components/pronosticos-ia/odds-referencia-modal';
+import { ComparadorModal } from '@/components/pronosticos-ia/comparador-modal';
+import { MatchOpsPanel, type MatchOpsAction } from '@/components/partidos/match-ops-panel';
 import { LiveNowJobPanel } from '@/components/pronosticos-ia/live-now-job-panel';
 import {
   appendToBreakdown,
@@ -233,6 +238,14 @@ export function PartidosView() {
   const [promptModal, setPromptModal] = useState<
     (Omit<RowModal, 'referee'> & { kind: PromptKind }) | null
   >(null);
+  const [opsRow, setOpsRow] = useState<PartidoRow | null>(null);
+  const [prematchPromptsModal, setPrematchPromptsModal] = useState<Omit<RowModal, 'referee'> | null>(
+    null,
+  );
+  const [liveAnalysisModal, setLiveAnalysisModal] = useState<Omit<RowModal, 'referee'> | null>(null);
+  const [melbetModal, setMelbetModal] = useState<Omit<RowModal, 'referee'> | null>(null);
+  const [oddsRefModal, setOddsRefModal] = useState<Omit<RowModal, 'referee'> | null>(null);
+  const [comparadorModal, setComparadorModal] = useState<Omit<RowModal, 'referee'> | null>(null);
   const [syncPeriodMsg, setSyncPeriodMsg] = useState<string | null>(null);
   const [fetchDate, setFetchDate] = useState(todayBogota);
   const [fetchDayBusy, setFetchDayBusy] = useState(false);
@@ -243,6 +256,24 @@ export function PartidosView() {
     setPromediosPauseMs(readStoredPromediosPauseMs());
     setPreMatchPauseMs(readStoredPreMatchPauseMs());
   }, []);
+
+  function openMatchAction(row: PartidoRow, action: MatchOpsAction) {
+    const base = { fixtureId: row.fixtureid, label: matchLabel(row) };
+    if (action === 'stats') setStatsModal(base);
+    if (action === 'promedios') setPromediosModal(base);
+    if (action === 'estimadas') setEstimadasModal(base);
+    if (action === 'referee') setRefereeModal({ ...base, referee: row.fixturereferee });
+    if (action === 'prematch-analysis') setPreMatchModal(base);
+    if (action === 'prompts') setPrematchPromptsModal(base);
+    if (action === 'live-analysis') setLiveAnalysisModal(base);
+    if (action === 'prompt-live') setPromptModal({ ...base, kind: 'live' });
+    if (action === 'prompt-live-v2') setPromptModal({ ...base, kind: 'live-v2' });
+    if (action === 'prematch-odds') setPrematchOddsModal(base);
+    if (action === 'live-odds') setLiveOddsModal(base);
+    if (action === 'melbet') setMelbetModal(base);
+    if (action === 'odds-ref') setOddsRefModal(base);
+    if (action === 'comparador') setComparadorModal(base);
+  }
 
   function handlePromediosPauseChange(ms: number) {
     setPromediosPauseMs(ms);
@@ -1973,62 +2004,7 @@ export function PartidosView() {
               <PartidoMobileCard
                 key={row.fixtureid}
                 row={row}
-                dateRange={applied}
-                onStats={() =>
-                  setStatsModal({
-                    fixtureId: row.fixtureid,
-                    label: matchLabel(row),
-                  })
-                }
-                onPromedios={() =>
-                  setPromediosModal({
-                    fixtureId: row.fixtureid,
-                    label: matchLabel(row),
-                  })
-                }
-                onEstimadas={() =>
-                  setEstimadasModal({
-                    fixtureId: row.fixtureid,
-                    label: matchLabel(row),
-                  })
-                }
-                onReferee={() =>
-                  setRefereeModal({
-                    fixtureId: row.fixtureid,
-                    label: matchLabel(row),
-                    referee: row.fixturereferee,
-                  })
-                }
-                onLiveOdds={() =>
-                  setLiveOddsModal({
-                    fixtureId: row.fixtureid,
-                    label: matchLabel(row),
-                  })
-                }
-                onPrematchOdds={() =>
-                  setPrematchOddsModal({
-                    fixtureId: row.fixtureid,
-                    label: matchLabel(row),
-                  })
-                }
-                onPreMatch={() =>
-                  setPreMatchModal({
-                    fixtureId: row.fixtureid,
-                    label: matchLabel(row),
-                  })
-                }
-                onLivePromptV2={() =>
-                  setPromptModal({
-                    fixtureId: row.fixtureid,
-                    label: matchLabel(row),
-                    kind: 'live-v2',
-                  })
-                }
-                showLiveOdds={row.estadoBadgeClass === 'live'}
-                onSyncFlb={() => handleSyncOne(row.fixtureid)}
-                syncBusy={syncRowId === row.fixtureid}
-                onSyncEvents={() => handleSyncEvents(row.fixtureid)}
-                eventsBusy={eventsRowId === row.fixtureid}
+                onOpen={() => setOpsRow(row)}
               />
             ))}
             {filtered.length === 0 && (
@@ -2059,62 +2035,7 @@ export function PartidosView() {
                   <PartidoTableRow
                     key={row.fixtureid}
                     row={row}
-                    dateRange={applied}
-                    onStats={() =>
-                      setStatsModal({
-                        fixtureId: row.fixtureid,
-                        label: matchLabel(row),
-                      })
-                    }
-                    onPromedios={() =>
-                      setPromediosModal({
-                        fixtureId: row.fixtureid,
-                        label: matchLabel(row),
-                      })
-                    }
-                    onEstimadas={() =>
-                      setEstimadasModal({
-                        fixtureId: row.fixtureid,
-                        label: matchLabel(row),
-                      })
-                    }
-                    onReferee={() =>
-                      setRefereeModal({
-                        fixtureId: row.fixtureid,
-                        label: matchLabel(row),
-                        referee: row.fixturereferee,
-                      })
-                    }
-                    onLiveOdds={() =>
-                      setLiveOddsModal({
-                        fixtureId: row.fixtureid,
-                        label: matchLabel(row),
-                      })
-                    }
-                    onPrematchOdds={() =>
-                      setPrematchOddsModal({
-                        fixtureId: row.fixtureid,
-                        label: matchLabel(row),
-                      })
-                    }
-                    onPreMatch={() =>
-                      setPreMatchModal({
-                        fixtureId: row.fixtureid,
-                        label: matchLabel(row),
-                      })
-                    }
-                    onLivePromptV2={() =>
-                      setPromptModal({
-                        fixtureId: row.fixtureid,
-                        label: matchLabel(row),
-                        kind: 'live-v2',
-                      })
-                    }
-                    showLiveOdds={row.estadoBadgeClass === 'live'}
-                    onSyncFlb={() => handleSyncOne(row.fixtureid)}
-                    syncBusy={syncRowId === row.fixtureid}
-                    onSyncEvents={() => handleSyncEvents(row.fixtureid)}
-                    eventsBusy={eventsRowId === row.fixtureid}
+                    onOpen={() => setOpsRow(row)}
                   />
                 ))}
                 {filtered.length === 0 && (
@@ -2190,6 +2111,53 @@ export function PartidosView() {
           onClose={() => setPromptModal(null)}
         />
       )}
+      {prematchPromptsModal && (
+        <PrematchPromptsModal
+          fixtureId={prematchPromptsModal.fixtureId}
+          matchLabel={prematchPromptsModal.label}
+          onClose={() => setPrematchPromptsModal(null)}
+        />
+      )}
+      {liveAnalysisModal && (
+        <LiveAnalysisModal
+          fixtureId={liveAnalysisModal.fixtureId}
+          matchLabel={liveAnalysisModal.label}
+          onClose={() => setLiveAnalysisModal(null)}
+        />
+      )}
+      {melbetModal && (
+        <MelbetModal
+          fixtureId={melbetModal.fixtureId}
+          matchLabel={melbetModal.label}
+          onClose={() => setMelbetModal(null)}
+        />
+      )}
+      {oddsRefModal && (
+        <OddsReferenciaModal
+          fixtureId={oddsRefModal.fixtureId}
+          matchLabel={oddsRefModal.label}
+          onClose={() => setOddsRefModal(null)}
+        />
+      )}
+      {comparadorModal && (
+        <ComparadorModal
+          fixtureId={comparadorModal.fixtureId}
+          matchLabel={comparadorModal.label}
+          onClose={() => setComparadorModal(null)}
+        />
+      )}
+      {opsRow && (
+        <MatchOpsPanel
+          row={opsRow}
+          dateRange={applied}
+          syncBusy={syncRowId === opsRow.fixtureid}
+          eventsBusy={eventsRowId === opsRow.fixtureid}
+          onClose={() => setOpsRow(null)}
+          onAction={(action) => openMatchAction(opsRow, action)}
+          onSyncFlb={() => handleSyncOne(opsRow.fixtureid)}
+          onSyncEvents={() => handleSyncEvents(opsRow.fixtureid)}
+        />
+      )}
       {syncProgress && (
         <SyncRangeProgressModal
           progress={syncProgress}
@@ -2240,39 +2208,11 @@ function matchLabel(row: PartidoRow) {
 
 function PartidoMobileCard({
   row,
-  dateRange,
-  onStats,
-  onPromedios,
-  onEstimadas,
-  onReferee,
-  onLiveOdds,
-  onPrematchOdds,
-  onPreMatch,
-  onLivePromptV2,
-  onSyncFlb,
-  syncBusy,
-  onSyncEvents,
-  eventsBusy,
-  showLiveOdds,
+  onOpen,
 }: {
   row: PartidoRow;
-  dateRange: { desde: string; hasta: string };
-  onStats: () => void;
-  onPromedios: () => void;
-  onEstimadas: () => void;
-  onReferee: () => void;
-  onLiveOdds: () => void;
-  onPrematchOdds: () => void;
-  onPreMatch: () => void;
-  onLivePromptV2: () => void;
-  onSyncFlb: () => void;
-  syncBusy?: boolean;
-  onSyncEvents: () => void;
-  eventsBusy?: boolean;
-  showLiveOdds?: boolean;
+  onOpen: () => void;
 }) {
-  const iaHref = `/pronosticos-ia?search=${row.fixtureid}&desde=${dateRange.desde}&hasta=${dateRange.hasta}`;
-
   return (
     <article className="rounded-xl border border-white/10 bg-[#111827] p-3">
       <div className="flex items-start justify-between gap-2">
@@ -2309,22 +2249,7 @@ function PartidoMobileCard({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
-        <ActionBtn label={syncBusy ? '…' : 'Sync FLB'} onClick={onSyncFlb} disabled={syncBusy} />
-        <ActionBtn label={eventsBusy ? '…' : 'Eventos'} onClick={onSyncEvents} disabled={eventsBusy} />
-        <ActionBtn label="Stats" onClick={onStats} />
-        <ActionBtn label="Promedios" onClick={onPromedios} />
-        <ActionBtn label="Est. estimadas" onClick={onEstimadas} />
-        <ActionBtn label="Árbitro" onClick={onReferee} />
-        <ActionBtn label="IA pre" onClick={onPreMatch} />
-        <ActionBtn label="Cuotas pre" onClick={onPrematchOdds} />
-        <ActionBtn label="Prompt V2" onClick={onLivePromptV2} />
-        {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
-        <Link
-          href={iaHref}
-          className="rounded border border-white/10 px-2.5 py-1 text-xs text-slate-400 hover:border-violet-500/40 hover:text-violet-300"
-        >
-          IA
-        </Link>
+        <ActionBtn label="Abrir panel" onClick={onOpen} />
       </div>
     </article>
   );
@@ -2351,39 +2276,11 @@ function MobileField({
 
 function PartidoTableRow({
   row,
-  dateRange,
-  onStats,
-  onPromedios,
-  onEstimadas,
-  onReferee,
-  onLiveOdds,
-  onPrematchOdds,
-  onPreMatch,
-  onLivePromptV2,
-  onSyncFlb,
-  syncBusy,
-  onSyncEvents,
-  eventsBusy,
-  showLiveOdds,
+  onOpen,
 }: {
   row: PartidoRow;
-  dateRange: { desde: string; hasta: string };
-  onStats: () => void;
-  onPromedios: () => void;
-  onEstimadas: () => void;
-  onReferee: () => void;
-  onLiveOdds: () => void;
-  onPrematchOdds: () => void;
-  onPreMatch: () => void;
-  onLivePromptV2: () => void;
-  onSyncFlb: () => void;
-  syncBusy?: boolean;
-  onSyncEvents: () => void;
-  eventsBusy?: boolean;
-  showLiveOdds?: boolean;
+  onOpen: () => void;
 }) {
-  const iaHref = `/pronosticos-ia?search=${row.fixtureid}&desde=${dateRange.desde}&hasta=${dateRange.hasta}`;
-
   return (
     <tr className="border-b border-white/5 align-top hover:bg-indigo-500/5">
       <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-500">
@@ -2423,22 +2320,7 @@ function PartidoTableRow({
       </td>
       <td className="px-3 py-2">
         <div className="flex flex-wrap gap-1">
-          <ActionBtn label={syncBusy ? '…' : 'Sync FLB'} onClick={onSyncFlb} disabled={syncBusy} />
-          <ActionBtn label={eventsBusy ? '…' : 'Eventos'} onClick={onSyncEvents} disabled={eventsBusy} />
-          <ActionBtn label="Stats" onClick={onStats} />
-          <ActionBtn label="Promedios" onClick={onPromedios} />
-          <ActionBtn label="Est. estimadas" onClick={onEstimadas} />
-          <ActionBtn label="Árbitro" onClick={onReferee} />
-          <ActionBtn label="IA pre" onClick={onPreMatch} />
-          <ActionBtn label="Cuotas pre" onClick={onPrematchOdds} />
-          <ActionBtn label="Prompt V2" onClick={onLivePromptV2} />
-          {showLiveOdds && <ActionBtn label="Cuotas live" onClick={onLiveOdds} />}
-          <Link
-            href={iaHref}
-            className="rounded border border-white/10 px-2 py-0.5 text-[10px] text-slate-400 hover:border-violet-500/40 hover:text-violet-300"
-          >
-            IA
-          </Link>
+          <ActionBtn label="Abrir panel" onClick={onOpen} />
         </div>
       </td>
     </tr>

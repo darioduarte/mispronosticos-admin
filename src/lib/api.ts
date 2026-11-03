@@ -710,6 +710,16 @@ export function fetchPreMatchPrompt(fixtureId: number) {
   });
 }
 
+export function fetchStoredPreMatchPrompt(fixtureId: number) {
+  return adminFetch<PromptResponse & { updatedAt?: string | null; source?: string }>(
+    '/api/admin/pronosticos-ia/prompt/pre-match/stored',
+    {
+      method: 'POST',
+      body: JSON.stringify({ fixtureId }),
+    },
+  );
+}
+
 export function fetchExperimentalPrompt(fixtureId: number) {
   return adminFetch<PromptResponse>('/api/admin/pronosticos-ia/prompt/experimental', {
     method: 'POST',

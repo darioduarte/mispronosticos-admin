@@ -10,6 +10,7 @@ import { LiveOddsModal } from '@/components/pronosticos-ia/live-odds-modal';
 import { LiveAnalysisModal } from '@/components/pronosticos-ia/live-analysis-modal';
 import { OddsReferenciaModal } from '@/components/pronosticos-ia/odds-referencia-modal';
 import { PromptModal, type PromptKind } from '@/components/pronosticos-ia/prompt-modal';
+import { PrematchPromptsModal } from '@/components/pronosticos-ia/prematch-prompts-modal';
 import { LiveNowJobPanel } from '@/components/pronosticos-ia/live-now-job-panel';
 import { PronosticosIaStatsPanel } from '@/components/pronosticos-ia/stats-panel';
 import {
@@ -127,6 +128,7 @@ export function PronosticosIaView() {
   const [statsOpen, setStatsOpen] = useState(true);
   const [statsFixture, setStatsFixture] = useState<RowModal | null>(null);
   const [promptModal, setPromptModal] = useState<(RowModal & { kind: PromptKind }) | null>(null);
+  const [prematchPromptsModal, setPrematchPromptsModal] = useState<RowModal | null>(null);
   const [melbetModal, setMelbetModal] = useState<RowModal | null>(null);
   const [liveOddsModal, setLiveOddsModal] = useState<RowModal | null>(null);
   const [liveAnalysisModal, setLiveAnalysisModal] = useState<RowModal | null>(null);
@@ -620,6 +622,9 @@ export function PronosticosIaView() {
             onPrompt={(kind) =>
               setPromptModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row), kind })
             }
+            onPrematchPrompts={() =>
+              setPrematchPromptsModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+            }
             onLiveAnalysis={() =>
               setLiveAnalysisModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
             }
@@ -774,6 +779,9 @@ export function PronosticosIaView() {
                     onPrompt={(kind) =>
                       setPromptModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row), kind })
                     }
+                    onPrematchPrompts={() =>
+                      setPrematchPromptsModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
+                    }
                     onLiveAnalysis={() =>
                       setLiveAnalysisModal({ fixtureId: row.fixtureid, label: rowMatchLabel(row) })
                     }
@@ -835,6 +843,13 @@ export function PronosticosIaView() {
           onClose={() => setPromptModal(null)}
         />
       )}
+      {prematchPromptsModal && (
+        <PrematchPromptsModal
+          fixtureId={prematchPromptsModal.fixtureId}
+          matchLabel={prematchPromptsModal.label}
+          onClose={() => setPrematchPromptsModal(null)}
+        />
+      )}
       {melbetModal && (
         <MelbetModal
           fixtureId={melbetModal.fixtureId}
@@ -881,6 +896,7 @@ function PronosticoRowActions({
   onFetchCuota,
   onStats,
   onPrompt,
+  onPrematchPrompts,
   onLiveAnalysis,
   onLiveOdds,
   onMelbet,
@@ -895,6 +911,7 @@ function PronosticoRowActions({
   onFetchCuota: (row: PronosticoIaRow) => void;
   onStats: () => void;
   onPrompt: (kind: PromptKind) => void;
+  onPrematchPrompts: () => void;
   onLiveAnalysis: () => void;
   onLiveOdds: () => void;
   onMelbet: () => void;
@@ -911,7 +928,7 @@ function PronosticoRowActions({
         disabled={cuotaBusy === row.pronostico_id}
       />
       <ActionBtn label="Stats" onClick={onStats} />
-      <ActionBtn label="Prompt" onClick={() => onPrompt('pre-match')} />
+      <ActionBtn label="Prompts" onClick={onPrematchPrompts} />
       <ActionBtn label="Live" onClick={() => onPrompt('live')} />
       <ActionBtn label="Live V2" onClick={() => onPrompt('live-v2')} />
       <ActionBtn label="IA vivo" onClick={onLiveAnalysis} />
@@ -936,6 +953,7 @@ function PronosticoMobileCard({
   onFetchCuota,
   onStats,
   onPrompt,
+  onPrematchPrompts,
   onLiveAnalysis,
   onLiveOdds,
   onMelbet,
@@ -950,6 +968,7 @@ function PronosticoMobileCard({
   onFetchCuota: (row: PronosticoIaRow) => void;
   onStats: () => void;
   onPrompt: (kind: PromptKind) => void;
+  onPrematchPrompts: () => void;
   onLiveAnalysis: () => void;
   onLiveOdds: () => void;
   onMelbet: () => void;
@@ -1048,6 +1067,7 @@ function PronosticoMobileCard({
         onFetchCuota={onFetchCuota}
         onStats={onStats}
         onPrompt={onPrompt}
+        onPrematchPrompts={onPrematchPrompts}
         onLiveAnalysis={onLiveAnalysis}
         onLiveOdds={onLiveOdds}
         onMelbet={onMelbet}
