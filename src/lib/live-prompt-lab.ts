@@ -47,7 +47,7 @@ export function composeLiveLabPrompt(
   return `${ctx}\n\n${tail}`;
 }
 
-export const LIVE_DEMO_VERSION = 'demo-ritmo-v2';
+export const LIVE_DEMO_VERSION = 'demo-jornada-v3';
 
 export const LIVE_DEMO_RULES = `DEMO DE PRUEBA — no reemplaza el prompt de producción.
 Aplica estas reglas D encima de los bloques 6 a 8. Si una D contradice una R, manda la D. R1 y R6 quedan anuladas.
@@ -61,7 +61,9 @@ D6. Córners y remates: usa el bloque de evolución. Si del 45 al minuto actual 
 D7. Tarjetas: no publiques un menos de si ya hay 4 o más y en los últimos 15 minutos entraron 2 o más, cuando esa línea solo admite una o dos tarjetas más. Tampoco lo publiques si el promedio de amarillas del árbitro, con número de partidos, queda por encima de la línea. Cero tarjetas a los 28 minutos no gana a un árbitro que promedia 4.5 en 6 partidos.
 D8. Un promedio de prepartido sin número de partidos, o un promedio de goles en 0, es dato ausente. No lo cites ni lo uses para elegir el pronóstico. Los últimos partidos que sí traen estadísticas mandan.
 D9. El punto 7 del bloque 6 solo aplica si el equipo va perdiendo de verdad y el prompt trae su puesto en la tabla. Empate no es ir perdiendo.
-D10. El error de cuota se puede publicar como pronóstico solo si el conteo en vivo ya lo hace probable. El promedio de prepartido no alcanza.`;
+D10. El error de cuota se puede publicar como pronóstico solo si el conteo en vivo ya lo hace probable. El promedio de prepartido no alcanza.
+D11. Si el contexto trae MODO DE JORNADA, ese modo manda sobre la motivación y sobre qué promedios priorizar. En el inicio de fase manda el historial reciente; en el tramo decisivo la zona puede subir el ritmo; en eliminación directa pesan el global, el empate y la prórroga; si la zona ya no aprieta, no subas la intensidad por la tabla.
+D12. Si hay CONTEXTO DEL TORNEO o PROMEDIOS DE ESTA COMPETICIÓN, úsalos solo como indica el MODO DE JORNADA. No inventes plazas, rondas ni muestras.`;
 
 export type DemoPick = {
   tipo: string;
