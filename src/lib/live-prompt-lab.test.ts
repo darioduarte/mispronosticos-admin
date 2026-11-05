@@ -50,7 +50,9 @@ describe('composeDemoRules', () => {
     assert.match(demo, /D5\. No aprietes una línea/);
     assert.match(demo, /promedio de amarillas del árbitro/);
     assert.ok(demo.indexOf('D1.') < demo.indexOf('BLOQUE 6'));
-    assert.equal(LIVE_DEMO_VERSION, 'demo-ritmo-v2');
+    assert.match(demo, /MODO DE JORNADA/);
+    assert.match(demo, /PROMEDIOS DE ESTA COMPETICIÓN/);
+    assert.equal(LIVE_DEMO_VERSION, 'demo-jornada-v3');
   });
 });
 
