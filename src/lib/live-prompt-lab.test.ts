@@ -52,7 +52,9 @@ describe('composeDemoRules', () => {
     assert.ok(demo.indexOf('D1.') < demo.indexOf('BLOQUE 6'));
     assert.match(demo, /MODO DE JORNADA/);
     assert.match(demo, /PROMEDIOS DE ESTA COMPETICIÓN/);
-    assert.equal(LIVE_DEMO_VERSION, 'demo-jornada-v3');
+    assert.match(demo, /No publiques cuota menor a 1\.30/);
+    assert.match(demo, /mayor valor esperado/);
+    assert.equal(LIVE_DEMO_VERSION, 'demo-cuota-v4');
   });
 });
 

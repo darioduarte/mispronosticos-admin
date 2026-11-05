@@ -45,7 +45,7 @@ export function PrematchPromptsModal({ fixtureId, matchLabel, onClose }: Props) 
       ? 'Es el texto que quedó en la base al generar el análisis. No incluye ajustes posteriores.'
       : source === 'current'
         ? 'Se arma ahora con la tabla, las zonas, las rondas y el resto de ajustes vigentes. No sustituye el análisis publicado.'
-        : 'Generador de prueba. Incluye el modo de jornada y los promedios de la competición. No se publica en la app.';
+        : 'Generador de prueba. Incluye modo de jornada, promedios de competición y cuota mínima 1.30 con orden por valor esperado. No se publica en la app.';
 
   const savedAt =
     source === 'stored' && query.data && 'updatedAt' in query.data && query.data.updatedAt
