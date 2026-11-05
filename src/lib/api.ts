@@ -75,6 +75,7 @@ import type {
   StorePaymentSyncResponse,
   DashboardSummary,
   DashboardActividadResponse,
+  DashboardIniciosPorHoraResponse,
   LigaDetailResponse,
   LigaPatchPayload,
   LigaPatchResponse,
@@ -1480,6 +1481,13 @@ export function fetchDashboardSummary() {
 export function fetchDashboardActividad(desde: string, hasta: string) {
   const qs = new URLSearchParams({ desde, hasta });
   return adminFetch<DashboardActividadResponse>(`/api/admin/dashboard/actividad?${qs}`);
+}
+
+export function fetchDashboardIniciosPorHora(desde: string, hasta: string) {
+  const qs = new URLSearchParams({ desde, hasta });
+  return adminFetch<DashboardIniciosPorHoraResponse>(
+    `/api/admin/dashboard/inicios-por-hora?${qs}`,
+  );
 }
 
 export function fetchDashboardOps() {

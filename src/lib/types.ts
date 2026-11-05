@@ -2339,6 +2339,25 @@ export type DashboardActividadResponse = {
   error?: string;
 };
 
+export type DashboardIniciosPorHoraSlot = {
+  hora: number;
+  total: number;
+};
+
+export type DashboardIniciosPorHoraResponse = {
+  success: boolean;
+  generatedAt: string;
+  timezone: string;
+  fechaDesde: string;
+  fechaHasta: string;
+  esUnDia: boolean;
+  horas: DashboardIniciosPorHoraSlot[];
+  pico: DashboardIniciosPorHoraSlot;
+  totalPeriodo: number;
+  nota?: string;
+  error?: string;
+};
+
 export type ProviderUsageTotals = {
   apiFootball: number;
   flb: number;
