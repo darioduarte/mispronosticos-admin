@@ -47,13 +47,13 @@ export function composeLiveLabPrompt(
   return `${ctx}\n\n${tail}`;
 }
 
-export const LIVE_DEMO_VERSION = 'demo-jornada-v3';
+export const LIVE_DEMO_VERSION = 'demo-cuota-v4';
 
 export const LIVE_DEMO_RULES = `DEMO DE PRUEBA — no reemplaza el prompt de producción.
 Aplica estas reglas D encima de los bloques 6 a 8. Si una D contradice una R, manda la D. R1 y R6 quedan anuladas.
 
 D1. Publica de 0 a 3 pronósticos. R1 no aplica: no hace falta llegar a 3. Si un candidato no pasa estas reglas, omítelo. Un array vacío es válido. No dejes objetos vacíos para completar la plantilla del bloque 7.
-D2. No publiques cuota menor a 1.20. R6 no aplica: no uses doble oportunidad solo porque hay un favorito. Solo entra si su cuota es al menos 1.20 y el equipo ya va ganando, o el marcador y los remates de los últimos 15 minutos la sostienen. Un favorito que empata, o que acaba de empatar, no basta.
+D2. No publiques cuota menor a 1.30. Prohibido 1.01 a 1.29 aunque la probabilidad sea alta. R6 no aplica: no uses doble oportunidad solo porque hay un favorito. Solo entra si su cuota es al menos 1.30 y el equipo ya va ganando, o el marcador y los remates de los últimos 15 minutos la sostienen. Un favorito que empata, o que acaba de empatar, no basta.
 D3. Un pick de una fase anterior se repite solo si el tramo más reciente lo confirma. Un gol en los últimos 15 minutos anula la historia escrita antes de ese gol.
 D4. Antes de un más de, calcula el conteo actual, cuántos faltan para la línea y el ritmo del último tramo (del descanso al minuto actual, o del minuto 28 al 45). Si el ritmo que hace falta es más rápido que el del último tramo, no publiques ese más de.
 D5. No aprietes una línea que el conteo ya cubre solo para buscar una cuota más alta. Si el menos de 3.5 ya queda holgado con el marcador y el ritmo, no lo cambies por un menos de 2.5. Publica la línea más amplia que el partido ya sostiene, salvo que el último tramo haga la línea corta igual de segura.
@@ -63,7 +63,9 @@ D8. Un promedio de prepartido sin número de partidos, o un promedio de goles en
 D9. El punto 7 del bloque 6 solo aplica si el equipo va perdiendo de verdad y el prompt trae su puesto en la tabla. Empate no es ir perdiendo.
 D10. El error de cuota se puede publicar como pronóstico solo si el conteo en vivo ya lo hace probable. El promedio de prepartido no alcanza.
 D11. Si el contexto trae MODO DE JORNADA, ese modo manda sobre la motivación y sobre qué promedios priorizar. En el inicio de fase manda el historial reciente; en el tramo decisivo la zona puede subir el ritmo; en eliminación directa pesan el global, el empate y la prórroga; si la zona ya no aprieta, no subas la intensidad por la tabla.
-D12. Si hay CONTEXTO DEL TORNEO o PROMEDIOS DE ESTA COMPETICIÓN, úsalos solo como indica el MODO DE JORNADA. No inventes plazas, rondas ni muestras.`;
+D12. Si hay CONTEXTO DEL TORNEO o PROMEDIOS DE ESTA COMPETICIÓN, úsalos solo como indica el MODO DE JORNADA. No inventes plazas, rondas ni muestras.
+D13. Entre candidatos con probabilidad ≥ 60, elige el de mayor valor esperado: (probabilidad / 100) × cuota − 1. No publiques más de 0.5 goles ni doble oportunidad a cuota baja solo porque casi siempre aciertan.
+D14. Ordena los publicados por valor esperado descendente, no solo por probabilidad.`;
 
 export type DemoPick = {
   tipo: string;
