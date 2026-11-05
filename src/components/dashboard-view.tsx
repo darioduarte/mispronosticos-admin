@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchDashboardSummary, ApiError } from '@/lib/api';
 import type { DashboardSummary } from '@/lib/types';
 import { ActividadPeriodoPanel } from '@/components/actividad-periodo-panel';
+import { IniciosPorHoraPanel } from '@/components/dashboard/inicios-por-hora-panel';
 
 function fmt(n: number | undefined) {
   return (n ?? 0).toLocaleString('es-CO');
@@ -440,6 +441,10 @@ export function DashboardView() {
 
           <section className="mb-6">
             <ActividadPeriodoPanel initialFecha={d.suscripciones.fechaReferencia} />
+          </section>
+
+          <section className="mb-6">
+            <IniciosPorHoraPanel initialFecha={d.suscripciones.fechaReferencia} />
           </section>
 
           <section className="mb-6">
