@@ -884,6 +884,8 @@ export type ComparadorRow = {
   categoria_normalizada?: string | null;
   resultado_clase?: string;
   resultado_mensaje?: string | null;
+  cuota_decimal?: number | string | null;
+  cuota_bookmaker?: string | null;
 };
 
 export type ComparadorResponse = {
