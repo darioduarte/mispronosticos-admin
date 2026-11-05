@@ -181,6 +181,7 @@ function CompareTable({ title, rows }: { title: string; rows: ComparadorRow[] })
           <thead className="bg-[#0c1017] text-slate-400">
             <tr>
               <th className="px-2 py-2 text-left">Mercado / texto</th>
+              <th className="px-2 py-2 text-left">Cuota</th>
               <th className="px-2 py-2 text-left">Prob.</th>
               <th className="px-2 py-2 text-left">Eval.</th>
             </tr>
@@ -188,7 +189,7 @@ function CompareTable({ title, rows }: { title: string; rows: ComparadorRow[] })
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-2 py-4 text-slate-500">
+                <td colSpan={4} className="px-2 py-4 text-slate-500">
                   Sin datos
                 </td>
               </tr>
@@ -201,6 +202,9 @@ function CompareTable({ title, rows }: { title: string; rows: ComparadorRow[] })
                       <span className="text-[10px] text-slate-500">{row.categoria_normalizada}</span>
                     )}
                   </td>
+                  <td className="whitespace-nowrap px-2 py-2 text-slate-200">
+                    <CuotaCell row={row} />
+                  </td>
                   <td className="px-2 py-2 text-slate-400">{row.probabilidad ?? '—'}</td>
                   <td className="px-2 py-2">
                     <EvalBadge clase={row.resultado_clase} mensaje={row.resultado_mensaje} />
@@ -212,6 +216,25 @@ function CompareTable({ title, rows }: { title: string; rows: ComparadorRow[] })
         </table>
       </div>
     </div>
+  );
+}
+
+function formatCuotaDecimal(value: ComparadorRow['cuota_decimal']) {
+  if (value == null || value === '') return null;
+  const n = parseFloat(String(value).replace(',', '.'));
+  if (!Number.isFinite(n) || n < 1.01) return null;
+  return n.toFixed(2);
+}
+
+function CuotaCell({ row }: { row: ComparadorRow }) {
+  const cuota = formatCuotaDecimal(row.cuota_decimal);
+  const bookmaker = row.cuota_bookmaker?.trim();
+  if (!cuota && !bookmaker) return <span className="text-slate-500">—</span>;
+  return (
+    <span title={bookmaker || undefined}>
+      {cuota ? `@${cuota}` : '—'}
+      {bookmaker && <span className="block text-[10px] text-slate-500">{bookmaker}</span>}
+    </span>
   );
 }
 
