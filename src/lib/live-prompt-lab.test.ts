@@ -54,7 +54,9 @@ describe('composeDemoRules', () => {
     assert.match(demo, /PROMEDIOS DE ESTA COMPETICIÓN/);
     assert.match(demo, /No publiques cuota menor a 1\.30/);
     assert.match(demo, /mayor valor esperado/);
-    assert.equal(LIVE_DEMO_VERSION, 'demo-cuota-v4');
+    assert.equal(LIVE_DEMO_VERSION, 'demo-cuota-v5');
+    assert.match(demo, /D15\. No apiles varias líneas blandas/);
+    assert.match(demo, /D16\. "Ganador 1X2"/);
   });
 });
 
