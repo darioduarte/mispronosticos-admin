@@ -47,7 +47,7 @@ export function composeLiveLabPrompt(
   return `${ctx}\n\n${tail}`;
 }
 
-export const LIVE_DEMO_VERSION = 'demo-cuota-v4';
+export const LIVE_DEMO_VERSION = 'demo-cuota-v5';
 
 export const LIVE_DEMO_RULES = `DEMO DE PRUEBA — no reemplaza el prompt de producción.
 Aplica estas reglas D encima de los bloques 6 a 8. Si una D contradice una R, manda la D. R1 y R6 quedan anuladas.
@@ -65,7 +65,9 @@ D10. El error de cuota se puede publicar como pronóstico solo si el conteo en v
 D11. Si el contexto trae MODO DE JORNADA, ese modo manda sobre la motivación y sobre qué promedios priorizar. En el inicio de fase manda el historial reciente; en el tramo decisivo la zona puede subir el ritmo; en eliminación directa pesan el global, el empate y la prórroga; si la zona ya no aprieta, no subas la intensidad por la tabla.
 D12. Si hay CONTEXTO DEL TORNEO o PROMEDIOS DE ESTA COMPETICIÓN, úsalos solo como indica el MODO DE JORNADA. No inventes plazas, rondas ni muestras.
 D13. Entre candidatos con probabilidad ≥ 60, elige el de mayor valor esperado: (probabilidad / 100) × cuota − 1. No publiques más de 0.5 goles ni doble oportunidad a cuota baja solo porque casi siempre aciertan.
-D14. Ordena los publicados por valor esperado descendente, no solo por probabilidad.`;
+D14. Ordena los publicados por valor esperado descendente, no solo por probabilidad.
+D15. No apiles varias líneas blandas del mismo mercado (córners 2.5/3.5/4.75 o goles 0.5/1.5). Una sola línea por familia, con el mejor valor esperado y cuota ≥ 1.30.
+D16. "Ganador 1X2" o "ganador directo" es victoria a 90 minutos, no doble oportunidad.`;
 
 export type DemoPick = {
   tipo: string;
