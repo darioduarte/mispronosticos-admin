@@ -2,12 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { fetchOpsIncidents, fetchOpsIncidentsReport, downloadOpsIncidentsLog } from '@/lib/api';
+import { fetchOpsDayReport, fetchOpsIncidents, fetchOpsIncidentsReport, downloadOpsIncidentsLog } from '@/lib/api';
 import type { OpsIncidentRow } from '@/lib/types';
 
 const TYPE_LABELS: Record<string, string> = {
   pool_circuit_open: 'Circuit breaker abierto',
   pool_critical: 'Pool crítico',
+  client_latency: 'Pantalla lenta',
   pool_defer: 'Job diferido (pool)',
   job_mutex_skip: 'Job en paralelo bloqueado',
   ops_alert: 'Alerta ops',
@@ -167,6 +168,17 @@ export function OpsIncidentsPanel() {
     return [...set].sort();
   }, [incidents]);
 
+  async function handleCopyDay() {
+    setCopyMsg('');
+    try {
+      const report = await fetchOpsDayReport({ hours });
+      await navigator.clipboard.writeText(report.report || '');
+      setCopyMsg('Panorama del día copiado. Pégalo en el chat para revisarlo.');
+    } catch (e) {
+      setCopyMsg((e as Error).message || 'No se pudo copiar el panorama');
+    }
+  }
+
   async function handleCopyReport() {
     setCopyMsg('');
     try {
@@ -196,7 +208,7 @@ export function OpsIncidentsPanel() {
             Incidentes operacionales
           </h3>
           <p className="mt-1 text-sm text-slate-400">
-            Log en archivo del servidor (sin MySQL) — saturación, circuit breaker, jobs diferidos y bloqueos.
+            El panorama del día junta API y worker: latencia, crons, jobs frenados y pronósticos en vivo. El listado de abajo sigue siendo el archivo de este proceso.
             {meta ? ` · últimas ${meta.hours}h` : ''}
             {meta?.logPath ? (
               <span className="block text-[11px] text-slate-500">Archivo: {meta.logPath}</span>
@@ -231,6 +243,13 @@ export function OpsIncidentsPanel() {
           </select>
           <button
             type="button"
+            onClick={handleCopyDay}
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+          >
+            Copiar panorama del día
+          </button>
+          <button
+            type="button"
             onClick={handleCopyReport}
             className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
           >
@@ -239,7 +258,7 @@ export function OpsIncidentsPanel() {
           <button
             type="button"
             onClick={handleDownloadLog}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
           >
             Descargar log
           </button>
