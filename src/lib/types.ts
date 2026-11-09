@@ -2524,6 +2524,56 @@ export type OpsIncidentsReportResponse = {
   error?: string;
 };
 
+export type OpsDayEvent = {
+  id?: string | null;
+  at: string;
+  type: string;
+  severity?: string;
+  message?: string;
+  why?: string;
+  jobs?: string[];
+  pool?: string | null;
+  impact?: string | null;
+  instanceId?: string | null;
+  durationMs?: number | null;
+  module?: string | null;
+};
+
+export type OpsDayCron = {
+  jobKey?: string;
+  label?: string;
+  status?: string | null;
+  lastSuccessAt?: string | null;
+  lastError?: string | null;
+};
+
+export type OpsDayLiveEvent = {
+  at?: string;
+  kind?: string;
+  phaseKey?: string | null;
+  fixtureId?: number | string | null;
+  reason?: string | null;
+  message?: string | null;
+};
+
+export type OpsDayReportResponse = {
+  success: boolean;
+  report?: string;
+  summary?: { hours: number; events: number; latency: number; interrupted: number };
+  day?: {
+    generatedAt: string;
+    hours: number;
+    cronNote?: string | null;
+    liveNote?: string | null;
+    crons: OpsDayCron[];
+    latency: OpsDayEvent[];
+    interrupted: OpsDayEvent[];
+    liveEvents: OpsDayLiveEvent[];
+    timeline: OpsDayEvent[];
+  };
+  error?: string;
+};
+
 export type OpsDayTimelineSpan = {
   id: string;
   lane: string;
