@@ -99,6 +99,7 @@ import type {
   OpsSnapshot,
   OpsIncidentsResponse,
   OpsIncidentsReportResponse,
+  OpsDayTimelineResponse,
   CronHeartbeatsResponse,
   CronRerunResponse,
   LivePipelineMonitorResponse,
@@ -1562,6 +1563,13 @@ export function fetchOpsDayReport(params: { hours?: number }) {
   const qs = new URLSearchParams();
   if (params.hours) qs.set('hours', String(params.hours));
   return adminFetch<OpsIncidentsReportResponse>(`/api/admin/dashboard/ops-day-report?${qs}`);
+}
+
+export function fetchOpsDayTimeline(params: { date?: string; hours?: number } = {}) {
+  const qs = new URLSearchParams();
+  if (params.date) qs.set('date', params.date);
+  if (params.hours) qs.set('hours', String(params.hours));
+  return adminFetch<OpsDayTimelineResponse>(`/api/admin/dashboard/ops-day-timeline?${qs}`);
 }
 
 export function fetchOpsIncidentsReport(params: { hours?: number; type?: string; severity?: string }) {

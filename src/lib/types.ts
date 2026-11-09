@@ -2524,6 +2524,58 @@ export type OpsIncidentsReportResponse = {
   error?: string;
 };
 
+export type OpsDayTimelineSpan = {
+  id: string;
+  lane: string;
+  jobKey: string;
+  label: string;
+  start: string;
+  end: string;
+  status: string;
+  reason?: string | null;
+  durationMs: number;
+  source: string;
+};
+
+export type OpsDayTimelineLane = {
+  id: string;
+  label: string;
+  spans: OpsDayTimelineSpan[];
+};
+
+export type OpsDayTimelineResponse = {
+  success: boolean;
+  date?: string;
+  timezone?: string;
+  hours?: number;
+  generatedAt?: string;
+  window?: { start: string; end: string };
+  lanes?: OpsDayTimelineLane[];
+  spans?: OpsDayTimelineSpan[];
+  coverage?: {
+    targetDate?: string;
+    fixturesCount?: number;
+    averagesCount?: number;
+    checkpoint?: {
+      expected: number;
+      saved: number;
+      skipped: number;
+      date?: string | null;
+      at?: string | null;
+    } | null;
+    sla?: {
+      ready: boolean;
+      fixturesOk: boolean;
+      averagesOk: boolean;
+      fixturesCoverage: number;
+      averagesRatio: number;
+    };
+    error?: string;
+  };
+  laneLabels?: Record<string, string>;
+  error?: string;
+};
+
 export type OpsSnapshot = {
   success?: boolean;
   generatedAt: string;
