@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { fetchOpsDayReport, fetchOpsIncidents, fetchOpsIncidentsReport, downloadOpsIncidentsLog } from '@/lib/api';
+import { OpsDayDrawer } from '@/components/dashboard/ops-day-drawer';
 import type { OpsIncidentRow } from '@/lib/types';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -147,6 +148,7 @@ export function OpsIncidentsPanel() {
   const [hours, setHours] = useState(24);
   const [typeFilter, setTypeFilter] = useState('');
   const [copyMsg, setCopyMsg] = useState('');
+  const [dayOpen, setDayOpen] = useState(false);
 
   const query = useQuery({
     queryKey: ['ops-incidents', hours, typeFilter],
@@ -243,8 +245,15 @@ export function OpsIncidentsPanel() {
           </select>
           <button
             type="button"
-            onClick={handleCopyDay}
+            onClick={() => setDayOpen(true)}
             className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+          >
+            Ver el día
+          </button>
+          <button
+            type="button"
+            onClick={handleCopyDay}
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/5"
           >
             Copiar panorama del día
           </button>
@@ -282,6 +291,7 @@ export function OpsIncidentsPanel() {
           ))}
         </div>
       )}
+      {dayOpen ? <OpsDayDrawer hours={hours} onClose={() => setDayOpen(false)} /> : null}
     </section>
   );
 }
