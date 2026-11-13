@@ -12,9 +12,9 @@ import { TextModal } from './text-modal';
 type Source = 'stored' | 'current' | 'experimental';
 
 const TABS: { id: Source; label: string }[] = [
-  { id: 'stored', label: 'Guardado' },
+  { id: 'experimental', label: 'Laboratorio' },
   { id: 'current', label: 'Actual' },
-  { id: 'experimental', label: 'Prueba' },
+  { id: 'stored', label: 'Guardado' },
 ];
 
 type Props = {
@@ -24,7 +24,7 @@ type Props = {
 };
 
 export function PrematchPromptsModal({ fixtureId, matchLabel, onClose }: Props) {
-  const [source, setSource] = useState<Source>('stored');
+  const [source, setSource] = useState<Source>('experimental');
 
   const query = useQuery({
     queryKey: ['prematch-prompts', source, fixtureId],
@@ -45,7 +45,7 @@ export function PrematchPromptsModal({ fixtureId, matchLabel, onClose }: Props) 
       ? 'Es el texto que quedó en la base al generar el análisis. No incluye ajustes posteriores.'
       : source === 'current'
         ? 'Se arma ahora con la tabla, las zonas, las rondas y el resto de ajustes vigentes. No sustituye el análisis publicado.'
-        : 'Generador de prueba. Incluye modo de jornada, promedios de competición y cuota mínima 1.30 con orden por valor esperado. No se publica en la app.';
+        : 'Laboratorio: el prompt vigente, con jornada, altitud, marcador exacto, rivales anteriores, cuotas unidas y promedios rellenados. No se publica en la app.';
 
   const savedAt =
     source === 'stored' && query.data && 'updatedAt' in query.data && query.data.updatedAt
