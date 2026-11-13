@@ -34,7 +34,7 @@ const IA_ITEMS: Item[] = [
   {
     action: 'prompts',
     label: 'Prompts prepartido',
-    detail: 'El guardado en base, el que se arma ahora y el de prueba',
+    detail: 'Laboratorio del prompt vigente, el actual y el guardado',
   },
   {
     action: 'live-analysis',
