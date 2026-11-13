@@ -919,7 +919,10 @@ export type PrematchOddsResponse = {
   hasOdds?: boolean;
   hasMelbetOdds?: boolean;
   oddsBlock?: string;
+  complementedOddsBlock?: string;
   melbetOddsBlock?: string;
+  apiFootball?: unknown;
+  apiFootballError?: string | null;
   odds?: Record<string, MelbetOddItem[] | unknown>;
   melbet?: {
     matched?: boolean;
@@ -938,6 +941,7 @@ export type PrematchOddsResponse = {
     error?: unknown;
   };
   endpoints?: {
+    odds?: string;
     oddsReferencia?: string;
     melbetByFixture?: string;
   };
