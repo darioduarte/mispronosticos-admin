@@ -9,6 +9,8 @@ import type { MelbetOddItem, MelbetOddsStructured } from '@/lib/types';
 type Tab =
   | 'refUi'
   | 'refPrompt'
+  | 'apiObject'
+  | 'joinedPrompt'
   | 'melbetUi'
   | 'melbetPrompt'
   | 'melbetObject';
@@ -22,6 +24,8 @@ type Props = {
 const TAB_LABELS: Record<Tab, string> = {
   refUi: 'Cuotas API-F',
   refPrompt: 'Prompt API-F',
+  apiObject: 'Objeto API-F',
+  joinedPrompt: 'Prompt unido',
   melbetUi: 'Cuotas Melbet',
   melbetPrompt: 'Prompt Melbet',
   melbetObject: 'Objeto Melbet',
@@ -55,6 +59,17 @@ export function PrematchOddsModal({ fixtureId, matchLabel, onClose }: Props) {
     if (!data?.success) return '';
     if (target === 'refPrompt') {
       return data.oddsBlock || 'Sin bloque de cuotas de referencia.';
+    }
+    if (target === 'joinedPrompt') {
+      return data.complementedOddsBlock || 'Sin prompt unido de API-Football y Melbet.';
+    }
+    if (target === 'apiObject') {
+      if (data.apiFootball != null) return JSON.stringify(data.apiFootball, null, 2);
+      return JSON.stringify(
+        { error: data.apiFootballError || 'Sin respuesta de API-Football' },
+        null,
+        2,
+      );
     }
     if (target === 'melbetPrompt') {
       return data.melbetOddsBlock || data.melbet?.oddsBlock || 'Sin bloque Melbet.';
@@ -101,6 +116,8 @@ export function PrematchOddsModal({ fixtureId, matchLabel, onClose }: Props) {
     [
       ['refUi', TAB_LABELS.refUi],
       ['refPrompt', TAB_LABELS.refPrompt],
+      ['apiObject', TAB_LABELS.apiObject],
+      ['joinedPrompt', TAB_LABELS.joinedPrompt],
       ['melbetUi', TAB_LABELS.melbetUi],
       ['melbetPrompt', TAB_LABELS.melbetPrompt],
       ['melbetObject', TAB_LABELS.melbetObject],
@@ -159,10 +176,14 @@ export function PrematchOddsModal({ fixtureId, matchLabel, onClose }: Props) {
               </p>
             )}
             <p className="mt-2 max-w-2xl text-[11px] leading-relaxed text-slate-500">
-              El análisis IA prepartido usa el prompt API-F. Si faltan mercados, copia el{' '}
-              <span className="text-slate-400">Prompt Melbet</span> o el objeto estructurado para
-              comparar / pegar como fuente alternativa.
+              <span className="text-slate-400">Objeto API-F</span> es la respuesta cruda de{' '}
+              /odds, en el mismo formato que el objeto de Melbet.{' '}
+              <span className="text-slate-400">Prompt unido</span> conserva la cuota de API-Football
+              y completa con Melbet las líneas que faltan.
             </p>
+            {data?.apiFootballError && (
+              <p className="mt-1 text-[11px] text-amber-400">API-Football: {data.apiFootballError}</p>
+            )}
           </div>
           <button
             type="button"
@@ -195,6 +216,8 @@ export function PrematchOddsModal({ fixtureId, matchLabel, onClose }: Props) {
             {(
               [
                 ['refPrompt', 'Copiar prompt API-F'],
+                ['apiObject', 'Copiar objeto API-F'],
+                ['joinedPrompt', 'Copiar prompt unido'],
                 ['melbetPrompt', 'Copiar prompt Melbet'],
                 ['melbetObject', 'Copiar objeto Melbet'],
               ] as const
@@ -236,12 +259,18 @@ export function PrematchOddsModal({ fixtureId, matchLabel, onClose }: Props) {
             )
           )}
 
-          {data?.success && tab === 'refPrompt' && (
+          {data?.success && (tab === 'refPrompt' || tab === 'joinedPrompt') && (
             <textarea
               readOnly
-              value={getCopyText('refPrompt')}
+              value={getCopyText(tab)}
               className="h-[min(60vh,480px)] w-full resize-none rounded-lg border border-white/10 bg-[#0b0f14] p-3 font-mono text-xs text-slate-200"
             />
+          )}
+
+          {data?.success && tab === 'apiObject' && (
+            <pre className="overflow-auto rounded-lg border border-white/10 bg-[#0b0f14] p-3 text-xs text-slate-300">
+              {getCopyText('apiObject')}
+            </pre>
           )}
 
           {data?.success && tab === 'melbetUi' && (
